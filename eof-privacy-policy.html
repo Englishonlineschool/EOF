@@ -519,7 +519,7 @@
 <p>When you finish a placement or practice test, your result is shown to you on-screen. It is only sent to our team if you choose to tap "Send my result to English Online Forum," which opens WhatsApp with your result pre-filled for you to send. We do not automatically capture or store your answers on our servers.</p>
 
 <h2>Cookies and third-party services</h2>
-<p>This site loads fonts from Google Fonts and icon assets from a content delivery network, which may receive your browser's IP address as part of loading those files, in line with their own privacy policies. We do not currently use analytics or advertising cookies on this site.</p>
+<p>This site loads fonts from Google Fonts and icon assets from a content delivery network, which may receive your browser's IP address as part of loading those files, in line with their own privacy policies. We use Cloudflare Web Analytics, which does not use cookies, to count visits and see general information such as which countries our visitors come from and which pages they read. If you accept cookies in the banner, we also use Google Analytics, which sets cookies to measure visits, time on the site and general location (country and city). Google Analytics does not run if you decline, and you can <a href="#" onclick="eofResetCookies();return false;">change your cookie choice</a> at any time. We do not use advertising cookies.</p>
 
 <h2>How long we keep information</h2>
 <p>We keep contact details and enrollment information for as long as you are an active or prospective student, or as needed to respond to your inquiry, after which we delete it on request.</p>
@@ -592,4 +592,50 @@
     els.forEach(function(e){ obs.observe(e); });
   })();
 </script>
+<!-- EOF Analytics: Cloudflare (cookie-free) + Google Analytics (only after consent) -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5fbac8d7f23643a8ae6bb5213db1724d"}'></script>
+<style>
+#eof-consent{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:450;width:calc(100% - 32px);max-width:560px;background:#16264D;color:#fff;border-radius:14px;box-shadow:0 12px 32px rgba(13,24,54,.28);padding:18px 20px;font-family:'Poppins',system-ui,sans-serif;font-size:14px;line-height:1.55;display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px}
+#eof-consent p{margin:0;flex:1 1 280px;color:#fff}
+#eof-consent a{color:#fff;text-decoration:underline;text-underline-offset:2px}
+#eof-consent .eof-c-btns{display:flex;gap:8px;flex:0 0 auto}
+#eof-consent button{font:inherit;font-weight:500;border-radius:999px;padding:8px 18px;cursor:pointer;border:1.5px solid #fff;transition:background .2s ease,color .2s ease}
+#eof-consent .eof-c-accept{background:#E0392C;border-color:#E0392C;color:#fff}
+#eof-consent .eof-c-accept:hover{background:#B92C21;border-color:#B92C21}
+#eof-consent .eof-c-decline{background:transparent;color:#fff}
+#eof-consent .eof-c-decline:hover{background:rgba(255,255,255,.12)}
+@media (max-width:600px){#eof-consent{bottom:12px;padding:16px}#eof-consent .eof-c-btns{width:100%}#eof-consent button{flex:1}}
+</style>
+<script>
+(function(){
+  var GA_ID='G-KYPE8R0M35', KEY='eof_cookie_consent';
+  function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+  function set(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+  function loadGA(){
+    if(window.__eofGA) return; window.__eofGA=true;
+    var s=document.createElement('script'); s.async=true; s.src='https://www.googletagmanager.com/gtag/js?id='+GA_ID; document.head.appendChild(s);
+    window.dataLayer=window.dataLayer||[]; window.gtag=function(){dataLayer.push(arguments);};
+    gtag('js',new Date()); gtag('config',GA_ID);
+  }
+  window.eofResetCookies=function(){try{localStorage.removeItem(KEY);}catch(e){} location.reload();};
+  var choice=get(KEY);
+  if(choice==='granted'){loadGA();return;}
+  if(choice==='denied'){return;}
+  var T={
+    en:{t:'We use Google Analytics cookies to understand how visitors use our site. You can accept or decline.',p:'Privacy Policy',a:'Accept',d:'Decline'},
+    tr:{t:'Ziyaretçilerin sitemizi nasıl kullandığını anlamak için Google Analytics çerezlerini kullanıyoruz. Kabul edebilir veya reddedebilirsiniz.',p:'Gizlilik Politikası',a:'Kabul et',d:'Reddet'},
+    ru:{t:'Мы используем файлы cookie Google Analytics, чтобы понять, как посетители пользуются нашим сайтом. Вы можете принять или отклонить их.',p:'Политика конфиденциальности',a:'Принять',d:'Отклонить'}
+  };
+  function show(){
+    var lang=get('eof_lang'); if(!T[lang]) lang='en'; var L=T[lang];
+    var box=document.createElement('div'); box.id='eof-consent'; box.setAttribute('role','dialog'); box.setAttribute('aria-label','Cookie consent');
+    box.innerHTML='<p>'+L.t+' <a href="eof-privacy-policy.html">'+L.p+'</a></p><div class="eof-c-btns"><button type="button" class="eof-c-decline">'+L.d+'</button><button type="button" class="eof-c-accept">'+L.a+'</button></div>';
+    document.body.appendChild(box);
+    box.querySelector('.eof-c-accept').onclick=function(){set(KEY,'granted');box.remove();loadGA();};
+    box.querySelector('.eof-c-decline').onclick=function(){set(KEY,'denied');box.remove();};
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',show);}else{show();}
+})();
+</script>
+<!-- End EOF Analytics -->
 </html>
