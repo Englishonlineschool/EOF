@@ -591,6 +591,29 @@
     .exam-start-card h1{font-size:26px;}
     .result-ticket{padding:30px 22px 26px;}
   }
+
+  /* ---- instant result PDF prompt ---- */
+  .eof-pdf-prompt{max-width:460px; margin:0 auto 18px; background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px 22px 18px; box-shadow:0 14px 34px rgba(22,38,77,0.10); text-align:left; position:relative; overflow:hidden;}
+  .eof-pdf-prompt::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--red);}
+  .eof-pdf-step{font-size:11.5px; font-weight:700; letter-spacing:1.8px; text-transform:uppercase; color:var(--red); margin-bottom:12px;}
+  .eof-pdf-file{display:flex; align-items:center; gap:14px; background:var(--bg-secondary); border-radius:12px; padding:12px 14px; margin-bottom:16px;}
+  .eof-pdf-icon{flex-shrink:0; width:42px; height:50px; position:relative;}
+  .eof-pdf-icon svg{width:42px; height:50px; display:block;}
+  .eof-pdf-info{min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .eof-pdf-name{font-size:14px; font-weight:600; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .eof-pdf-meta{font-size:12px; color:#8A90A2;}
+  .eof-pdf-meta #eofPdfSize:not(:empty)::before{content:"\00B7"; margin:0 6px;}
+  .eof-pdf-prompt .exam-results-actions{justify-content:flex-start; gap:10px;}
+  .eof-pdf-prompt .exam-btn-whatsapp{flex:1 1 220px; justify-content:center; opacity:.55; pointer-events:none; transition:opacity .25s ease, transform .2s ease;}
+  .eof-pdf-prompt.ready .exam-btn-whatsapp{opacity:1; pointer-events:auto; animation:eofPdfPulse 2.4s ease-out 0.6s 3;}
+  .eof-pdf-dl{display:inline-flex; align-items:center; justify-content:center; gap:8px; flex:1 1 120px; font-weight:600; font-size:14.5px; color:var(--accent); border:1.5px solid var(--line); border-radius:999px; padding:12px 20px; transition:border-color .2s ease, color .2s ease; text-decoration:none;}
+  .eof-pdf-dl:hover{border-color:var(--accent-light); color:var(--accent-light);}
+  .eof-pdf-dl svg{width:16px; height:16px;}
+  .eof-pdf-hint{font-size:12.5px; color:#4A5163; line-height:1.6; margin-top:14px;}
+  .eof-pdf-hint i{color:var(--accent-light); margin-right:4px;}
+  .eof-pdf-hint .fa-whatsapp{color:#25D366;}
+  @keyframes eofPdfPulse{0%{box-shadow:0 0 0 0 rgba(37,211,102,0.55);}70%{box-shadow:0 0 0 14px rgba(37,211,102,0);}100%{box-shadow:0 0 0 0 rgba(37,211,102,0);}}
+  @media (prefers-reduced-motion:reduce){.eof-pdf-prompt.ready .exam-btn-whatsapp{animation:none;}}
 </style>
 
 
@@ -733,11 +756,23 @@
         </div>
 
         <p class="exam-result-desc" id="examResultDesc"></p>
+        <div class="eof-pdf-prompt" id="eofPdfPrompt" hidden>
+          <div class="eof-pdf-step">Next step &middot; Send us your result</div>
+          <div class="eof-pdf-file">
+            <span class="eof-pdf-icon" aria-hidden="true"><svg viewBox="0 0 42 50"><path d="M4 0h24l14 14v32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z" fill="#16264D"/><path d="M28 0l14 14H32a4 4 0 0 1-4-4z" fill="#3A57AB"/><rect x="0" y="30" width="30" height="12" rx="2" fill="#E0392C"/><text x="15" y="39.2" text-anchor="middle" font-family="Poppins,Arial,sans-serif" font-size="8.5" font-weight="700" fill="#fff">PDF</text></svg></span>
+            <span class="eof-pdf-info"><span class="eof-pdf-name" id="eofPdfName">Preparing your result PDF&hellip;</span><span class="eof-pdf-meta"><span id="eofPdfMeta"></span><span id="eofPdfSize"></span></span></span>
+          </div>
+          <div class="exam-results-actions">
+            <a href="#" target="_blank" rel="noopener" class="exam-btn-whatsapp" id="eofPdfSend"><i class="fa-brands fa-whatsapp"></i> Send PDF on WhatsApp</a>
+            <a href="#" class="eof-pdf-dl" id="eofPdfDownload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M6 11l6 6 6-6M4 21h16"/></svg> Download</a>
+          </div>
+          <p class="eof-pdf-hint" id="eofPdfHint"></p>
+        </div>
         <div class="exam-results-actions">
           <a href="#" target="_blank" rel="noopener" class="exam-btn-whatsapp" id="examWhatsappBtn"><i class="fa-brands fa-whatsapp"></i> <span id="examWhatsappBtnText">Send my result to English Online Forum</span></a>
           <a href="eof-placement-test.html" target="_top" class="exam-btn-secondary">Back to Placement Test</a>
         </div>
-        <p class="exam-results-note" id="examResultsNote">This result is a guide to help us place you in the right class. Your result is not saved automatically &mdash; use the WhatsApp button above to share it with our team.</p>
+        <p class="exam-results-note" id="examResultsNote">This result is a guide to help us place you in the right class. Your result is not saved automatically &mdash; send the PDF to us on WhatsApp so our team can book your class.</p>
       </div>
     </div>
 
@@ -802,7 +837,7 @@
 
   document.getElementById('examResultsEyebrow').textContent = EXAM.resultsEyebrow || 'Your Result';
   document.getElementById('examWhatsappBtnText').textContent = EXAM.whatsappBtnText || 'Send my result to English Online Forum';
-  document.getElementById('examResultsNote').innerHTML = EXAM.resultsNote || 'This result is a guide to help us place you in the right class. Your result is not saved automatically &mdash; use the WhatsApp button above to share it with our team.';
+  document.getElementById('examResultsNote').innerHTML = EXAM.resultsNote || 'This result is a guide to help us place you in the right class. Your result is not saved automatically &mdash; send the PDF to us on WhatsApp so our team can book your class.';
 
   nameInput.addEventListener('input', function(){
     startBtn.disabled = nameInput.value.trim().length === 0;
@@ -976,6 +1011,15 @@
     if(contact){ waText += '\nContact: ' + contact; }
     document.getElementById('examWhatsappBtn').href = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(waText);
 
+    if(window.EOFResultPDF){
+      window.EOFResultPDF.onResult({
+        name: nameInput.value.trim() || 'Student', contact: contactInput.value.trim(),
+        testType: EXAM.testType, testLabel: EXAM.testTypeLabel, isPractice: !!EXAM.isPractice,
+        level: achieved, pct: pct, desc: desc,
+        skills: bySkillOrder.map(function(l){ var s=bySkill[l]; return {label:l, pct: s.total>0?Math.round((s.correct/s.total)*100):0}; })
+      });
+      document.getElementById('examWhatsappBtn').style.display = 'none';
+    }
     elRun.classList.remove('active');
     elResults.classList.add('active');
     window.scrollTo({top:0, behavior:'smooth'});
@@ -1087,4 +1131,5 @@
 })();
 </script>
 <!-- End EOF Analytics -->
+<script src="eof-result-pdf.js" defer></script>
 </html>
