@@ -10,7 +10,7 @@
     navy:[22,38,77], navyDark:[13,24,54], blue:[58,87,171], red:[224,57,44],
     text:[35,43,61], grey:[138,144,162], line:[226,230,239], soft:[244,246,250],
     whatsapp:'996995648111', phoneDisplay:'+996 995-648-111',
-    email:'englishonlineforum@gmail.com', site:'englishonlineforum.com'
+    email:'englishonlineforum@gmail.com', site:'www.englishonlineforum.com', url:'https://www.englishonlineforum.com'
   };
   var LEVELS = ['A1','A2','B1','B2','C1'];
   var LEVEL_FULL = { A1:'Beginner', A2:'Elementary', B1:'Intermediate', B2:'Upper-Intermediate', C1:'Advanced' };
@@ -156,6 +156,7 @@
     ink([245,170,162]); font('Poppins','normal',10.5); doc.text('Language is Freedom', 58, 35.5);
     ink([200,208,228]); font('Poppins','normal',8.2);
     doc.text(BRAND.site + '   \u2022   ' + BRAND.phoneDisplay, 58, 44);
+    doc.link(58, 41, doc.getTextWidth(BRAND.site), 4, {url: BRAND.url});
 
     /* Title block */
     ink(BRAND.red); font('Poppins','bold',8.6);
@@ -242,6 +243,7 @@
       fill(BRAND.navy); doc.rect(0, 278, W, 19, 'F');
       ink([255,255,255]); font('PoppinsMed','normal',8.2);
       doc.text(BRAND.site + '   \u2022   ' + BRAND.email + '   \u2022   ' + BRAND.phoneDisplay, 16, 288.5);
+      doc.link(16, 285.5, doc.getTextWidth(BRAND.site), 4, {url: BRAND.url});
       ink([200,208,228]); font('Poppins','normal',7.4);
       doc.text(fmtDate(now), W-16, 286, {align:'right'});
       doc.text('ID ' + id, W-16, 290.5, {align:'right'});
