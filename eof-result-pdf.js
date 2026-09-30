@@ -236,17 +236,17 @@
     }
 
     /* Footer */
-    ink(BRAND.grey); font('Poppins','normal',7.2);
+    ink(BRAND.grey); font('Poppins','normal',8);
     doc.text(r.isDemo ? 'DEMO RESULT \u2014 indicative only. This is not an official placement or a certificate of English proficiency.'
                       : 'Official EOF placement result, aligned to the CEFR. It is not a certificate of English proficiency.', CX, 273.8, {align:'center'});
     function footer(){
       fill(BRAND.navy); doc.rect(0, 278, W, 19, 'F');
-      ink([255,255,255]); font('PoppinsMed','normal',8.2);
-      doc.text(BRAND.site + '   \u2022   ' + BRAND.email + '   \u2022   ' + BRAND.phoneDisplay, 16, 288.5);
-      doc.link(16, 285.5, doc.getTextWidth(BRAND.site), 4, {url: BRAND.url});
+      ink([255,255,255]); font('PoppinsMed','normal',9.2);
+      doc.text(BRAND.site + '   \u2022   ' + BRAND.email + '   \u2022   ' + BRAND.phoneDisplay, 14, 288.6);
+      doc.link(14, 285.2, doc.getTextWidth(BRAND.site), 4.4, {url: BRAND.url});
       ink([200,208,228]); font('Poppins','normal',7.4);
-      doc.text(fmtDate(now), W-16, 286, {align:'right'});
-      doc.text('ID ' + id, W-16, 290.5, {align:'right'});
+      doc.text(fmtDate(now), W-14, 286, {align:'right'});
+      doc.text('ID ' + id, W-14, 290.5, {align:'right'});
     }
     footer();
 
