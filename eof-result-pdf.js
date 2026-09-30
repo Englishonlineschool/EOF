@@ -15,6 +15,34 @@
   var LEVELS = ['A1','A2','B1','B2','C1'];
   var LEVEL_FULL = { A1:'Beginner', A2:'Elementary', B1:'Intermediate', B2:'Upper-Intermediate', C1:'Advanced' };
 
+  var CAN_DO = {
+    A1: ['Understand familiar words and very simple sentences, for example on signs, notices and short messages.',
+         'Follow very slow, clear speech with long pauses.',
+         'Use basic words and phrases about yourself, your family and everyday objects.',
+         'Introduce yourself and answer simple personal questions.'],
+    A2: ['Understand short, simple texts on familiar topics, such as personal messages, adverts and timetables.',
+         'Catch the main point of short, clear announcements and messages.',
+         'Describe your background, daily routine and immediate needs in simple terms.',
+         'Handle simple, routine exchanges, for example when shopping or travelling.'],
+    B1: ['Understand the main points of clear texts about work, study and free time.',
+         'Follow the main points of clear, standard speech on familiar subjects.',
+         'Deal with most situations that arise while travelling in an English-speaking area.',
+         'Describe experiences, events and plans, and briefly give reasons for your opinions.'],
+    B2: ['Understand articles and reports in which writers argue for a particular point of view.',
+         'Follow extended talks and discussions, including fairly complex arguments on familiar topics.',
+         'Interact with a degree of fluency and spontaneity that makes conversation with native speakers comfortable.',
+         'Explain a viewpoint on a topical issue, giving the advantages and disadvantages of different options.'],
+    C1: ['Understand long, demanding texts and recognise implicit meaning and the writer\u2019s attitude.',
+         'Follow extended speech even when it is not clearly structured and ideas are only implied.',
+         'Express yourself fluently and spontaneously without much obvious searching for words.',
+         'Use English flexibly and effectively for social, academic and professional purposes.']
+  };
+  var TIPS = {
+    uoe: 'Grammar & vocabulary: review the key structures of your level and learn new words in phrases (collocations), not as single words.',
+    reading: 'Reading: read a short article every day, first for the main idea and then again for detail, and note useful expressions.',
+    listening: 'Listening: listen to podcasts or videos at your level for 15 minutes a day, first without subtitles and then with them.'
+  };
+
   /* ---------- PDF library (loaded while the student takes the test) ---------- */
   function loadScript(src){
     return new Promise(function(res, rej){
@@ -49,7 +77,7 @@
     return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
   }
   function resultId(r, d){
-    var p = r.isPractice ? 'PRT' : (r.testType === 'full' ? 'FPT' : 'QPT');
+    var p = r.isDemo ? 'DEM' : 'FPT';
     var ymd = String(d.getFullYear()).slice(2) + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', s = '';
     for(var i=0;i<4;i++){ s += chars[Math.floor(Math.random()*chars.length)]; }
@@ -131,7 +159,7 @@
 
     /* Title block */
     ink(BRAND.red); font('Poppins','bold',8.6);
-    var eyebrow = (r.isPractice ? 'PRACTICE TEST \u2022 WARM-UP RESULT' : r.testLabel.toUpperCase() + ' \u2022 RESULT');
+    var eyebrow = r.isDemo ? 'DEMO PLACEMENT TEST \u2022 INDICATIVE RESULT' : 'FULL PLACEMENT TEST \u2022 OFFICIAL RESULT';
     spaced(eyebrow, CX, 74, 0.9, 'center');
     ink(BRAND.grey); font('Poppins','normal',10); doc.text('This result is presented to', CX, 82.5, {align:'center'});
 
@@ -167,7 +195,7 @@
     var yAfter = 164 + desc.length*5.6;
 
     /* CEFR scale */
-    var y0 = Math.max(yAfter + 5, 181), pillW = 30, gap = 2.5, total = pillW*5 + gap*4, x0 = CX - total/2;
+    var y0 = Math.max(yAfter + 4, 181), pillW = 30, gap = 2.5, total = pillW*5 + gap*4, x0 = CX - total/2;
     ink(BRAND.navy); font('Poppins','bold',8.2); spaced('CEFR LEVEL', x0, y0, 0.7);
     LEVELS.forEach(function(L, k){
       var x = x0 + k*(pillW+gap), y = y0 + 3.5, on = (L === r.level), past = LEVELS.indexOf(L) < LEVELS.indexOf(r.level);
@@ -177,16 +205,18 @@
       font('Poppins','normal',6.4); doc.text(LEVEL_FULL[L], x+pillW/2, y+9.1, {align:'center'});
     });
 
-    /* Skill breakdown */
+    /* Skill breakdown: CEFR level per skill + score bar */
     var ys = y0 + 24.5;
     ink(BRAND.navy); font('Poppins','bold',8.2); spaced('SKILL BREAKDOWN', x0, ys, 0.7);
     (r.skills||[]).forEach(function(s, k){
-      var y = ys + 6 + k*7.6, bx = x0 + 44, bw = total - 44 - 16;
-      ink(BRAND.text); font('PoppinsMed','normal',9.4); doc.text(s.label, x0, y+2.4);
+      var y = ys + 6 + k*7.6, bx = x0 + 58, bw = total - 58 - 16;
+      ink(BRAND.text); font('PoppinsMed','normal',9.2); doc.text(s.label, x0, y+2.4);
+      fill(BRAND.navy); doc.roundedRect(x0+44, y-1.1, 11, 5, 1.2, 1.2, 'F');
+      ink([255,255,255]); font('Poppins','bold',7.6); doc.text(s.level || '', x0+49.5, y+2.3, {align:'center'});
       fill(BRAND.line); doc.roundedRect(bx, y, bw, 3, 1.5, 1.5, 'F');
       var fw = Math.max(3, bw * Math.min(100, s.pct)/100);
       fill(mix(BRAND.blue, BRAND.navy, 0.55*k/Math.max(1, r.skills.length-1))); doc.roundedRect(bx, y, fw, 3, 1.5, 1.5, 'F');
-      ink(BRAND.navy); font('Poppins','bold',9.4); doc.text(s.pct + '%', x0 + total, y+2.6, {align:'right'});
+      ink(BRAND.navy); font('Poppins','bold',9.2); doc.text(String(s.pct), x0 + total, y+2.6, {align:'right'});
     });
 
     /* Next step box */
@@ -194,22 +224,131 @@
     fill(BRAND.soft); doc.roundedRect(x0, yb, total, 20, 3, 3, 'F');
     fill(BRAND.red); doc.roundedRect(x0, yb, 1.6, 20, 0.8, 0.8, 'F');
     ink(BRAND.navy); font('Poppins','bold',10.5);
-    doc.text(r.isPractice ? 'Next step: take the full placement test' : 'Next step: book your ' + r.level + ' class', x0+7, yb+7.4);
+    doc.text(r.isDemo ? 'Next step: take the 60-minute Full Placement Test' : 'Next step: book your ' + r.level + ' class', x0+7, yb+7.4);
     ink(BRAND.text); font('Poppins','normal',8.8);
-    doc.text('Send this PDF to us on WhatsApp (' + BRAND.phoneDisplay + ') and our team will', x0+7, yb+12.6);
-    doc.text('match you with the right teacher and timetable.', x0+7, yb+16.8);
+    if(r.isDemo){
+      doc.text('This demo gives an indicative level only. The Full Placement Test gives your', x0+7, yb+12.6);
+      doc.text('official CEFR result and a detailed skills report.', x0+7, yb+16.8);
+    } else {
+      doc.text('Send this PDF to us on WhatsApp (' + BRAND.phoneDisplay + ') and our team will', x0+7, yb+12.6);
+      doc.text('match you with the right teacher and timetable. Full details on page 2.', x0+7, yb+16.8);
+    }
 
     /* Footer */
-    ink(BRAND.grey); font('Poppins','normal',7.4);
-    doc.text('This result is a guide to help us place you in the right class. It is not an official certificate of English proficiency.', CX, 273.8, {align:'center'});
-    fill(BRAND.navy); doc.rect(0, 278, W, 19, 'F');
-    ink([255,255,255]); font('PoppinsMed','normal',8.2);
-    doc.text(BRAND.site + '   \u2022   ' + BRAND.email + '   \u2022   ' + BRAND.phoneDisplay, 16, 288.5);
-    ink([200,208,228]); font('Poppins','normal',7.4);
-    doc.text(fmtDate(now), W-16, 286, {align:'right'});
-    doc.text('ID ' + id, W-16, 290.5, {align:'right'});
+    ink(BRAND.grey); font('Poppins','normal',7.2);
+    doc.text(r.isDemo ? 'DEMO RESULT \u2014 indicative only. This is not an official placement or a certificate of English proficiency.'
+                      : 'Official EOF placement result, aligned to the CEFR. It is not a certificate of English proficiency.', CX, 273.8, {align:'center'});
+    function footer(){
+      fill(BRAND.navy); doc.rect(0, 278, W, 19, 'F');
+      ink([255,255,255]); font('PoppinsMed','normal',8.2);
+      doc.text(BRAND.site + '   \u2022   ' + BRAND.email + '   \u2022   ' + BRAND.phoneDisplay, 16, 288.5);
+      ink([200,208,228]); font('Poppins','normal',7.4);
+      doc.text(fmtDate(now), W-16, 286, {align:'right'});
+      doc.text('ID ' + id, W-16, 290.5, {align:'right'});
+    }
+    footer();
 
-    return { doc:doc, id:id, fileName:'EOF-Result-' + safeFile(name) + '-' + r.level + '.pdf' };
+    /* DEMO watermark and stamp */
+    if(r.isDemo){
+      alpha(0.07); ink(BRAND.red); font('Poppins','bold',120);
+      doc.text('DEMO', CX, 200, {align:'center', angle:30}); alpha(1);
+      fill(BRAND.red); doc.roundedRect(W-48, 12, 34, 11, 2.5, 2.5, 'F');
+      ink([255,255,255]); font('Poppins','bold',10); spaced('DEMO', W-31, 19.6, 1.2, 'center');
+    }
+
+    /* ---------- Page 2: detailed report (Full test only) ---------- */
+    if(!r.isDemo){
+      doc.addPage();
+      fill(BRAND.navy); doc.rect(0, 0, W, 30, 'F'); fill(BRAND.red); doc.rect(0, 30, W, 1.2, 'F');
+      fill([255,255,255]); doc.circle(24, 15, 9.5, 'F'); if(logo){ doc.addImage(logo, 'PNG', 15.5, 6.5, 17, 17); }
+      ink([255,255,255]); font('Poppins','bold',14); doc.text('Detailed Placement Report', 40, 14);
+      ink([200,208,228]); font('Poppins','normal',8.6); doc.text(name + '   \u2022   ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + '   \u2022   ' + r.pct + '/100', 40, 21);
+
+      var X = 18, TW = W - 36, y = 44;
+      function h2(t){ ink(BRAND.red); font('Poppins','bold',8.4); spaced(t.toUpperCase(), X, y, 0.8); y += 5; }
+
+      /* results table */
+      h2('Results by skill');
+      var cols = [X, X+70, X+100, X+130];
+      fill(BRAND.soft); doc.roundedRect(X, y, TW, 8, 1.5, 1.5, 'F');
+      ink(BRAND.grey); font('Poppins','bold',7.6);
+      ['Skill','CEFR level','EOF score','Correct answers'].forEach(function(t,i){ doc.text(t, cols[i]+3, y+5.3); });
+      y += 8;
+      var rows = (r.skills||[]).concat([{ label:'Overall', level:r.level, pct:r.pct, correct:r.correct, total:r.total, overall:true }]);
+      rows.forEach(function(s){
+        if(s.overall){ fill([232,237,250]); doc.rect(X, y, TW, 9, 'F'); }
+        ink(BRAND.navy); font(s.overall ? 'Poppins' : 'PoppinsMed', s.overall ? 'bold' : 'normal', 9.4);
+        doc.text(s.label, cols[0]+3, y+6);
+        fill(s.overall ? BRAND.red : BRAND.navy); doc.roundedRect(cols[1]+3, y+1.8, 13, 5.4, 1.3, 1.3, 'F');
+        ink([255,255,255]); font('Poppins','bold',8); doc.text(s.level, cols[1]+9.5, y+5.6, {align:'center'});
+        ink(BRAND.navy); font('Poppins','bold',9.4); doc.text(s.pct + ' / 100', cols[2]+3, y+6);
+        ink(BRAND.text); font('Poppins','normal',9.4); doc.text((s.correct!=null ? s.correct : '') + ' of ' + (s.total!=null ? s.total : ''), cols[3]+3, y+6);
+        pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y+9, X+TW, y+9);
+        y += 9;
+      });
+      y += 8;
+
+      /* can-do statements */
+      h2('What you can do at ' + r.level + ' (' + (LEVEL_FULL[r.level]||'') + ')');
+      (CAN_DO[r.level]||[]).forEach(function(t){
+        fill(BRAND.red); doc.circle(X+1.6, y+1.6, 1, 'F');
+        ink(BRAND.text); font('Poppins','normal',9.4);
+        var lines = doc.splitTextToSize(t, TW-8); doc.text(lines, X+6, y+2.8, {lineHeightFactor:1.45}); y += lines.length*4.9 + 2;
+      });
+      y += 5;
+
+      /* study focus */
+      h2('Your study focus');
+      var sorted = (r.skills||[]).slice().sort(function(a,b){ return a.pct - b.pct; });
+      var weak = sorted[0], strong = sorted[sorted.length-1];
+      var focus = [];
+      if(strong && weak && strong.pct - weak.pct >= 8){
+        focus.push('Your strongest area is ' + strong.label.toLowerCase() + ' (' + strong.level + '). Your priority should be ' + weak.label.toLowerCase() + ' (' + weak.level + ').');
+      } else {
+        focus.push('Your skills are well balanced, so you are ready to move on across all areas of your ' + r.level + ' course.');
+      }
+      if(weak) focus.push(TIPS[weak.key] || '');
+      focus.push('Speaking and writing are not part of this online test. Your teacher will check them in your first lesson and confirm your class.');
+      focus.forEach(function(t){
+        if(!t) return;
+        fill(BRAND.navy); doc.circle(X+1.6, y+1.6, 1, 'F');
+        ink(BRAND.text); font('Poppins','normal',9.4);
+        var lines = doc.splitTextToSize(t, TW-8); doc.text(lines, X+6, y+2.8, {lineHeightFactor:1.45}); y += lines.length*4.9 + 2;
+      });
+      y += 5;
+
+      /* score bands */
+      h2('How to read your score');
+      var bw2 = TW/5;
+      [['A1','0\u201319'],['A2','20\u201339'],['B1','40\u201359'],['B2','60\u201379'],['C1','80\u2013100']].forEach(function(bd, k){
+        var bx = X + k*bw2, on = bd[0] === r.level;
+        fill(on ? BRAND.red : BRAND.soft); doc.roundedRect(bx+1, y, bw2-2, 15, 2, 2, 'F');
+        ink(on ? [255,255,255] : BRAND.navy); font('Poppins','bold',10); doc.text(bd[0] + '  ' + bd[1], bx + bw2/2, y+6.3, {align:'center'});
+        ink(on ? [255,255,255] : BRAND.grey); font('Poppins','normal',7); doc.text(LEVEL_FULL[bd[0]], bx + bw2/2, y+11.2, {align:'center'});
+      });
+      y += 22;
+
+      /* test details */
+      h2('Test details');
+      var det = [
+        ['Test', 'EOF Full Placement Test (60 minutes): Grammar & Vocabulary, Reading, Listening'],
+        ['Date', fmtDate(now)],
+        ['Time taken', (r.minutes||'\u2014') + ' minutes' + (r.timedOut ? ' (time limit reached)' : '')],
+        ['Questions answered', (r.answered!=null ? r.answered : '\u2014') + ' of ' + (r.total!=null ? r.total : '\u2014')],
+        ['Result ID', id]
+      ];
+      det.forEach(function(d){
+        ink(BRAND.grey); font('Poppins','normal',8.6); doc.text(d[0], X, y+3);
+        ink(BRAND.navy); font('PoppinsMed','normal',8.6); doc.text(d[1], X+42, y+3);
+        y += 6;
+      });
+      y += 3;
+      ink(BRAND.grey); font('Poppins','normal',7.4);
+      doc.text(doc.splitTextToSize('How this test is scored: every question is linked to a CEFR level, and your answers are analysed together with a statistical model that corrects for lucky guesses. Your level reflects the pattern of all your answers, not just your total number of correct answers.', TW), X, y+2, {lineHeightFactor:1.45});
+      footer();
+    }
+
+    return { doc:doc, id:id, fileName:(r.isDemo ? 'EOF-DEMO-Result-' : 'EOF-Result-') + safeFile(name) + '-' + r.level + '.pdf' };
   }
 
   /* ---------- Results page UI ---------- */
@@ -255,7 +394,7 @@
     if(!host) return;
     host.hidden = false;
     document.getElementById('eofPdfName').textContent = 'Preparing your result PDF\u2026';
-    document.getElementById('eofPdfMeta').textContent = r.testLabel + ' \u2022 ' + r.level + ' ' + (LEVEL_FULL[r.level]||'');
+    document.getElementById('eofPdfMeta').textContent = r.testLabel + ' \u2022 ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + (r.isDemo ? ' \u2022 demo' : '');
     setHint(isMobile()
       ? '<i class="fa-brands fa-whatsapp"></i> Tap <b>Send PDF on WhatsApp</b>, choose WhatsApp, then pick <b>English Online Forum</b> (' + BRAND.phoneDisplay + ').'
       : '<i class="fa-solid fa-circle-info"></i> We\u2019ll download your PDF and open our WhatsApp chat so you can attach it.');
