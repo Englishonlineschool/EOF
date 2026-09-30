@@ -1,9 +1,10 @@
-# Listening scripts. Each line: (voice, text). Speed rises with level.
+# Listening scripts. Each line: (voice, text). Speed rises with level; 'pause' adds a gap
+# after each sentence (seconds) so lower-level recordings stay slow and clear.
 # Correct option written FIRST. Questions are shown before the recording plays (as in
 # Cambridge/IELTS-style tests) and each recording can be played twice.
 
 FULL_LISTENING = [
- dict(id='lA1', level='A1', title='A phone message', speed=0.88, b=0.0, lines=[
+ dict(id='lA1', level='A1', title='A phone message', speed=0.78, pause=0.7, b=0.0, lines=[
   ('bf_emma', "Hello, this is a message for Mr Jonas Berg. This is Sarah from Smile Dental Clinic. "
               "Your appointment is on Thursday at ten o'clock, but the dentist is not here on Thursday. "
               "Can you come on Friday at eleven o'clock? That's Friday at eleven. "
@@ -15,7 +16,7 @@ FULL_LISTENING = [
   ("What does Sarah ask Mr Berg to do?", ["Call the clinic back", "Send an email", "Come to the clinic today", "Call the dentist at home"]),
  ]),
 
- dict(id='lA2', level='A2', title='At the train station', speed=0.93, b=0.0, lines=[
+ dict(id='lA2', level='A2', title='At the train station', speed=0.93, pause=0.2, b=0.0, lines=[
   ('am_michael', "Hi. I'd like a ticket to Manchester, please."),
   ('bf_isabella', "Single or return?"),
   ('am_michael', "Return, please. I'm coming back on Sunday."),
@@ -33,7 +34,7 @@ FULL_LISTENING = [
   ("Which platform does the man's train leave from?", ["Platform 2", "Platform 6", "Platform 3", "Platform 12"]),
  ]),
 
- dict(id='lB1', level='B1', title='A museum tour', speed=0.98, b=0.0, lines=[
+ dict(id='lB1', level='B1', title='A museum tour', speed=0.86, pause=0.3, b=0.0, lines=[
   ('bm_george', "Good morning, everyone, and welcome to the City Science Museum. My name's Tom and I'll be your guide today. "
                "Before we start, just a few things. The tour takes about an hour and a half, and we'll finish in the space gallery on the top floor. "
                "Please don't touch the exhibits in the first two rooms, as some of them are over two hundred years old. "
@@ -66,7 +67,7 @@ FULL_LISTENING = [
   ("What is Dr Hale's most important piece of advice?", ["Wake up at the same time every day", "Sleep for at least eight hours", "Never use a phone in the bedroom", "Go to bed earlier at weekends"]),
  ]),
 
- dict(id='lC1', level='C1', title='A lecture extract: the urban heat island', speed=1.05, b=0.0, lines=[
+ dict(id='lC1', level='C1', title='A lecture extract: the urban heat island', speed=1.0, b=0.0, lines=[
   ('bf_alice', "Last week we looked at how cities affect rainfall. Today I want to turn to temperature, and specifically to what's known as the urban heat island. "
                "On a still summer night, the centre of a large city can be as much as eight or nine degrees warmer than the surrounding countryside. "
                "Now, the usual explanation is that concrete and asphalt absorb heat during the day and release it slowly after dark, and that's certainly part of it. "
@@ -86,7 +87,7 @@ FULL_LISTENING = [
 ]
 
 DEMO_LISTENING = [
- dict(id='dlB1', level='B1', title='Planning a weekend trip', speed=0.98, b=0.0, lines=[
+ dict(id='dlB1', level='B1', title='Planning a weekend trip', speed=0.95, pause=0.2, b=0.0, lines=[
   ('bf_lily', "So, are we still going camping this weekend?"),
   ('am_adam', "I'd like to, but have you seen the weather forecast? It's going to rain all day on Saturday."),
   ('bf_lily', "Oh no. What about Sunday?"),
