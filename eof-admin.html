@@ -97,6 +97,8 @@
           <datalist id="countries"><option>Türkiye</option><option>Kyrgyzstan</option><option>Kazakhstan</option><option>Uzbekistan</option><option>Kenya</option><option>Russia</option><option>Germany</option><option>United Kingdom</option><option>Netherlands</option><option>Canada</option><option>United States</option></datalist></div>
         <div class="field"><label for="fTz">Time zone</label><input class="input" id="fTz" list="zones" placeholder="e.g. Türkiye (UTC+3)">
           <datalist id="zones"><option>Türkiye (UTC+3)</option><option>Kyrgyzstan (UTC+6)</option><option>Kazakhstan (UTC+5)</option><option>Kenya (UTC+3)</option><option>UK (UTC+0/+1)</option><option>Central Europe (UTC+1/+2)</option></datalist></div>
+        <div class="field"><label for="fJob">Occupation</label><input class="input" id="fJob" list="jobs" placeholder="e.g. Student, Lawyer, Doctor">
+          <datalist id="jobs"><option>Student</option><option>University student</option><option>Lawyer</option><option>Doctor</option><option>Teacher</option><option>Engineer</option><option>Nurse</option><option>Accountant</option><option>Business owner</option><option>Manager</option><option>IT / Software</option><option>Pharmacist</option><option>Architect</option><option>Homemaker</option><option>Retired</option></datalist></div>
         <div class="field"><label for="fSchool">School &amp; grade</label><input class="input" id="fSchool" placeholder="e.g. Grade 10, Cambridge"></div>
       </div>
 
@@ -204,7 +206,7 @@ function renderStudents() {
   $("studentBody").innerHTML = list.length ? list.map(s => `
     <tr class="clickable" data-uid="${s.uid}">
       <td><b>${esc(s.studentNumber)}</b></td>
-      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
+      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${esc(schedule(s))}</td>
       <td class="hide-sm">${esc(prettyDate(s.registeredOn))}</td>
@@ -245,6 +247,7 @@ function openModal(s) {
   $("fCountry").value = s?.country || "";
   $("fTz").value = s?.timeZone || "";
   $("fSchool").value = s?.school || "";
+  $("fJob").value = s?.occupation || "";
   $("fParentName").value = s?.parentName || "";
   $("fParentPhone").value = s?.parentPhone || "";
   $("fParentEmail").value = s?.parentEmail || "";
@@ -285,6 +288,7 @@ $("studentForm").addEventListener("submit", async e => {
     country: $("fCountry").value.trim(),
     timeZone: $("fTz").value.trim(),
     school: $("fSchool").value.trim(),
+    occupation: $("fJob").value.trim(),
     parentName: $("fParentName").value.trim(),
     parentPhone: $("fParentPhone").value.trim(),
     parentEmail: $("fParentEmail").value.trim()
