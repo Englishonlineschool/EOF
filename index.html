@@ -1698,15 +1698,16 @@
   }
   .video-play-btn i{color:var(--accent);font-size:22px;margin-left:4px;}
   .video-slide-link:hover .video-play-btn{transform:translate(-50%,-50%) scale(1.08);}
-  /* Interview video player (lightbox) */
-  .video-modal{position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(8,18,44,0.9);}
-  .video-modal.open{display:flex;}
-  .video-modal-inner{position:relative;width:min(960px,100%);}
-  .video-modal video{display:block;width:100%;aspect-ratio:16/9;max-height:calc(100vh - 140px);background:#000;border-radius:10px;box-shadow:0 24px 60px rgba(0,0,0,0.45);}
-  .video-modal-close{position:absolute;top:-52px;right:0;width:40px;height:40px;border:none;border-radius:50%;background:#fff;color:var(--accent);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s;}
-  .video-modal-close:hover,.video-modal-close:focus-visible{background:#E3A94C;color:#fff;}
-  .video-modal-title{color:#fff;margin:16px 2px 0;font-size:15px;text-align:center;font-style:italic;}
-  body.video-modal-lock{overflow:hidden;}
+  /* Interview video plays inline, in place of the slide (same page, same spot) */
+  .video-slide-link .video-inline{position:absolute;inset:0;z-index:5;width:100%;height:100%;background:#000;object-fit:contain;display:block;}
+  .video-slide-link.is-playing{cursor:default;background:#000;}
+  .video-slide-link.is-playing .video-info,.video-slide-link.is-playing .video-photo{visibility:hidden;}
+  .video-inline-close{position:absolute;top:14px;right:14px;z-index:6;width:38px;height:38px;border:none;border-radius:50%;background:rgba(255,255,255,0.92);color:var(--accent);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,color .2s;}
+  .video-inline-close:hover,.video-inline-close:focus-visible{background:#E3A94C;color:#fff;}
+  @media (max-width: 768px){
+    .video-slide-link.is-playing{aspect-ratio:16/9;min-height:0;display:block;}
+    .video-slide-link.is-playing .video-info,.video-slide-link.is-playing .video-photo{display:none;}
+  }
   /* Videos not uploaded yet: not clickable. To enable one, change data-video back to href and remove is-pending. */
   .video-slide-link.is-pending{cursor:default;}
   .video-slide-link.is-pending:hover .video-play-btn{transform:translate(-50%,-50%);}
@@ -2756,14 +2757,6 @@
   </div>
 </section>
 
-<div class="video-modal" id="videoModal" role="dialog" aria-modal="true" aria-label="Teacher interview video" aria-hidden="true">
-  <div class="video-modal-inner">
-    <button class="video-modal-close" type="button" aria-label="Close video"><i class="fa-solid fa-xmark"></i></button>
-    <video controls playsinline preload="none"></video>
-    <p class="video-modal-title" id="videoModalTitle"></p>
-  </div>
-</div>
-
 <!-- ================= SEL LESSONS ================= -->
 <section class="section sel-section" id="sel">
   <div class="container">
@@ -3022,45 +3015,46 @@
     });
   }
 
-  // Interview video player (lightbox)
-  const videoModal = document.getElementById('videoModal');
-  if(videoModal){
-    const modalPlayer = videoModal.querySelector('video');
-    const modalTitle = document.getElementById('videoModalTitle');
-    const modalClose = videoModal.querySelector('.video-modal-close');
-    let lastVideoLink = null;
-    const closeVideo = () => {
-      modalPlayer.pause();
-      modalPlayer.removeAttribute('src');
-      modalPlayer.load();
-      videoModal.classList.remove('open');
-      videoModal.setAttribute('aria-hidden','true');
-      document.body.classList.remove('video-modal-lock');
-      if(lastVideoLink) lastVideoLink.focus();
-    };
-    document.querySelectorAll('.video-slide-link:not(.is-pending)').forEach(link => {
-      link.addEventListener('click', e => {
-        const src = link.getAttribute('data-video');
-        if(!src) return;
-        e.preventDefault();
-        lastVideoLink = link;
-        const slide = link.closest('.video-slide');
-        if(modalTitle) modalTitle.textContent = slide ? slide.getAttribute('data-caption') : '';
-        const poster = link.getAttribute('data-poster');
-        if(poster) modalPlayer.setAttribute('poster', poster); else modalPlayer.removeAttribute('poster');
-        modalPlayer.src = src;
-        videoModal.classList.add('open');
-        videoModal.setAttribute('aria-hidden','false');
-        document.body.classList.add('video-modal-lock');
-        modalClose.focus();
-        const playing = modalPlayer.play();
-        if(playing && playing.catch) playing.catch(() => {});
-      });
+  // Interview videos play inline inside the carousel slide (no new page, no pop-up)
+  const stopInlineVideos = () => {
+    document.querySelectorAll('.video-slide-link.is-playing').forEach(link => {
+      const vid = link.querySelector('.video-inline');
+      if(vid){ vid.pause(); vid.remove(); }
+      const btn = link.querySelector('.video-inline-close');
+      if(btn) btn.remove();
+      link.classList.remove('is-playing');
     });
-    modalClose.addEventListener('click', closeVideo);
-    videoModal.addEventListener('click', e => { if(e.target === videoModal) closeVideo(); });
-    document.addEventListener('keydown', e => { if(e.key === 'Escape' && videoModal.classList.contains('open')) closeVideo(); });
-  }
+  };
+  document.querySelectorAll('.video-slide-link:not(.is-pending)').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      if(link.classList.contains('is-playing')) return;
+      const src = link.getAttribute('data-video');
+      if(!src) return;
+      stopInlineVideos();
+      const vid = document.createElement('video');
+      vid.className = 'video-inline';
+      vid.src = src;
+      vid.controls = true;
+      vid.setAttribute('playsinline','');
+      const poster = link.getAttribute('data-poster');
+      if(poster) vid.poster = poster;
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'video-inline-close';
+      closeBtn.setAttribute('aria-label','Close video');
+      closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      closeBtn.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); stopInlineVideos(); link.focus(); });
+      link.classList.add('is-playing');
+      link.appendChild(vid);
+      link.appendChild(closeBtn);
+      const playing = vid.play();
+      if(playing && playing.catch) playing.catch(() => {});
+    });
+  });
+  ['videoPrev','videoNext'].forEach(id => { const b = document.getElementById(id); if(b) b.addEventListener('click', stopInlineVideos); });
+  document.querySelectorAll('.video-dot').forEach(d => d.addEventListener('click', stopInlineVideos));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') stopInlineVideos(); });
 
   // Feedback carousel
   let currentLang = 'en';
