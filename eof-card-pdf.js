@@ -1,6 +1,6 @@
 // English Online Forum — downloadable student record card (A4 PDF, built in the browser with jsPDF).
 // Used by the student account page and the admin page.
-import { prettyDate, schedule, fmtScore, pctOf, resultTitle, levelHistory, monthYear, SKILLS, SKILL_LABEL } from "./eof-portal.js";
+import { prettyDate, schedule, fmtScore, pctOf, resultTitle, levelHistory, monthYear, SKILLS, SKILL_LABEL } from "./eof-portal.js?v=2";
 
 const BRAND = {
   navy: [22, 38, 77], blue: [58, 87, 171], red: [224, 57, 44], gold: [227, 169, 76], green: [31, 157, 91],
