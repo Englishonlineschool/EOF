@@ -47,11 +47,11 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
-          <tbody id="studentBody"><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+          <thead><tr><th>Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Last result</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
+          <tbody id="studentBody"><tr><td colspan="8" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Click a student to edit their details or see their attendance.</p>
+      <p class="hint" style="margin-top:10px">Click a student to edit their details, add test results, see their attendance or download their student card.</p>
     </section>
 
     <!-- Attendance -->
@@ -135,6 +135,43 @@
         <button class="btn btn-primary" id="saveBtn" type="submit">Register student</button>
       </div>
     </form>
+    <div id="resultsBox" class="hidden" style="margin-top:22px">
+      <div class="sec-head">
+        <h3 style="font-size:19px">Test and exam results</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="cardBtn" type="button">Download student card (PDF)</button>
+          <button class="btn btn-navy btn-sm" id="addResultBtn" type="button">+ Add result</button>
+        </div>
+      </div>
+      <div class="level-track" id="levelTrack"></div>
+      <form id="resultForm" class="result-form hidden" novalidate>
+        <div class="grid-2">
+          <div class="field"><label for="rType">Type</label><select class="input" id="rType"></select></div>
+          <div class="field"><label for="rTitle">Name of test <span class="hint" style="display:inline">(optional)</span></label><input class="input" id="rTitle" placeholder="e.g. Unit 4 test, Term 1 final"></div>
+          <div class="field"><label for="rDate">Date</label><input class="input" id="rDate" type="date"></div>
+          <div class="field"><label for="rScale">Scored as</label>
+            <select class="input" id="rScale"><option value="percent">Percentage (0–100%)</option><option value="band">IELTS band (0–9)</option><option value="points">Points out of…</option></select></div>
+          <div class="field hidden" id="rMaxField"><label for="rMax">Maximum points</label><input class="input" id="rMax" type="number" min="1" step="any" value="50"></div>
+          <div class="field"><label for="rOverall">Overall score</label><input class="input" id="rOverall" type="number" min="0" step="any" placeholder="e.g. 78"></div>
+        </div>
+        <label style="margin-top:2px">Scores by skill <span class="hint" style="display:inline;font-weight:400">— fill in only the skills you tested</span></label>
+        <div class="skill-inputs" id="rSkills"></div>
+        <div class="grid-2" style="margin-top:14px">
+          <div class="field"><label for="rLevel">Level shown</label>
+            <select class="input" id="rLevel"><option value="">—</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
+          <div class="field"><label for="rOutcome">Outcome</label>
+            <select class="input" id="rOutcome"><option value="">—</option><option>Pass</option><option>Fail</option></select></div>
+        </div>
+        <div class="field"><label for="rComment">Teacher's comment <span class="hint" style="display:inline">(the student can see this)</span></label><textarea class="input" id="rComment" rows="2" placeholder="e.g. Great progress in reading. Keep practising past tenses."></textarea></div>
+        <label class="check-line"><input type="checkbox" id="rApplyLevel"> Also change the student's level to the level shown</label>
+        <div class="err" id="resultErr" role="alert"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" type="button" id="cancelResultBtn">Cancel</button>
+          <button class="btn btn-primary" type="submit" id="saveResultBtn">Save result</button>
+        </div>
+      </form>
+      <div id="resultList"></div>
+    </div>
     <div id="historyBox" class="hidden" style="margin-top:22px">
       <h3 style="font-size:19px;margin-bottom:10px">Attendance history</h3>
       <div class="stats" id="histStats"></div>
@@ -148,7 +185,9 @@
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
-  DAYS, DAY_NAMES, schedule, toast, friendlyError } from "./eof-portal.js";
+  DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
+  levelHistory, monthYear } from "./eof-portal.js?v=2";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
 const $ = id => document.getElementById(id);
 
 $("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-login.html"); });
@@ -207,11 +246,12 @@ function renderStudents() {
       <td><b>${esc(s.studentNumber)}</b></td>
       <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
+      <td class="hide-sm">${s.lastResult ? `${esc(resultSummary(s.lastResult))}<div class="hint" style="margin:0">${esc(prettyDate(s.lastResult.date))}</div>` : '<span class="hint" style="display:inline">—</span>'}</td>
       <td class="hide-sm">${esc(schedule(s))}</td>
       <td class="hide-sm">${esc(prettyDate(s.registeredOn))}</td>
       <td>${rate(s.uid)}</td>
       <td><span class="badge ${esc(s.status || "active")}">${esc({ active: "Active", paused: "Paused", left: "Inactive" }[s.status || "active"] || s.status)}</span></td>
-    </tr>`).join("") : `<tr><td colspan="7" class="empty">${students.length ? "No students match." : "No students yet. Click “Register student” to add the first one."}</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="8" class="empty">${students.length ? "No students match." : "No students yet. Click “Register student” to add the first one."}</td></tr>`;
 }
 $("search").addEventListener("input", renderStudents);
 $("statusFilter").addEventListener("change", renderStudents);
@@ -256,7 +296,9 @@ function openModal(s) {
   $("resendBtn").classList.toggle("hidden", !s?.authUid);
   $("deleteBtn").classList.toggle("hidden", !s);
   $("historyBox").classList.toggle("hidden", !s);
-  if (s) loadHistory(s);
+  $("resultsBox").classList.toggle("hidden", !s);
+  $("resultForm").classList.add("hidden");
+  if (s) { loadHistory(s); loadResults(s); warmUp(); }
   $("studentModal").classList.remove("hidden");
   setTimeout(() => $("fName").focus(), 50);
 }
@@ -299,6 +341,7 @@ $("studentForm").addEventListener("submit", async e => {
     if (editing) {
       data.status = $("fStatus").value;
       data.updatedAt = serverTimestamp();
+      if (data.level !== editing.level) data.levelHistory = [...levelHistory(editing), { level: data.level, date: isoDate() }];
       let msg = "Saved";
       if (!editing.authUid && email) {
         data.authUid = await createStudentLogin(email);
@@ -314,7 +357,7 @@ $("studentForm").addEventListener("submit", async e => {
       const ref = authUid ? doc(db, "students", authUid) : doc(collection(db, "students"));
       const uid = ref.id;
       const studentNumber = await nextStudentNumber(data.registeredOn);
-      const rec = { ...data, email, authUid, studentNumber, status: "active", createdAt: serverTimestamp() };
+      const rec = { ...data, email, authUid, studentNumber, status: "active", levelHistory: [{ level: data.level, date: data.registeredOn }], createdAt: serverTimestamp() };
       await setDoc(ref, rec);
       students.push({ uid, ...rec }); attStats[uid] = { p: 0, a: 0 };
       students.sort((a, b) => String(a.studentNumber).localeCompare(String(b.studentNumber)));
@@ -331,7 +374,8 @@ $("deleteBtn").addEventListener("click", async () => {
   b.disabled = true;
   try {
     const att = await getDocs(collection(db, "students", editing.uid, "attendance"));
-    await Promise.all(att.docs.map(d => deleteDoc(d.ref)));
+    const res = await getDocs(collection(db, "students", editing.uid, "results")).catch(() => ({ docs: [] }));
+    await Promise.all([...att.docs, ...res.docs].map(d => deleteDoc(d.ref)));
     await deleteDoc(doc(db, "students", editing.uid));
     const name = editing.name;
     students = students.filter(x => x.uid !== editing.uid);
@@ -349,6 +393,128 @@ async function loadHistory(s) {
   $("histBody").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
     : `<tr><td class="empty">No lessons marked yet.</td></tr>`;
 }
+
+// ---------- Results ----------
+$("rType").innerHTML = RESULT_TYPES.map(t => `<option>${t}</option>`).join("");
+$("rSkills").innerHTML = SKILLS.map(([k, l]) => `<div class="field"><label for="rs_${k}">${l}</label><input class="input" id="rs_${k}" type="number" min="0" step="any"></div>`).join("");
+let resultRows = [];
+
+function scaleHints() {
+  const sc = $("rScale").value;
+  $("rMaxField").classList.toggle("hidden", sc !== "points");
+  const ph = sc === "band" ? "e.g. 6.5" : sc === "points" ? `out of ${$("rMax").value || "…"}` : "e.g. 78";
+  ["rOverall", ...SKILLS.map(([k]) => "rs_" + k)].forEach(id => $(id).placeholder = ph);
+}
+$("rScale").addEventListener("change", scaleHints);
+$("rMax").addEventListener("input", scaleHints);
+$("rType").addEventListener("change", () => { if ($("rType").value === "Mock IELTS") { $("rScale").value = "band"; scaleHints(); } });
+
+function renderLevelTrack(s) {
+  const h = levelHistory(s);
+  $("levelTrack").innerHTML = h.length ? `<span class="hint" style="display:inline;margin-right:6px">Level progress</span>` + h.map((x, i) =>
+    `<span class="lt-step${i === h.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
+}
+
+function resultCard(r) {
+  const skills = SKILLS.filter(([k]) => r.skills && r.skills[k] != null && r.skills[k] !== "");
+  return `<div class="result-card" data-rid="${r.id}">
+    <div class="rc-top">
+      <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}${r.source === "online-test" ? " · taken online by the student" : ""}</div></div>
+      <div class="rc-score">${esc(fmtScore(r))}${r.level ? ` <span class="level-pill">${esc(r.level)}</span>` : ""}${r.outcome ? ` <span class="badge ${r.outcome === "Pass" ? "present" : "absent"}">${esc(r.outcome)}</span>` : ""}</div>
+    </div>
+    ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
+    ${r.comment ? `<p class="rc-comment">“${esc(r.comment)}”</p>` : ""}
+    <div class="rc-actions"><button class="linkbtn" type="button" data-del-result>Delete result</button></div>
+  </div>`;
+}
+
+async function loadResults(s) {
+  renderLevelTrack(s);
+  $("resultList").innerHTML = `<p class="hint">Loading results…</p>`;
+  let snap;
+  try { snap = await getDocs(collection(db, "students", s.uid, "results")); }
+  catch (ex) { if (editing === s) $("resultList").innerHTML = `<p class="err">${esc(friendlyError(ex))}</p>`; return; }
+  if (editing !== s) return;
+  resultRows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  $("resultList").innerHTML = resultRows.length ? resultRows.map(resultCard).join("") : `<p class="hint" style="margin:6px 0 0">No results yet. Click “Add result” after a test or exam.</p>`;
+}
+
+async function syncLastResult(s) {
+  const latest = resultRows[0] || null;
+  const lastResult = latest ? { type: latest.type, title: latest.title || "", date: latest.date, overall: latest.overall ?? null, scale: latest.scale, max: latest.max || null, level: latest.level || "" } : null;
+  await updateDoc(doc(db, "students", s.uid), { lastResult });
+  s.lastResult = lastResult; renderStudents();
+}
+
+$("addResultBtn").addEventListener("click", () => {
+  $("resultForm").reset(); $("resultErr").textContent = "";
+  $("rDate").value = isoDate(); $("rLevel").value = editing?.level || "";
+  scaleHints();
+  $("resultForm").classList.remove("hidden");
+  $("rType").focus();
+});
+$("cancelResultBtn").addEventListener("click", () => $("resultForm").classList.add("hidden"));
+
+$("resultForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const s = editing; if (!s) return;
+  const sc = $("rScale").value, max = sc === "points" ? Number($("rMax").value) : null;
+  const num = id => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
+  const top = sc === "band" ? 9 : sc === "points" ? max : 100;
+  const overall = num("rOverall");
+  const skills = {}; SKILLS.forEach(([k]) => { const v = num("rs_" + k); if (v !== null) skills[k] = v; });
+  const all = [overall, ...Object.values(skills)].filter(v => v !== null);
+  if (sc === "points" && !(max > 0)) { $("resultErr").textContent = "Enter the maximum number of points."; return; }
+  if (!all.length) { $("resultErr").textContent = "Enter an overall score or at least one skill score."; return; }
+  if (all.some(v => isNaN(v) || v < 0 || v > top)) { $("resultErr").textContent = `Scores must be between 0 and ${top}.`; return; }
+  if (!$("rDate").value) { $("resultErr").textContent = "Choose the date of the test."; return; }
+  const data = {
+    type: $("rType").value, title: $("rTitle").value.trim(), date: $("rDate").value, scale: sc, max,
+    overall: overall ?? (Object.keys(skills).length ? Math.round(Object.values(skills).reduce((a, b) => a + b, 0) / Object.keys(skills).length * (sc === "band" ? 2 : 1)) / (sc === "band" ? 2 : 1) : null),
+    skills, level: $("rLevel").value, outcome: $("rOutcome").value, comment: $("rComment").value.trim(),
+    source: "teacher", createdAt: serverTimestamp(), createdBy: me.email
+  };
+  $("saveResultBtn").disabled = true; $("resultErr").textContent = "";
+  try {
+    const ref = doc(collection(db, "students", s.uid, "results"));
+    await setDoc(ref, data);
+    resultRows.push({ id: ref.id, ...data });
+    resultRows.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    await syncLastResult(s);
+    if ($("rApplyLevel").checked && data.level && data.level !== s.level) {
+      const levelHist = [...levelHistory(s), { level: data.level, date: data.date }];
+      await updateDoc(doc(db, "students", s.uid), { level: data.level, levelHistory: levelHist, updatedAt: serverTimestamp() });
+      s.level = data.level; s.levelHistory = levelHist; $("fLevel").value = data.level; renderStudents();
+    }
+    $("resultForm").classList.add("hidden");
+    loadResults(s);
+    toast("Result saved");
+  } catch (ex) { $("resultErr").textContent = friendlyError(ex); }
+  $("saveResultBtn").disabled = false;
+});
+
+$("resultList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-del-result]"); if (!b) return;
+  if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to delete"; return; }
+  const s = editing, rid = b.closest("[data-rid]").dataset.rid;
+  try {
+    await deleteDoc(doc(db, "students", s.uid, "results", rid));
+    resultRows = resultRows.filter(r => r.id !== rid);
+    await syncLastResult(s);
+    loadResults(s); toast("Result deleted");
+  } catch (ex) { toast(friendlyError(ex), "bad"); }
+});
+
+$("cardBtn").addEventListener("click", async () => {
+  const s = editing; if (!s) return;
+  const b = $("cardBtn"); b.disabled = true; const label = b.textContent; b.textContent = "Preparing PDF…";
+  try {
+    const a = await getDocs(collection(db, "students", s.uid, "attendance"));
+    const att = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
+    await downloadStudentCard(s, att, resultRows);
+  } catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
+  b.disabled = false; b.textContent = label;
+});
 
 // ---------- Attendance ----------
 $("attDate").value = isoDate();

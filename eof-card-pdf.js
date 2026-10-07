@@ -106,12 +106,12 @@ function build(s, att, results, F, logoData, nameImg) {
 
   let y = header(false) + 14;
   const need = h => { if (y + h > 272) { footer(); doc.addPage(); y = header(true) + 12; } };
-  const h2 = t => { need(14); ink(BRAND.red); font("b", 8.4); spaced(t.toUpperCase(), X, y, 0.8); pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y + 2.4, X + TW, y + 2.4); y += 8; };
+  const h2 = (t, room = 14) => { need(room); ink(BRAND.red); font("b", 8.4); spaced(t.toUpperCase(), X, y, 0.8); pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y + 2.4, X + TW, y + 2.4); y += 8; };
 
   /* Name block */
   ink(BRAND.grey); font("r", 9.5); text("Student record card for", X, y); y += 3;
   const nh = 11, nw = Math.min(TW - 50, nh * nameImg.ratio);
-  doc.addImage(nameImg.data, "PNG", X, y, nw, nw / nameImg.ratio); y += nw / nameImg.ratio + 4;
+  doc.addImage(nameImg.data, "PNG", X, y, nw, nw / nameImg.ratio); y += nw / nameImg.ratio + 5;
   // pills: number · level · status
   let px = X;
   const pill = (label, bg, fg, bold = true) => { font(bold ? "b" : "m", 8.6); const w = doc.getTextWidth(T(label)) + 8; fill(bg); doc.roundedRect(px, y - 4.6, w, 6.8, 1.8, 1.8, "F"); ink(fg); text(label, px + 4, y); px += w + 3; };
@@ -133,23 +133,24 @@ function build(s, att, results, F, logoData, nameImg) {
   ].filter(r => r[1]);
   const colW = TW / 2;
   for (let i = 0; i < rows.length; i += 2) {
-    need(12);
+    font("m", 10);
+    const pair = [rows[i], rows[i + 1]].map(r => r ? doc.splitTextToSize(T(r[1]), colW - 6).slice(0, 2) : []);
+    const extra = (Math.max(pair[0].length, pair[1].length) - 1) * 4.6;
+    need(12 + extra);
     [rows[i], rows[i + 1]].forEach((r, k) => {
       if (!r) return;
       const x = X + k * colW;
       ink(BRAND.grey); font("r", 7.6); text(r[0].toUpperCase(), x, y);
       ink(BRAND.navy); font("m", 10);
-      const lines = doc.splitTextToSize(T(r[1]), colW - 6).slice(0, 2);
-      doc.text(lines, x, y + 5);
+      doc.text(pair[k], x, y + 5, { lineHeightFactor: 1.3 });
     });
-    y += 12.5;
+    y += 11.5 + extra;
   }
 
   /* Level progress */
   const hist = levelHistory(s);
   if (hist.length) {
-    y += 2; h2("Level progress");
-    need(16);
+    y += 2; h2("Level progress", 30);
     let x = X;
     hist.forEach((h, i) => {
       const last = i === hist.length - 1;
@@ -165,7 +166,7 @@ function build(s, att, results, F, logoData, nameImg) {
   }
 
   /* Results */
-  h2("Test and exam results");
+  h2("Test and exam results", 34);
   if (!results.length) {
     ink(BRAND.grey); font("r", 9.5); text("No results recorded yet.", X, y + 1); y += 10;
   } else {
@@ -201,8 +202,7 @@ function build(s, att, results, F, logoData, nameImg) {
   }
 
   /* Attendance */
-  h2("Attendance");
-  need(30);
+  h2("Attendance", 40);
   const p = att.filter(a => a.status === "present").length, ab = att.filter(a => a.status === "absent").length;
   const boxes = [[String(p), "Lessons attended", BRAND.green], [String(ab), "Lessons missed", BRAND.red], [p + ab ? Math.round(p * 100 / (p + ab)) + "%" : "—", "Attendance rate", BRAND.navy]];
   const bw = (TW - 8) / 3;

@@ -37,7 +37,10 @@
         <h1>Hello, <span class="hl" id="firstName"></span></h1>
         <p id="courseLine"></p>
       </div>
-      <div class="idcard"><small>Student number</small><strong id="studentNo"></strong></div>
+      <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch">
+        <div class="idcard"><small>Student number</small><strong id="studentNo"></strong></div>
+        <button class="btn btn-primary" id="cardBtn" type="button">Download my student card (PDF)</button>
+      </div>
     </section>
 
     <section class="card">
@@ -54,6 +57,14 @@
         <div class="fact"><small>Email</small><b id="fEmail" style="font-size:15px;word-break:break-all"></b></div>
         <div class="fact" id="parentFact"><small>Parent / guardian</small><b id="fParent"></b></div>
       </div>
+      <div class="level-track" id="levelTrack" style="margin:16px 0 0"></div>
+    </section>
+
+    <section class="card">
+      <h2>My results</h2>
+      <div class="chart-wrap" id="chart"></div>
+      <div id="resultList"><p class="hint">Loading&hellip;</p></div>
+      <p class="hint" style="margin-top:14px">Take the <a href="eof-exam-full.html">placement test</a> while you're logged in and your result is saved here automatically.</p>
     </section>
 
     <section class="card">
@@ -80,7 +91,10 @@
 
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit,
-  esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError } from "./eof-portal.js";
+  esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
+  levelHistory, monthYear } from "./eof-portal.js?v=2";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
+let me = null, attRows = [], results = [];
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);
 
@@ -114,8 +128,19 @@ else {
       $("fEmail").textContent = s.email || user.email;
       $("account").classList.remove("hidden");
 
-      const att = await getDocs(collection(db, "students", snap.id, "attendance"));
+      me = s; warmUp();
+      const hist = levelHistory(s);
+      $("levelTrack").innerHTML = hist.length ? `<span class="hint" style="display:inline;margin-right:6px">My level progress</span>` + hist.map((x, i) =>
+        `<span class="lt-step${i === hist.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
+
+      const [att, res] = await Promise.all([
+        getDocs(collection(db, "students", snap.id, "attendance")),
+        getDocs(collection(db, "students", snap.id, "results")).catch(() => ({ docs: [] }))
+      ]);
+      results = res.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      renderResults();
       const rows = att.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
+      attRows = rows;
       const p = rows.filter(r => r.status === "present").length;
       const a = rows.filter(r => r.status === "absent").length;
       $("sPresent").textContent = p; $("sAbsent").textContent = a;
@@ -128,6 +153,43 @@ else {
     $("loading").textContent = friendlyError(e);
   }
 }
+
+function renderResults() {
+  $("resultList").innerHTML = results.length ? results.map(r => {
+    const skills = SKILLS.filter(([k]) => r.skills && r.skills[k] != null && r.skills[k] !== "");
+    return `<div class="result-card">
+      <div class="rc-top">
+        <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}</div></div>
+        <div class="rc-score">${esc(fmtScore(r))}${r.level ? ` <span class="level-pill">${esc(r.level)}</span>` : ""}${r.outcome ? ` <span class="badge ${r.outcome === "Pass" ? "present" : "absent"}">${esc(r.outcome)}</span>` : ""}</div>
+      </div>
+      ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
+      ${r.comment ? `<p class="rc-comment">“${esc(r.comment)}” <span class="hint" style="display:inline;font-style:normal">— your teacher</span></p>` : ""}
+    </div>`;
+  }).join("") : `<p class="hint">No results yet. Your test and exam scores will appear here.</p>`;
+
+  // Progress chart: overall score (as %) over time, oldest to newest.
+  const pts = results.filter(r => pctOf(r) != null).slice().reverse();
+  if (pts.length < 2) { $("chart").innerHTML = ""; return; }
+  const W = 640, H = 190, L = 40, R = 16, T = 14, B = 34, iw = W - L - R, ih = H - T - B;
+  const x = i => L + (pts.length === 1 ? iw / 2 : i * iw / (pts.length - 1));
+  const y = v => T + ih - v / 100 * ih;
+  const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#E2E6EF"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6B7385">${v}%</text>`).join("");
+  const line = pts.map((r, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(pctOf(r)).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(pts.length - 1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const dots = pts.map((r, i) => `<circle cx="${x(i)}" cy="${y(pctOf(r))}" r="${i === pts.length - 1 ? 5 : 3.5}" fill="${i === pts.length - 1 ? "#E0392C" : "#16264D"}"><title>${esc(resultTitle(r))}: ${esc(fmtScore(r))}</title></circle>`).join("");
+  const labels = pts.map((r, i) => (pts.length <= 8 || i % Math.ceil(pts.length / 8) === 0 || i === pts.length - 1)
+    ? `<text x="${x(i)}" y="${H - 12}" text-anchor="middle" font-size="11" fill="#6B7385">${esc(new Date(r.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))}</text>` : "").join("");
+  const lastV = pctOf(pts[pts.length - 1]);
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="My scores over time">${grid}<path d="${area}" fill="#3A57AB" opacity=".08"/><path d="${line}" fill="none" stroke="#16264D" stroke-width="2.5" stroke-linejoin="round"/>${dots}${labels}<text x="${x(pts.length - 1)}" y="${y(lastV) - 10}" text-anchor="middle" font-size="12" font-weight="600" fill="#E0392C">${lastV}%</text></svg>`;
+}
+
+$("cardBtn").addEventListener("click", async () => {
+  if (!me) return;
+  const b = $("cardBtn"), label = b.textContent; b.disabled = true; b.textContent = "Preparing your PDF…";
+  try { await downloadStudentCard(me, attRows, results); toast("Your student card has been downloaded."); }
+  catch (e) { console.error(e); toast("Couldn't create the PDF. Please try again.", "bad"); }
+  b.disabled = false; b.textContent = label;
+});
 
 $("pwBtn").addEventListener("click", async () => {
   try { await sendPasswordResetEmail(auth, auth.currentUser.email); toast("Link sent. Check your email."); }

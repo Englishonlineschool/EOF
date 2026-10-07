@@ -406,12 +406,36 @@
     sendBtn.href = 'https://wa.me/' + BRAND.whatsapp + '?text=' + encodeURIComponent(waText(r, false));
   }
 
+  /* ---------- Student portal: if a student is logged in on this device, save the result to their account ---------- */
+  function saveToPortal(r){
+    import('/eof-portal.js').then(async function(m){
+      var u = await m.currentUser();
+      if(!u || await m.isAdmin(u)) return;
+      var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.limit(1)));
+      if(q.empty) return;
+      var ref = q.docs[0].ref, skills = {};
+      (r.skills||[]).forEach(function(s){ if(s.key){ skills[s.key] = s.pct; } });
+      var date = m.isoDate();
+      var title = r.isDemo ? 'Demo test (indicative)' : (r.testLabel || 'Online placement test');
+      await m.setDoc(m.doc(m.collection(m.db, 'students', ref.id, 'results')), {
+        type:'Placement test', title:title, date:date, scale:'percent', max:null, overall:r.pct, skills:skills,
+        level:r.level, outcome:'', comment:'', source:'online-test',
+        details:{ answered:r.answered, total:r.total, correct:r.correct, minutes:r.minutes, isDemo:!!r.isDemo },
+        createdAt:m.serverTimestamp(), createdBy:u.email || ''
+      });
+      await m.updateDoc(ref, { lastResult:{ type:'Placement test', title:title, date:date, overall:r.pct, scale:'percent', max:null, level:r.level } });
+      var h = document.getElementById('eofPdfHint');
+      if(h){ h.insertAdjacentHTML('beforeend', '<br><i class="fa-solid fa-circle-check"></i> Saved to your <a href="eof-account.html">student account</a>.'); }
+    }).catch(function(err){ console.warn('EOF portal save skipped', err); });
+  }
+
   window.EOFResultPDF = {
     build: build, fontsReady: fontsReady, libReady: libReady,
     // Called by the exam page as soon as results are calculated.
     onResult: function(r){
       state.result = r;
       mountUI(r);
+      saveToPortal(r);
       state.ready = Promise.all([libReady, loadLogo(), fontsReady]).then(function(v){ var logo = v[1];
         var out = build(r, logo, v[2]);
         state.blob = out.doc.output('blob');
