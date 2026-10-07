@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=5">
+<link rel="stylesheet" href="eof-portal.css?v=6">
 </head>
 <body>
 <header class="portal-top">
@@ -167,6 +167,7 @@
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost hidden" id="resendBtn" type="button">Resend password email</button>
+        <button class="btn btn-ghost hidden" id="accessBtn" type="button"></button>
         <button class="btn btn-ghost hidden" id="deleteBtn" type="button" style="color:var(--red-dark)">Delete student</button>
         <span style="flex:1"></span>
         <button class="btn btn-ghost" type="button" data-close id="cancelBtn">Cancel</button>
@@ -339,6 +340,7 @@ function lastLoginText(s) {
 }
 function loginBadge(s) {
   if (!s.authUid) return `<span class="login-badge none">No login yet</span>`;
+  if (s.portalBlocked) return `<span class="login-badge blocked">Access removed</span>`;
   const t = lastLoginText(s);
   return t ? `<span class="login-badge ok">Last active ${esc(t)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
 }
@@ -410,7 +412,11 @@ function openModal(s) {
   $("fStatus").value = s?.status || "active";
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
-  $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
+  $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER || !!s?.portalBlocked);
+  $("accessBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
+  delete $("accessBtn").dataset.armed;
+  $("accessBtn").textContent = s?.portalBlocked ? "Restore portal access" : "Remove portal access";
+  $("accessBtn").style.color = s?.portalBlocked ? "" : "var(--red-dark)";
   $("deleteBtn").classList.toggle("hidden", !s || !!TEACHER);
   $("historyBox").classList.toggle("hidden", !s);
   $("resultsBox").classList.toggle("hidden", !s);
@@ -437,6 +443,19 @@ $("studentModal").addEventListener("click", e => { if (e.target.id === "studentM
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 $("addBtn").addEventListener("click", () => openModal(null));
 
+$("accessBtn").addEventListener("click", async () => {
+  const s = editing, b = $("accessBtn"); if (!s) return;
+  const block = !s.portalBlocked;
+  if (block && !b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to remove access"; return; }
+  b.disabled = true;
+  try {
+    await updateDoc(doc(db, "students", s.uid), { portalBlocked: block, updatedAt: serverTimestamp() });
+    s.portalBlocked = block; renderStudents();
+    toast(block ? `${s.name} can no longer open the student portal. Their record is kept.` : `${s.name}'s portal access is restored.`);
+    openModal(s);
+  } catch (ex) { toast(friendlyError(ex), "bad"); }
+  b.disabled = false;
+});
 $("resendBtn").addEventListener("click", async () => {
   try { await sendPasswordResetEmail(auth, editing.email); toast(`Password email sent to ${editing.email}`); }
   catch (e) { toast(friendlyError(e), "bad"); }
@@ -486,7 +505,7 @@ $("studentForm").addEventListener("submit", async e => {
       const ref = authUid ? doc(db, "students", authUid) : doc(collection(db, "students"));
       const uid = ref.id;
       const studentNumber = await nextStudentNumber(data.registeredOn);
-      const rec = { ...data, email, authUid, studentNumber, status: "active", levelHistory: [{ level: data.level, date: data.registeredOn }], createdAt: serverTimestamp() };
+      const rec = { ...data, email, authUid, studentNumber, status: "active", portalBlocked: false, levelHistory: [{ level: data.level, date: data.registeredOn }], createdAt: serverTimestamp() };
       await setDoc(ref, rec);
       await setDoc(doc(db, "students", uid, "private", "contact"), phones);
       students.push({ uid, ...rec }); attStats[uid] = { p: 0, a: 0 };

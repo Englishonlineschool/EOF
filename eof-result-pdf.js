@@ -411,7 +411,7 @@
     import('/eof-portal.js').then(async function(m){
       var u = await m.currentUser();
       if(!u || await m.isAdmin(u)) return;
-      var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.limit(1)));
+      var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.where('portalBlocked', '==', false), m.limit(1)));
       if(q.empty) return;
       var ref = q.docs[0].ref, skills = {};
       (r.skills||[]).forEach(function(s){ if(s.key){ skills[s.key] = s.pct; } });
