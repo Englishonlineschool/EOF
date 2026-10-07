@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Account | English Online Forum</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="eof-portal.css">
+</head>
+<body>
+<header class="portal-top">
+  <div class="portal-top-inner">
+    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Student Portal</span></div></a>
+    <div class="portal-top-actions">
+      <a class="portal-link hide-sm" href="/">Website</a>
+      <button class="btn btn-light btn-sm" id="logoutBtn" type="button">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="loading" class="loading">Loading your account&hellip;</div>
+  <div id="noRecord" class="card hidden">
+    <h2>Your account is almost ready</h2>
+    <p>We couldn't find your student record yet. Please contact your teacher or <a href="https://wa.me/996995648111" target="_blank" rel="noopener">message us on WhatsApp</a>.</p>
+  </div>
+
+  <div id="account" class="hidden">
+    <section class="hero">
+      <div>
+        <div class="eyebrow" style="color:var(--gold)">My Account</div>
+        <h1>Hello, <span class="hl" id="firstName"></span></h1>
+        <p id="courseLine"></p>
+      </div>
+      <div class="idcard"><small>Student number</small><strong id="studentNo"></strong></div>
+    </section>
+
+    <section class="card">
+      <h2>My details</h2>
+      <div class="facts">
+        <div class="fact"><small>Full name</small><b id="fName"></b></div>
+        <div class="fact"><small>Level of entry</small><b><span class="level-pill" id="fLevel"></span></b></div>
+        <div class="fact"><small>Date of registration</small><b id="fReg"></b></div>
+        <div class="fact"><small>Lesson days</small><b id="fDays"></b></div>
+        <div class="fact"><small>Teacher</small><b id="fTeacher"></b></div>
+        <div class="fact"><small>Email</small><b id="fEmail" style="font-size:15px;word-break:break-all"></b></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>My attendance</h2>
+      <div class="stats">
+        <div class="stat present"><b id="sPresent">0</b><span>Present</span></div>
+        <div class="stat absent"><b id="sAbsent">0</b><span>Absent</span></div>
+        <div class="stat"><b id="sRate">—</b><span>Attendance rate</span></div>
+      </div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Date</th><th>Day</th><th>Status</th></tr></thead><tbody id="attBody"></tbody></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Account</h2>
+      <p style="margin-bottom:14px;color:var(--muted)">Want to change your password? We'll email you a secure link.</p>
+      <button class="btn btn-ghost" id="pwBtn" type="button">Send password change link</button>
+    </section>
+  </div>
+</main>
+
+<footer class="portal-foot">&copy; <span id="yr"></span> English Online Forum &middot; <a href="eof-privacy-policy.html">Privacy Policy</a></footer>
+
+<script type="module">
+import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, collection,
+  esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError } from "./eof-portal.js";
+document.getElementById("yr").textContent = new Date().getFullYear();
+const $ = id => document.getElementById(id);
+
+$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-login.html"); });
+
+const user = await currentUser();
+if (!user) { location.replace("eof-login.html"); }
+else if (await isAdmin(user)) { location.replace("eof-admin.html"); }
+else {
+  try {
+    const snap = await getDoc(doc(db, "students", user.uid));
+    $("loading").classList.add("hidden");
+    if (!snap.exists()) { $("noRecord").classList.remove("hidden"); }
+    else {
+      const s = snap.data();
+      $("firstName").textContent = (s.name || "").split(" ")[0] || "Student";
+      $("courseLine").textContent = s.course ? s.course : "Welcome to your student portal.";
+      $("studentNo").textContent = s.studentNumber || "—";
+      $("fName").textContent = s.name || "—";
+      $("fLevel").textContent = s.level || "—";
+      $("fReg").textContent = prettyDate(s.registeredOn);
+      $("fDays").textContent = schedule(s);
+      $("fTeacher").textContent = s.teacher || "—";
+      $("fEmail").textContent = s.email || user.email;
+      $("account").classList.remove("hidden");
+
+      const att = await getDocs(collection(db, "students", user.uid, "attendance"));
+      const rows = att.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
+      const p = rows.filter(r => r.status === "present").length;
+      const a = rows.filter(r => r.status === "absent").length;
+      $("sPresent").textContent = p; $("sAbsent").textContent = a;
+      $("sRate").textContent = p + a ? Math.round(p * 100 / (p + a)) + "%" : "—";
+      $("attBody").innerHTML = rows.length
+        ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status === "present" ? "present" : "absent"}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
+        : `<tr><td colspan="3" class="empty">No lessons recorded yet.</td></tr>`;
+    }
+  } catch (e) {
+    $("loading").textContent = friendlyError(e);
+  }
+}
+
+$("pwBtn").addEventListener("click", async () => {
+  try { await sendPasswordResetEmail(auth, auth.currentUser.email); toast("Link sent. Check your email."); }
+  catch (e) { toast(friendlyError(e), "bad"); }
+});
+</script>
+</body>
+</html>

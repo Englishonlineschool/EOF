@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin | English Online Forum</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="eof-portal.css">
+</head>
+<body>
+<header class="portal-top">
+  <div class="portal-top-inner">
+    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Admin &middot; Student records</span></div></a>
+    <div class="portal-top-actions">
+      <span class="portal-link hide-sm" id="adminEmail"></span>
+      <button class="btn btn-light btn-sm" id="logoutBtn" type="button">Log out</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="loading" class="loading">Checking access&hellip;</div>
+
+  <div id="app" class="hidden">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="students" role="tab">Students</button>
+      <button class="tab" data-tab="attendance" role="tab">Attendance</button>
+    </div>
+
+    <!-- Students -->
+    <section id="tab-students">
+      <div class="toolbar">
+        <input class="input" id="search" type="search" placeholder="Search name, number or email">
+        <select class="input" id="statusFilter" style="max-width:170px">
+          <option value="active">Active students</option>
+          <option value="all">All students</option>
+          <option value="paused">Paused</option>
+          <option value="left">Left</option>
+        </select>
+        <span style="flex:1"></span>
+        <button class="btn btn-primary" id="addBtn" type="button">+ Register student</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
+          <tbody id="studentBody"><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px">Click a student to edit their details or see their attendance.</p>
+    </section>
+
+    <!-- Attendance -->
+    <section id="tab-attendance" class="hidden">
+      <div class="toolbar">
+        <button class="btn btn-ghost btn-sm" id="prevDay" type="button" aria-label="Previous day">&larr;</button>
+        <input class="input" id="attDate" type="date" style="max-width:190px">
+        <button class="btn btn-ghost btn-sm" id="nextDay" type="button" aria-label="Next day">&rarr;</button>
+        <button class="btn btn-ghost btn-sm" id="todayBtn" type="button">Today</button>
+        <span style="flex:1"></span>
+        <select class="input" id="attScope" style="max-width:260px">
+          <option value="day">Students with a lesson this day</option>
+          <option value="all">All active students</option>
+        </select>
+      </div>
+      <h2 id="attHeading" style="font-size:22px;margin:4px 0 14px"></h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Student</th><th class="hide-sm">Level</th><th class="hide-sm">Time</th><th>Mark</th></tr></thead>
+          <tbody id="attBody"></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it.</p>
+    </section>
+  </div>
+</main>
+
+<!-- Student modal (register / edit) -->
+<div class="modal-bg hidden" id="studentModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-x" type="button" data-close aria-label="Close">&times;</button>
+    <h2 id="modalTitle">Register student</h2>
+    <div class="notice hidden" id="numberNotice"></div>
+    <form id="studentForm" novalidate>
+      <div class="grid-2">
+        <div class="field"><label for="fName">Full name</label><input class="input" id="fName" required></div>
+        <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" type="email" required></div>
+        <div class="field"><label for="fPhone">Phone / WhatsApp</label><input class="input" id="fPhone" type="tel" placeholder="Optional"></div>
+        <div class="field"><label for="fLevel">Level of entry</label>
+          <select class="input" id="fLevel"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
+        <div class="field"><label for="fCourse">Course</label>
+          <select class="input" id="fCourse">
+            <option>General English</option><option>Business English</option><option>IELTS Preparation</option>
+            <option>Conversational English</option><option>Exam Preparation</option><option>Olympiad Preparation</option><option>Professional Development</option>
+          </select></div>
+        <div class="field"><label for="fTeacher">Teacher</label>
+          <input class="input" id="fTeacher" list="teachers" placeholder="e.g. Mashel Auma">
+          <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Mr. Frank</option><option>Mr. Kareem</option></datalist></div>
+      </div>
+      <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div></div>
+      <div class="grid-2">
+        <div class="field"><label for="fTime">Lesson time</label><input class="input" id="fTime" placeholder="e.g. 18:00 (Bishkek)"></div>
+        <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
+        <div class="field" id="statusField"><label for="fStatus">Status</label>
+          <select class="input" id="fStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="left">Left</option></select></div>
+      </div>
+      <div class="err" id="formErr" role="alert"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost hidden" id="resendBtn" type="button">Resend password email</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+        <button class="btn btn-primary" id="saveBtn" type="submit">Register student</button>
+      </div>
+    </form>
+    <div id="historyBox" class="hidden" style="margin-top:22px">
+      <h3 style="font-size:19px;margin-bottom:10px">Attendance history</h3>
+      <div class="stats" id="histStats"></div>
+      <div class="table-wrap" style="max-height:260px;overflow-y:auto"><table><tbody id="histBody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<footer class="portal-foot">English Online Forum &middot; Admin area</footer>
+
+<script type="module">
+import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
+  deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
+  DAYS, DAY_NAMES, schedule, toast, friendlyError } from "./eof-portal.js";
+const $ = id => document.getElementById(id);
+
+$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-login.html"); });
+
+const me = await currentUser();
+if (!me) { location.replace("eof-login.html"); throw new Error("not signed in"); }
+if (!(await isAdmin(me))) { location.replace("eof-account.html"); throw new Error("not admin"); }
+$("adminEmail").textContent = me.email;
+$("loading").classList.add("hidden");
+$("app").classList.remove("hidden");
+
+let students = [];           // [{uid, ...data}]
+const attStats = {};         // uid -> {p, a}
+
+// ---------- Tabs ----------
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === t));
+  $("tab-students").classList.toggle("hidden", t.dataset.tab !== "students");
+  $("tab-attendance").classList.toggle("hidden", t.dataset.tab !== "attendance");
+  if (t.dataset.tab === "attendance") renderAttendance();
+}));
+
+// ---------- Students ----------
+async function loadStudents() {
+  const snap = await getDocs(collection(db, "students"));
+  students = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+    .sort((a, b) => String(a.studentNumber).localeCompare(String(b.studentNumber)));
+  renderStudents();
+  // Attendance totals (loaded after the table is shown)
+  await Promise.all(students.map(async s => {
+    const a = await getDocs(collection(db, "students", s.uid, "attendance"));
+    let p = 0, ab = 0; a.forEach(d => d.data().status === "present" ? p++ : ab++);
+    attStats[s.uid] = { p, a: ab };
+  }));
+  renderStudents();
+}
+
+function rate(uid) {
+  const s = attStats[uid];
+  if (!s) return "…";
+  return s.p + s.a ? `${Math.round(s.p * 100 / (s.p + s.a))}% <span class="hint" style="display:inline">(${s.p}/${s.p + s.a})</span>` : "—";
+}
+
+function renderStudents() {
+  const q = $("search").value.trim().toLowerCase();
+  const f = $("statusFilter").value;
+  const list = students.filter(s => (f === "all" || (s.status || "active") === f) &&
+    (!q || [s.name, s.studentNumber, s.email].some(v => String(v || "").toLowerCase().includes(q))));
+  $("studentBody").innerHTML = list.length ? list.map(s => `
+    <tr class="clickable" data-uid="${s.uid}">
+      <td><b>${esc(s.studentNumber)}</b></td>
+      <td>${esc(s.name)}<div class="hint" style="margin:0">${esc(s.course || "")}</div></td>
+      <td><span class="level-pill">${esc(s.level)}</span></td>
+      <td class="hide-sm">${esc(schedule(s))}</td>
+      <td class="hide-sm">${esc(prettyDate(s.registeredOn))}</td>
+      <td>${rate(s.uid)}</td>
+      <td><span class="badge ${esc(s.status || "active")}">${esc((s.status || "active")[0].toUpperCase() + (s.status || "active").slice(1))}</span></td>
+    </tr>`).join("") : `<tr><td colspan="7" class="empty">${students.length ? "No students match." : "No students yet. Click “Register student” to add the first one."}</td></tr>`;
+}
+$("search").addEventListener("input", renderStudents);
+$("statusFilter").addEventListener("change", renderStudents);
+$("studentBody").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-uid]"); if (tr) openModal(students.find(s => s.uid === tr.dataset.uid));
+});
+
+// ---------- Modal ----------
+$("fDays").innerHTML = DAYS.map(d => `<label><input type="checkbox" value="${d}">${d}</label>`).join("");
+let editing = null;
+
+function openModal(s) {
+  editing = s || null;
+  $("formErr").textContent = "";
+  $("modalTitle").textContent = s ? s.name : "Register student";
+  $("saveBtn").textContent = s ? "Save changes" : "Register student";
+  $("numberNotice").classList.toggle("hidden", !s);
+  if (s) $("numberNotice").innerHTML = `Student number <b>${esc(s.studentNumber)}</b> &middot; registered ${esc(prettyDate(s.registeredOn))}`;
+  $("fName").value = s?.name || "";
+  $("fEmail").value = s?.email || "";
+  $("fEmail").disabled = !!s;
+  $("fPhone").value = s?.phone || "";
+  $("fLevel").value = s?.level || "A1";
+  $("fCourse").value = s?.course || "General English";
+  $("fTeacher").value = s?.teacher || "";
+  $("fTime").value = s?.lessonTime || "";
+  $("fReg").value = s?.registeredOn || isoDate();
+  $("fStatus").value = s?.status || "active";
+  $("statusField").classList.toggle("hidden", !s);
+  document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
+  $("resendBtn").classList.toggle("hidden", !s);
+  $("historyBox").classList.toggle("hidden", !s);
+  if (s) loadHistory(s);
+  $("studentModal").classList.remove("hidden");
+  setTimeout(() => $("fName").focus(), 50);
+}
+function closeModal() { $("studentModal").classList.add("hidden"); editing = null; }
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeModal));
+$("studentModal").addEventListener("click", e => { if (e.target.id === "studentModal") closeModal(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+$("addBtn").addEventListener("click", () => openModal(null));
+
+$("resendBtn").addEventListener("click", async () => {
+  try { await sendPasswordResetEmail(auth, editing.email); toast(`Password email sent to ${editing.email}`); }
+  catch (e) { toast(friendlyError(e), "bad"); }
+});
+
+$("studentForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const data = {
+    name: $("fName").value.trim(),
+    phone: $("fPhone").value.trim(),
+    level: $("fLevel").value,
+    course: $("fCourse").value,
+    teacher: $("fTeacher").value.trim(),
+    lessonDays: [...document.querySelectorAll("#fDays input:checked")].map(c => c.value),
+    lessonTime: $("fTime").value.trim(),
+    registeredOn: $("fReg").value || isoDate()
+  };
+  const email = $("fEmail").value.trim().toLowerCase();
+  if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
+  if (!editing && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
+  $("saveBtn").disabled = true; $("formErr").textContent = "";
+  try {
+    if (editing) {
+      data.status = $("fStatus").value;
+      data.updatedAt = serverTimestamp();
+      await updateDoc(doc(db, "students", editing.uid), data);
+      Object.assign(editing, data);
+      toast("Saved");
+      closeModal(); renderStudents();
+    } else {
+      const uid = await createStudentLogin(email);
+      const studentNumber = await nextStudentNumber(data.registeredOn);
+      const rec = { ...data, email, studentNumber, status: "active", createdAt: serverTimestamp() };
+      await setDoc(doc(db, "students", uid), rec);
+      students.push({ uid, ...rec }); attStats[uid] = { p: 0, a: 0 };
+      students.sort((a, b) => String(a.studentNumber).localeCompare(String(b.studentNumber)));
+      closeModal(); renderStudents();
+      toast(`${data.name} registered as ${studentNumber}. Password email sent.`);
+    }
+  } catch (ex) { $("formErr").textContent = friendlyError(ex); }
+  $("saveBtn").disabled = false;
+});
+
+async function loadHistory(s) {
+  $("histBody").innerHTML = `<tr><td class="empty">Loading&hellip;</td></tr>`;
+  const a = await getDocs(collection(db, "students", s.uid, "attendance"));
+  const rows = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
+  const p = rows.filter(r => r.status === "present").length, ab = rows.length - p;
+  $("histStats").innerHTML = `<div class="stat present"><b>${p}</b><span>Present</span></div><div class="stat absent"><b>${ab}</b><span>Absent</span></div><div class="stat"><b>${rows.length ? Math.round(p * 100 / rows.length) + "%" : "—"}</b><span>Rate</span></div>`;
+  $("histBody").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
+    : `<tr><td class="empty">No lessons marked yet.</td></tr>`;
+}
+
+// ---------- Attendance ----------
+$("attDate").value = isoDate();
+const shiftDay = n => { const [y, m, d] = $("attDate").value.split("-").map(Number); $("attDate").value = isoDate(new Date(y, m - 1, d + n)); renderAttendance(); };
+$("prevDay").addEventListener("click", () => shiftDay(-1));
+$("nextDay").addEventListener("click", () => shiftDay(1));
+$("todayBtn").addEventListener("click", () => { $("attDate").value = isoDate(); renderAttendance(); });
+$("attDate").addEventListener("change", renderAttendance);
+$("attScope").addEventListener("change", renderAttendance);
+
+let attToken = 0;
+async function renderAttendance() {
+  const date = $("attDate").value || isoDate();
+  const dk = dayKey(date);
+  $("attHeading").textContent = `${DAY_NAMES[dk]}, ${prettyDate(date)}`;
+  const active = students.filter(s => (s.status || "active") === "active");
+  const list = $("attScope").value === "all" ? active : active.filter(s => (s.lessonDays || []).includes(dk));
+  const token = ++attToken;
+  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="4" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
+  $("attBody").innerHTML = `<tr><td colspan="4" class="empty">Loading&hellip;</td></tr>`;
+  const marks = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", date)).then(d => d.exists() ? d.data().status : null)));
+  if (token !== attToken) return;
+  $("attBody").innerHTML = list.map((s, i) => `
+    <tr data-uid="${s.uid}">
+      <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
+      <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
+      <td class="hide-sm">${esc(s.lessonTime || "—")}</td>
+      <td><div class="att-actions">
+        <button class="att-btn p ${marks[i] === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
+        <button class="att-btn a ${marks[i] === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
+      </div></td>
+    </tr>`).join("");
+}
+
+$("attBody").addEventListener("click", async e => {
+  const b = e.target.closest("[data-mark]"); if (!b) return;
+  const tr = b.closest("tr"); const uid = tr.dataset.uid; const date = $("attDate").value;
+  const ref = doc(db, "students", uid, "attendance", date);
+  const prev = tr.querySelector(".att-btn.on")?.dataset.mark || null;
+  const next = prev === b.dataset.mark ? null : b.dataset.mark;
+  tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === next));
+  try {
+    if (next) await setDoc(ref, { status: next, markedAt: serverTimestamp(), markedBy: me.email });
+    else await deleteDoc(ref);
+    const st = attStats[uid] || (attStats[uid] = { p: 0, a: 0 });
+    if (prev === "present") st.p--; if (prev === "absent") st.a--;
+    if (next === "present") st.p++; if (next === "absent") st.a++;
+    renderStudents();
+  } catch (ex) {
+    tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === prev));
+    toast(friendlyError(ex), "bad");
+  }
+});
+
+loadStudents().catch(e => { $("studentBody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendlyError(e))}</td></tr>`; });
+</script>
+</body>
+</html>

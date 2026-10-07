@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Login | English Online Forum</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="eof-portal.css">
+</head>
+<body>
+<header class="portal-top">
+  <div class="portal-top-inner">
+    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Language is Freedom</span></div></a>
+    <div class="portal-top-actions"><a class="portal-link" href="/">&larr; Back to website</a></div>
+  </div>
+</header>
+
+<main>
+  <div class="login-wrap">
+    <div class="card">
+      <div class="eyebrow">Student Portal</div>
+      <h1 id="loginTitle">Welcome back</h1>
+      <p class="lead" id="loginLead">Log in to see your student details, lesson days and attendance.</p>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" type="email" autocomplete="username" required>
+        </div>
+        <div class="field" id="pwField">
+          <label for="password">Password</label>
+          <input class="input" id="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" id="loginBtn" type="submit">Log in</button>
+        <div class="err" id="loginErr" role="alert"></div>
+      </form>
+
+      <div class="login-alt">
+        <button class="linkbtn" id="forgotBtn" type="button">Forgot your password?</button>
+      </div>
+    </div>
+    <p class="hint" style="text-align:center;margin-top:16px;">New student? Your teacher creates your account and you'll receive an email to set your password.<br>Questions? <a href="https://wa.me/996995648111" target="_blank" rel="noopener">Message us on WhatsApp</a>.</p>
+  </div>
+</main>
+
+<footer class="portal-foot">&copy; <span id="yr"></span> English Online Forum &middot; <a href="eof-privacy-policy.html">Privacy Policy</a></footer>
+
+<script type="module">
+import { auth, configReady, currentUser, isAdmin, signInWithEmailAndPassword, sendPasswordResetEmail, friendlyError } from "./eof-portal.js";
+document.getElementById("yr").textContent = new Date().getFullYear();
+
+const form = document.getElementById("loginForm");
+const err = document.getElementById("loginErr");
+const btn = document.getElementById("loginBtn");
+const email = document.getElementById("email");
+const pw = document.getElementById("password");
+const pwField = document.getElementById("pwField");
+const forgot = document.getElementById("forgotBtn");
+let resetMode = false;
+
+async function goHome(user) {
+  location.replace((await isAdmin(user)) ? "eof-admin.html" : "eof-account.html");
+}
+
+if (!configReady) {
+  err.textContent = "The student portal is being set up. Please try again soon.";
+  btn.disabled = true;
+} else {
+  const u = await currentUser();
+  if (u) goHome(u);
+}
+
+function setMode(reset) {
+  resetMode = reset;
+  pwField.classList.toggle("hidden", reset);
+  document.getElementById("loginTitle").textContent = reset ? "Reset your password" : "Welcome back";
+  document.getElementById("loginLead").textContent = reset
+    ? "Enter your email and we'll send you a link to choose a new password."
+    : "Log in to see your student details, lesson days and attendance.";
+  btn.textContent = reset ? "Send reset link" : "Log in";
+  forgot.textContent = reset ? "Back to login" : "Forgot your password?";
+  err.textContent = ""; err.style.color = "";
+}
+forgot.addEventListener("click", () => setMode(!resetMode));
+
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  err.textContent = ""; err.style.color = "";
+  const em = email.value.trim();
+  if (!em) { err.textContent = "Please enter your email."; return; }
+  btn.disabled = true;
+  try {
+    if (resetMode) {
+      await sendPasswordResetEmail(auth, em);
+      err.style.color = "var(--green)";
+      err.textContent = "If this email is registered, a reset link is on its way. Check your inbox (and spam).";
+    } else {
+      if (!pw.value) { err.textContent = "Please enter your password."; btn.disabled = false; return; }
+      const cred = await signInWithEmailAndPassword(auth, em, pw.value);
+      await goHome(cred.user);
+      return;
+    }
+  } catch (ex) {
+    if (resetMode && ex.code === "auth/user-not-found") {
+      err.style.color = "var(--green)";
+      err.textContent = "If this email is registered, a reset link is on its way. Check your inbox (and spam).";
+    } else err.textContent = friendlyError(ex);
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
