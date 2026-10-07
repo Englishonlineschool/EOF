@@ -125,7 +125,6 @@
       <div class="grid-2">
         <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName"></div>
         <div class="field"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" type="tel"></div>
-        <div class="field"><label for="fParentEmail">Email</label><input class="input" id="fParentEmail" type="email" placeholder="Optional"></div>
       </div>
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
@@ -250,7 +249,7 @@ function openModal(s) {
   $("fJob").value = s?.occupation || "";
   $("fParentName").value = s?.parentName || "";
   $("fParentPhone").value = s?.parentPhone || "";
-  $("fParentEmail").value = s?.parentEmail || "";
+
   $("fStatus").value = s?.status || "active";
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
@@ -290,12 +289,10 @@ $("studentForm").addEventListener("submit", async e => {
     school: $("fSchool").value.trim(),
     occupation: $("fJob").value.trim(),
     parentName: $("fParentName").value.trim(),
-    parentPhone: $("fParentPhone").value.trim(),
-    parentEmail: $("fParentEmail").value.trim()
+    parentPhone: $("fParentPhone").value.trim()
   };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
-  if (data.parentEmail && !/^\S+@\S+\.\S+$/.test(data.parentEmail)) { $("formErr").textContent = "Please check the parent's email address."; return; }
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
   $("saveBtn").disabled = true; $("formErr").textContent = "";
   try {
