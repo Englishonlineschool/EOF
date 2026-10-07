@@ -248,3 +248,104 @@ export async function downloadStudentCard(s, att = [], results = []) {
 }
 // Start loading the PDF library and fonts early so the download is quick.
 export function warmUp() { lib().catch(() => { }); fonts(); }
+
+// ---------- Teacher profile & CV ----------
+const lines = v => Array.isArray(v) ? v.filter(Boolean) : String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
+export function teacherDisplayName(t) { return [t.title ? t.title.replace(/\.?$/, ".") : "", t.name].filter(Boolean).join(" "); }
+
+function buildTeacher(t, studentCount, F, logoData, nameImg) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
+  if (F) {
+    doc.addFileToVFS("pr.ttf", F.r); doc.addFont("pr.ttf", "Pop", "normal");
+    doc.addFileToVFS("pm.ttf", F.m); doc.addFont("pm.ttf", "PopM", "normal");
+    doc.addFileToVFS("pb.ttf", F.b); doc.addFont("pb.ttf", "Pop", "bold");
+  }
+  const T = str => F ? String(str ?? "") : String(str ?? "").replace(/[ğĞşŞıİəƏ–—·→’“”]/g, ch => ASCII[ch]);
+  const font = (w, size) => { if (F) doc.setFont(w === "m" ? "PopM" : "Pop", w === "b" ? "bold" : "normal"); else doc.setFont("helvetica", w === "b" ? "bold" : "normal"); doc.setFontSize(size); };
+  const fill = c => doc.setFillColor(...c), ink = c => doc.setTextColor(...c), pen = c => doc.setDrawColor(...c);
+  const text = (s, x, y, o) => doc.text(T(s), x, y, o);
+  const spaced = (s, x, y, sp) => { doc.setCharSpace(sp); text(s, x, y); doc.setCharSpace(0); };
+  const W = 210, X = 16, TW = W - 32;
+  const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const display = teacherDisplayName(t);
+  doc.setProperties({ title: `English Online Forum — Teacher Profile — ${display}`, author: "English Online Forum", creator: BRAND.site });
+
+  function header(small) {
+    const h = small ? 26 : 44;
+    fill(BRAND.navy); doc.rect(0, 0, W, h, "F");
+    doc.saveGraphicsState(); doc.rect(0, 0, W, h, null); doc.clip(); doc.discardPath();
+    doc.setGState(new doc.GState({ opacity: 0.18 })); fill(BRAND.blue); doc.circle(190, 4, small ? 26 : 38, "F");
+    doc.setGState(new doc.GState({ opacity: 0.12 })); fill(BRAND.red); doc.circle(214, h, 18, "F");
+    doc.setGState(new doc.GState({ opacity: 1 })); doc.restoreGraphicsState();
+    fill(BRAND.red); doc.rect(0, h, W, 1.2, "F");
+    const r = small ? 8.5 : 13, cx = X + r, cy = h / 2;
+    fill([255, 255, 255]); doc.circle(cx, cy, r, "F");
+    if (logoData) doc.addImage(logoData, "PNG", cx - r * 0.92, cy - r * 0.92, r * 1.84, r * 1.84);
+    ink([255, 255, 255]); font("b", small ? 13 : 18); text("English Online Forum", cx + r + 6, cy - (small ? 0.5 : 2));
+    ink([200, 208, 228]); font("r", small ? 8 : 9);
+    text(small ? `Teacher profile · ${display}` : "Language is Freedom   •   " + BRAND.site, cx + r + 6, cy + (small ? 5 : 5.5));
+    if (!small) {
+      fill([255, 255, 255]); doc.roundedRect(W - X - 42, cy - 5.5, 42, 11, 2.5, 2.5, "F");
+      ink(BRAND.navy); font("b", 8); spaced("TEACHER PROFILE", W - X - 37.8, cy + 1.3, 0.6);
+    }
+    return h;
+  }
+  function footer() {
+    fill(BRAND.navy); doc.rect(0, 280, W, 17, "F");
+    ink([255, 255, 255]); font("m", 8.6); text(`${BRAND.site}   •   ${BRAND.email}   •   ${BRAND.phone}`, X, 290);
+    doc.link(X, 286.5, doc.getTextWidth(BRAND.site), 4.5, { url: BRAND.url });
+    ink([200, 208, 228]); font("r", 7.2); text(`Issued ${today}`, W - X, 289.6, { align: "right" });
+  }
+  let y = header(false) + 14;
+  const need = h => { if (y + h > 272) { footer(); doc.addPage(); y = header(true) + 12; } };
+  const h2 = (s, room = 20) => { need(room); ink(BRAND.red); font("b", 8.4); spaced(s.toUpperCase(), X, y, 0.8); pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y + 2.4, X + TW, y + 2.4); y += 8; };
+  const para = (s, size = 10) => { ink(BRAND.text); font("r", size); const ls = doc.splitTextToSize(T(s), TW); ls.forEach(l => { need(6); doc.text(l, X, y); y += size * 0.5; }); y += 3; };
+  const bullets = arr => arr.forEach(s => {
+    font("r", 10); const ls = doc.splitTextToSize(T(s), TW - 7);
+    need(ls.length * 5 + 2);
+    fill(BRAND.red); doc.circle(X + 1.4, y - 1.3, 0.9, "F");
+    ink(BRAND.text); ls.forEach((l, i) => doc.text(l, X + 6, y + i * 5)); y += ls.length * 5 + 2.2;
+  });
+
+  ink(BRAND.grey); font("r", 9.5); text("Teacher profile for", X, y); y += 3;
+  const nh = 11, nw = Math.min(TW - 40, nh * nameImg.ratio);
+  doc.addImage(nameImg.data, "PNG", X, y, nw, nw / nameImg.ratio); y += nw / nameImg.ratio + 5;
+  let px = X;
+  const pill = (label, bg, fg, bold = true) => { font(bold ? "b" : "m", 8.6); const w = doc.getTextWidth(T(label)) + 8; fill(bg); doc.roundedRect(px, y - 4.6, w, 6.8, 1.8, 1.8, "F"); ink(fg); text(label, px + 4, y); px += w + 3; };
+  pill(t.role === "admin" ? "Founder & Director" : "EOF Teacher", BRAND.navy, [255, 255, 255]);
+  if (t.teaches) pill(t.teaches, BRAND.gold, [13, 24, 54]);
+  if (t.joinedOn) pill("Joined " + monthYear(t.joinedOn), BRAND.soft, BRAND.navy, false);
+  y += 12;
+
+  if (t.bio) { h2("About"); para(t.bio); }
+
+  h2("At English Online Forum");
+  const rows = [["Teaches", t.teaches], ["Joined", t.joinedOn ? prettyDate(t.joinedOn) : ""], ["Active students", studentCount != null ? String(studentCount) : ""],
+    ["Email", t.email], ["Phone", t.phone]].filter(r => r[1]);
+  const colW = TW / 2;
+  for (let i = 0; i < rows.length; i += 2) {
+    need(12);
+    [rows[i], rows[i + 1]].forEach((r, k) => { if (!r) return; const x = X + k * colW;
+      ink(BRAND.grey); font("r", 7.6); text(r[0].toUpperCase(), x, y);
+      ink(BRAND.navy); font("m", 10); doc.text(doc.splitTextToSize(T(r[1]), colW - 6)[0], x, y + 5); });
+    y += 12;
+  }
+  y += 2;
+  const sections = [["Education", lines(t.education)], ["Teaching experience", lines(t.experience)], ["Certificates & training", lines(t.certificates)], ["Languages", lines(t.languages)], ["Skills & strengths", lines(t.skills)]];
+  sections.forEach(([title, arr]) => { if (!arr.length) return; h2(title); bullets(arr); y += 3; });
+  footer();
+  return { doc, fileName: `EOF-Teacher-Profile-${safeFile(display)}.pdf` };
+}
+
+export async function downloadTeacherProfile(t, studentCount) {
+  const display = teacherDisplayName(t) || "Teacher";
+  const [, F, logoData, nameImg] = await Promise.all([lib(), fonts(), logo(), nameImage(display)]);
+  const { doc, fileName } = buildTeacher(t, studentCount, F, logoData, nameImg);
+  const blob = doc.output("blob");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = fileName;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return fileName;
+}

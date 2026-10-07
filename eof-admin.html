@@ -31,6 +31,7 @@
       <button class="tab active" data-tab="students" role="tab">Students</button>
       <button class="tab" data-tab="attendance" role="tab">Attendance</button>
       <button class="tab hidden" data-tab="teachers" role="tab" id="teachersTabBtn">Teachers</button>
+      <button class="tab hidden" data-tab="myprofile" role="tab" id="myProfileTabBtn">My profile</button>
     </div>
 
     <!-- Students -->
@@ -81,7 +82,7 @@
     <!-- Teachers (admin only) -->
     <section id="tab-teachers" class="hidden">
       <div class="toolbar">
-        <p class="hint" style="margin:0;flex:1;min-width:220px">Teachers log in with <b>Staff login</b>. Each teacher sees only the students whose <b>Teacher</b> field matches her name, and can mark attendance, add results and download student cards. They can't see phone numbers or change student details.</p>
+        <p class="hint" style="margin:0;flex:1;min-width:220px">Click a teacher to see her profile and CV, edit it, or download it as a PDF. Teachers log in with <b>Staff login</b>. Each teacher sees only the students whose <b>Teacher</b> field matches her name, and can mark attendance, add results and download student cards. They can't see phone numbers or change student details.</p>
         <button class="btn btn-primary" id="addTeacherBtn" type="button">+ Add teacher</button>
       </div>
       <form id="teacherForm" class="result-form hidden" novalidate autocomplete="off">
@@ -98,7 +99,7 @@
       </form>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Teacher</th><th class="hide-sm">Email</th><th class="hide-sm">Phone</th><th>Students</th><th>Login</th><th></th></tr></thead>
+          <thead><tr><th>Teacher</th><th class="hide-sm">Joined</th><th class="hide-sm">Phone</th><th>Students</th><th>Login</th><th></th></tr></thead>
           <tbody id="teacherBody"><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
@@ -208,6 +209,44 @@
   </div>
 </div>
 
+<!-- Teacher profile modal -->
+<div class="modal-bg hidden" id="teacherModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tmTitle">
+    <button class="modal-x" type="button" data-tclose aria-label="Close">&times;</button>
+    <div class="eyebrow" id="tmEyebrow">Teacher profile</div>
+    <h2 id="tmTitle">Teacher</h2>
+    <div class="notice" id="tmNotice"></div>
+    <form id="profileForm" novalidate autocomplete="off">
+      <h3 class="form-sec">Profile</h3>
+      <div class="grid-2">
+        <div class="field"><label for="pTitle">Title</label><select class="input staff-admin" id="pTitle"><option value="Ms">Ms.</option><option value="Mr">Mr.</option><option value="Mrs">Mrs.</option><option value="Dr">Dr.</option></select></div>
+        <div class="field"><label for="pName">Full name</label><input class="input staff-admin" id="pName" autocomplete="off"></div>
+        <div class="field"><label for="pTeaches">Teaches</label><input class="input staff-admin" id="pTeaches" autocomplete="off" placeholder="e.g. Kids' Groups"></div>
+        <div class="field"><label for="pJoined">Joined EOF on</label><input class="input staff-admin" id="pJoined" type="date"></div>
+        <div class="field"><label for="pEmail">Email</label><input class="input" id="pEmail" disabled></div>
+        <div class="field"><label for="pPhone">Phone / WhatsApp</label><input class="input staff-admin" id="pPhone" type="tel" autocomplete="off"></div>
+      </div>
+      <h3 class="form-sec">CV</h3>
+      <div class="field"><label for="pBio">About (short introduction)</label><textarea class="input" id="pBio" rows="3" placeholder="A few sentences about her teaching style and background."></textarea></div>
+      <div class="field"><label for="pEdu">Education <span class="hint" style="display:inline">— one per line</span></label><textarea class="input" id="pEdu" rows="3" placeholder="e.g. BA, University of Nairobi (2015)"></textarea></div>
+      <div class="field"><label for="pExp">Teaching experience <span class="hint" style="display:inline">— one per line</span></label><textarea class="input" id="pExp" rows="4" placeholder="e.g. English teacher, ABC Primary School, 2018–2023"></textarea></div>
+      <div class="grid-2">
+        <div class="field"><label for="pCert">Certificates &amp; training <span class="hint" style="display:inline">— one per line</span></label><textarea class="input" id="pCert" rows="3" placeholder="e.g. TESOL, 2016"></textarea></div>
+        <div class="field"><label for="pLang">Languages <span class="hint" style="display:inline">— one per line</span></label><textarea class="input" id="pLang" rows="3" placeholder="e.g. English (fluent)"></textarea></div>
+      </div>
+      <div class="field"><label for="pSkills">Skills &amp; strengths <span class="hint" style="display:inline">— one per line</span></label><textarea class="input" id="pSkills" rows="2"></textarea></div>
+      <div class="err" id="profileErr" role="alert"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="pPdfBtn">Download profile &amp; CV (PDF)</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost" type="button" data-tclose>Close</button>
+        <button class="btn btn-primary" type="submit" id="pSaveBtn">Save profile</button>
+      </div>
+    </form>
+    <div id="tmStudents" style="margin-top:18px"></div>
+  </div>
+</div>
+
 <footer class="portal-foot">English Online Forum &middot; Admin area</footer>
 
 <script type="module">
@@ -215,7 +254,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=2";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=3";
 const $ = id => document.getElementById(id);
 
 $("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-admin-login.html"); });
@@ -234,6 +273,7 @@ if (!ADMIN) {
   document.title = "My students | English Online Forum";
   $("addBtn").classList.add("hidden");
   $("search").placeholder = "Search my students";
+  $("myProfileTabBtn").classList.remove("hidden");
 } else {
   $("teachersTabBtn").classList.remove("hidden");
 }
@@ -252,6 +292,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
   if (t.dataset.tab === "attendance") renderAttendance();
   if (t.dataset.tab === "teachers") loadTeachers();
+  if (t.dataset.tab === "myprofile") { document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "students")); $("tab-students").classList.remove("hidden"); openProfile({ uid: me.uid, ...TEACHER }); }
 }));
 
 // ---------- Students ----------
@@ -597,9 +638,9 @@ async function loadTeachers() {
   $("teacherBody").innerHTML = teachers.length ? teachers.map(t => {
     const count = students.filter(s => s.teacher === t.name && (s.status || "active") === "active").length;
     const last = t.lastLogin && t.lastLogin.toDate ? t.lastLogin.toDate().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
-    const badge = t.pending ? `<span class="login-badge never">Waiting for email · no login yet</span>` : t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
-    return `<tr data-tid="${t.uid}"><td><b>${esc(t.name)}</b></td><td class="hide-sm">${esc(t.email || "—")}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
-      <td style="white-space:nowrap">${t.pending ? `<span class="hint" style="display:inline">Send me her email to create the login</span>` : t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
+    const badge = t.role === "admin" ? `<span class="login-badge ok">Admin account</span>` : t.pending ? `<span class="login-badge never">Waiting for email · no login yet</span>` : t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
+    return `<tr data-tid="${t.uid}" class="clickable"><td><b>${esc(teacherDisplayName(t))}</b><div class="hint" style="margin:0">${esc(t.teaches || "")}</div></td><td class="hide-sm">${t.joinedOn ? esc(prettyDate(t.joinedOn)) : "—"}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
+      <td style="white-space:nowrap">${t.role === "admin" ? "" : t.pending ? `<span class="hint" style="display:inline">Send me her email to create the login</span>` : t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
   }).join("") : `<tr><td colspan="6" class="empty">No teacher accounts yet. Click “Add teacher”.</td></tr>`;
 }
 $("addTeacherBtn").addEventListener("click", () => { $("teacherForm").reset(); $("teacherErr").textContent = ""; $("teacherForm").classList.remove("hidden"); $("tName").focus(); });
@@ -622,6 +663,7 @@ $("teacherForm").addEventListener("submit", async e => {
 $("teacherBody").addEventListener("click", async e => {
   const tr = e.target.closest("tr[data-tid]"); if (!tr) return;
   const t = teachers.find(x => x.uid === tr.dataset.tid); if (!t) return;
+  if (!e.target.closest("button")) { openProfile(t); return; }
   try {
     if (e.target.closest("[data-t-resend]")) { await sendPasswordResetEmail(auth, t.email); toast(`Password email sent to ${t.email}`); return; }
     const off = e.target.closest("[data-t-off]");
@@ -631,6 +673,56 @@ $("teacherBody").addEventListener("click", async e => {
     }
     if (e.target.closest("[data-t-on]")) { await updateDoc(doc(db, "teachers", t.uid), { active: true }); toast(`${t.name}'s access restored`); loadTeachers(); }
   } catch (ex) { toast(friendlyError(ex), "bad"); }
+});
+
+// ---------- Teacher profile & CV ----------
+let profile = null;
+const toLines = v => Array.isArray(v) ? v.join("\n") : (v || "");
+const fromLines = id => $(id).value.split("\n").map(x => x.trim()).filter(Boolean);
+function openProfile(t) {
+  profile = t;
+  $("profileErr").textContent = "";
+  $("tmTitle").textContent = teacherDisplayName(t);
+  $("tmEyebrow").textContent = t.role === "admin" ? "Founder profile" : TEACHER ? "My profile" : "Teacher profile";
+  const mine = students.filter(s => s.teacher === t.name && (s.status || "active") === "active");
+  $("tmNotice").innerHTML = `${t.joinedOn ? "Joined EOF on <b>" + esc(prettyDate(t.joinedOn)) + "</b> &middot; " : ""}<b>${mine.length}</b> active student${mine.length === 1 ? "" : "s"}` +
+    (TEACHER ? "<br>You can update your CV below. Ask the school if your name, title, joining date or phone need changing." : "");
+  $("pTitle").value = t.title || "Ms"; $("pName").value = t.name || ""; $("pTeaches").value = t.teaches || "";
+  $("pJoined").value = t.joinedOn || ""; $("pEmail").value = t.email || (t.role === "admin" ? "englishonlineforum@gmail.com" : "No login yet");
+  $("pPhone").value = t.phone || ""; $("pBio").value = t.bio || "";
+  $("pEdu").value = toLines(t.education); $("pExp").value = toLines(t.experience); $("pCert").value = toLines(t.certificates);
+  $("pLang").value = toLines(t.languages); $("pSkills").value = toLines(t.skills);
+  document.querySelectorAll("#profileForm .staff-admin").forEach(el => el.disabled = !!TEACHER);
+  $("tmStudents").innerHTML = (ADMIN || TEACHER) && mine.length ? `<h3 style="font-size:17px;margin-bottom:8px">${TEACHER ? "My" : "Her"} students</h3><p class="hint">${mine.map(s => esc(s.name)).join(" &middot; ")}</p>` : "";
+  $("teacherModal").classList.remove("hidden");
+  warmUp();
+}
+document.querySelectorAll("[data-tclose]").forEach(b => b.addEventListener("click", () => $("teacherModal").classList.add("hidden")));
+$("teacherModal").addEventListener("click", e => { if (e.target.id === "teacherModal") $("teacherModal").classList.add("hidden"); });
+$("profileForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const t = profile; if (!t) return;
+  const cv = { bio: $("pBio").value.trim(), education: fromLines("pEdu"), experience: fromLines("pExp"), certificates: fromLines("pCert"), languages: fromLines("pLang"), skills: fromLines("pSkills") };
+  const data = TEACHER ? cv : { ...cv, title: $("pTitle").value, name: $("pName").value.trim(), teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, phone: $("pPhone").value.trim() };
+  if (!TEACHER && !data.name) { $("profileErr").textContent = "Enter the teacher's name."; return; }
+  $("pSaveBtn").disabled = true; $("profileErr").textContent = "";
+  try {
+    await updateDoc(doc(db, "teachers", t.uid), data);
+    Object.assign(t, data); if (TEACHER) Object.assign(TEACHER, data);
+    $("tmTitle").textContent = teacherDisplayName(t);
+    toast("Profile saved"); if (ADMIN) loadTeachers();
+  } catch (ex) { $("profileErr").textContent = friendlyError(ex); }
+  $("pSaveBtn").disabled = false;
+});
+$("pPdfBtn").addEventListener("click", async () => {
+  const t = profile; if (!t) return;
+  const b = $("pPdfBtn"), label = b.textContent; b.disabled = true; b.textContent = "Preparing PDF…";
+  const current = { ...t, title: $("pTitle").value, name: $("pName").value.trim() || t.name, teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, phone: $("pPhone").value.trim(),
+    bio: $("pBio").value.trim(), education: fromLines("pEdu"), experience: fromLines("pExp"), certificates: fromLines("pCert"), languages: fromLines("pLang"), skills: fromLines("pSkills") };
+  if (t.role === "admin") current.email = "englishonlineforum@gmail.com";
+  try { await downloadTeacherProfile(current, students.filter(s => s.teacher === current.name && (s.status || "active") === "active").length); }
+  catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
+  b.disabled = false; b.textContent = label;
 });
 
 // ---------- Attendance ----------
