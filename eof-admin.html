@@ -85,14 +85,14 @@
     <button class="modal-x" type="button" data-close aria-label="Close">&times;</button>
     <h2 id="modalTitle">Register student</h2>
     <div class="notice hidden" id="numberNotice"></div>
-    <form id="studentForm" novalidate>
+    <form id="studentForm" novalidate autocomplete="off">
       <h3 class="form-sec">Student</h3>
       <div class="grid-2">
-        <div class="field"><label for="fName">Full name</label><input class="input" id="fName" required></div>
-        <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" type="date"></div>
-        <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
-        <div class="field"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" type="tel" placeholder="Optional"></div>
-        <div class="field"><label for="fCity">City of residence</label><input class="input" id="fCity" placeholder="e.g. İzmir"></div>
+        <div class="field"><label for="fName">Full name</label><input class="input" id="fName" autocomplete="off" required></div>
+        <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" autocomplete="off" type="date"></div>
+        <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
+        <div class="field"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
+        <div class="field"><label for="fCity">City of residence</label><input class="input" id="fCity" autocomplete="off" placeholder="e.g. İzmir"></div>
         <div class="field"><label for="fCountry">Country of residence</label><input class="input" id="fCountry" list="countries" placeholder="e.g. Türkiye">
           <datalist id="countries"><option>Türkiye</option><option>Kyrgyzstan</option><option>Kazakhstan</option><option>Uzbekistan</option><option>Kenya</option><option>Russia</option><option>Germany</option><option>United Kingdom</option><option>Netherlands</option><option>Canada</option><option>United States</option></datalist></div>
         <div class="field"><label for="fTz">Time zone</label><input class="input" id="fTz" list="zones" placeholder="e.g. Türkiye (UTC+3)">
@@ -123,8 +123,8 @@
 
       <h3 class="form-sec">Parent / guardian <span class="hint" style="display:inline;font-family:Poppins,sans-serif;font-weight:400">— for students under 18</span></h3>
       <div class="grid-2">
-        <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName"></div>
-        <div class="field"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" type="tel"></div>
+        <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName" autocomplete="off"></div>
+        <div class="field"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" autocomplete="off" type="tel"></div>
       </div>
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
