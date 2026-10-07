@@ -111,6 +111,44 @@ export async function nextStudentNumber(regIso) {
   return `EOF-${yy}-${String(n).padStart(4, "0")}`;
 }
 
+// ---------- Results (tests and exams) ----------
+export const RESULT_TYPES = ["Placement test", "Progress test", "Mid-term exam", "Final exam", "Mock IELTS", "Speaking assessment", "Other"];
+export const SKILLS = [
+  ["reading", "Reading"], ["listening", "Listening"], ["writing", "Writing"],
+  ["speaking", "Speaking"], ["uoe", "Grammar & Vocabulary"]
+];
+export const SKILL_LABEL = Object.fromEntries(SKILLS);
+
+// Score as text: 82% · Band 6.5 · 41/50
+export function fmtScore(r, v = r?.overall) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (r.scale === "band") return `Band ${Number(v).toFixed(1).replace(/\.0$/, "")}`;
+  if (r.scale === "points") return `${v}/${r.max || 100}`;
+  return `${v}%`;
+}
+// Score as 0–100 (for bars and charts)
+export function pctOf(r, v = r?.overall) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  if (r.scale === "band") return Math.round(n / 9 * 100);
+  if (r.scale === "points") return Math.round(n / (r.max || 100) * 100);
+  return Math.round(n);
+}
+export function resultTitle(r) { return r.title ? `${r.type} · ${r.title}` : r.type; }
+export function resultSummary(r) {
+  if (!r) return "";
+  return [r.type, r.overall != null && r.overall !== "" ? fmtScore(r) : "", r.level].filter(Boolean).join(" · ");
+}
+// Level history, oldest first. Students without one start at their registration level.
+export function levelHistory(s) {
+  return (s.levelHistory && s.levelHistory.length) ? s.levelHistory : (s.level ? [{ level: s.level, date: s.registeredOn || "" }] : []);
+}
+export function monthYear(iso) {
+  if (!iso) return "";
+  const [y, m] = iso.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
+
 export function toast(msg, kind = "ok") {
   let t = document.getElementById("portalToast");
   if (!t) { t = document.createElement("div"); t.id = "portalToast"; document.body.appendChild(t); }
