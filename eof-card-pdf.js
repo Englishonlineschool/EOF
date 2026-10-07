@@ -59,6 +59,17 @@ async function nameImage(name) {
 const ASCII = { "ğ": "g", "Ğ": "G", "ş": "s", "Ş": "S", "ı": "i", "İ": "I", "ə": "e", "Ə": "E", "–": "-", "—": "-", "·": "-", "→": "->", "’": "'", "“": '"', "”": '"' };
 function safeFile(s) { return String(s || "Student").normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[ğĞşŞıİ]/g, ch => ASCII[ch]).replace(/[^A-Za-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "Student"; }
 
+
+// Photo (data URL, JPEG) drawn as a framed square on the right of the name block.
+function drawPhoto(doc, data, x, y, size) {
+  if (!data) return;
+  try {
+    doc.setFillColor(255, 255, 255); doc.setDrawColor(226, 230, 239); doc.setLineWidth(0.4);
+    doc.roundedRect(x - 1.2, y - 1.2, size + 2.4, size + 2.4, 2.5, 2.5, "FD");
+    doc.addImage(data, "JPEG", x, y, size, size);
+  } catch (e) { console.warn("photo", e); }
+}
+
 function build(s, att, results, F, logoData, nameImg) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
@@ -109,6 +120,7 @@ function build(s, att, results, F, logoData, nameImg) {
   const h2 = (t, room = 14) => { need(room); ink(BRAND.red); font("b", 8.4); spaced(t.toUpperCase(), X, y, 0.8); pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y + 2.4, X + TW, y + 2.4); y += 8; };
 
   /* Name block */
+  drawPhoto(doc, s.photo, W - X - 30, y - 4, 30);
   ink(BRAND.grey); font("r", 9.5); text("Student record card for", X, y); y += 3;
   const nh = 11, nw = Math.min(TW - 50, nh * nameImg.ratio);
   doc.addImage(nameImg.data, "PNG", X, y, nw, nw / nameImg.ratio); y += nw / nameImg.ratio + 5;
@@ -308,8 +320,9 @@ function buildTeacher(t, studentCount, F, logoData, nameImg) {
     ink(BRAND.text); ls.forEach((l, i) => doc.text(l, X + 6, y + i * 5)); y += ls.length * 5 + 2.2;
   });
 
+  drawPhoto(doc, t.photo, W - X - 30, y - 4, 30);
   ink(BRAND.grey); font("r", 9.5); text("Teacher profile for", X, y); y += 3;
-  const nh = 11, nw = Math.min(TW - 40, nh * nameImg.ratio);
+  const nh = 11, nw = Math.min(TW - 50, nh * nameImg.ratio);
   doc.addImage(nameImg.data, "PNG", X, y, nw, nw / nameImg.ratio); y += nw / nameImg.ratio + 5;
   let px = X;
   const pill = (label, bg, fg, bold = true) => { font(bold ? "b" : "m", 8.6); const w = doc.getTextWidth(T(label)) + 8; fill(bg); doc.roundedRect(px, y - 4.6, w, 6.8, 1.8, 1.8, "F"); ink(fg); text(label, px + 4, y); px += w + 3; };

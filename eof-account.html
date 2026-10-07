@@ -38,7 +38,7 @@
         <p id="courseLine"></p>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch">
-        <div class="idcard"><small>Student number</small><strong id="studentNo"></strong></div>
+        <div class="idcard"><img class="id-photo hidden" id="idPhoto" alt=""><small>Student number</small><strong id="studentNo"></strong></div>
         <button class="btn btn-primary" id="cardBtn" type="button">Download my student card (PDF)</button>
       </div>
     </section>
@@ -93,7 +93,7 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
   levelHistory, monthYear, doc, getDoc } from "./eof-portal.js?v=2";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=4";
 let me = null, attRows = [], results = [];
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);
@@ -114,6 +114,8 @@ else {
       // phone numbers are kept in a separate private record
       const c = await getDoc(doc(db, "students", snap.id, "private", "contact")).catch(() => null);
       if (c && c.exists()) { s.phone = c.data().phone || s.phone || ""; s.parentPhone = c.data().parentPhone || s.parentPhone || ""; }
+      const ph = await getDoc(doc(db, "students", snap.id, "media", "photo")).catch(() => null);
+      if (ph && ph.exists() && ph.data().data) { s.photo = ph.data().data; $("idPhoto").src = s.photo; $("idPhoto").classList.remove("hidden"); }
       $("firstName").textContent = (s.name || "").split(" ")[0] || "Student";
       $("courseLine").textContent = s.course ? s.course : "Welcome to your student portal.";
       $("studentNo").textContent = s.studentNumber || "—";

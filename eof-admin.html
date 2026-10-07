@@ -112,6 +112,15 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <button class="modal-x" type="button" data-close aria-label="Close">&times;</button>
     <h2 id="modalTitle">Register student</h2>
+    <div class="photo-row hidden" id="sPhotoRow">
+      <div class="photo-box" id="sPhotoBox"><span>No photo</span></div>
+      <div class="photo-actions">
+        <label class="btn btn-ghost btn-sm admin-only" for="sPhotoFile">Upload photo</label>
+        <input type="file" id="sPhotoFile" accept="image/*" hidden>
+        <button class="linkbtn admin-only" type="button" id="sPhotoRemove">Remove photo</button>
+        <p class="hint">Square photos work best. It's resized automatically.</p>
+      </div>
+    </div>
     <div class="notice hidden" id="numberNotice"></div>
     <form id="studentForm" novalidate autocomplete="off"><fieldset id="studentFields" style="border:0;padding:0;margin:0;min-width:0">
       <h3 class="form-sec">Student</h3>
@@ -215,6 +224,14 @@
     <button class="modal-x" type="button" data-tclose aria-label="Close">&times;</button>
     <div class="eyebrow" id="tmEyebrow">Teacher profile</div>
     <h2 id="tmTitle">Teacher</h2>
+    <div class="photo-row" id="tPhotoRow">
+      <div class="photo-box" id="tPhotoBox"><span>No photo</span></div>
+      <div class="photo-actions">
+        <label class="btn btn-ghost btn-sm admin-only" for="tPhotoFile">Upload photo</label>
+        <input type="file" id="tPhotoFile" accept="image/*" hidden>
+        <button class="linkbtn admin-only" type="button" id="tPhotoRemove">Remove photo</button>
+      </div>
+    </div>
     <div class="notice" id="tmNotice"></div>
     <form id="profileForm" novalidate autocomplete="off">
       <h3 class="form-sec">Profile</h3>
@@ -254,7 +271,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=2";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=3";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=4";
 const $ = id => document.getElementById(id);
 
 $("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-admin-login.html"); });
@@ -397,7 +414,9 @@ function openModal(s) {
   $("historyBox").classList.toggle("hidden", !s);
   $("resultsBox").classList.toggle("hidden", !s);
   $("resultForm").classList.add("hidden");
-  if (s) { loadHistory(s); loadResults(s); warmUp(); }
+  $("sPhotoRow").classList.toggle("hidden", !s);
+  showPhoto("sPhotoBox", null);
+  if (s) { loadHistory(s); loadResults(s); loadStudentPhoto(s); warmUp(); }
   $("studentModal").classList.remove("hidden");
   if (!TEACHER) setTimeout(() => $("fName").focus(), 50);
 }
@@ -487,6 +506,7 @@ $("deleteBtn").addEventListener("click", async () => {
     const res = await getDocs(collection(db, "students", editing.uid, "results")).catch(() => ({ docs: [] }));
     await Promise.all([...att.docs, ...res.docs].map(d => deleteDoc(d.ref)));
     await deleteDoc(doc(db, "students", editing.uid, "private", "contact")).catch(() => {});
+    await deleteDoc(doc(db, "students", editing.uid, "media", "photo")).catch(() => {});
     await deleteDoc(doc(db, "students", editing.uid));
     const name = editing.name;
     students = students.filter(x => x.uid !== editing.uid);
@@ -622,7 +642,7 @@ $("cardBtn").addEventListener("click", async () => {
   try {
     const a = await getDocs(collection(db, "students", s.uid, "attendance"));
     const att = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
-    await downloadStudentCard(ADMIN ? { ...s, ...contact } : s, att, resultRows);
+    await downloadStudentCard(ADMIN ? { ...s, ...contact, photo: studentPhoto } : { ...s, photo: studentPhoto }, att, resultRows);
   } catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
   b.disabled = false; b.textContent = label;
 });
@@ -675,6 +695,46 @@ $("teacherBody").addEventListener("click", async e => {
   } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
 
+// ---------- Photos (stored small, inside the database) ----------
+let studentPhoto = null;
+function showPhoto(id, data) { $(id).innerHTML = data ? `<img src="${data}" alt="">` : "<span>No photo</span>"; }
+function resizePhoto(file, size = 360) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const side = Math.min(img.width, img.height), sx = (img.width - side) / 2, sy = Math.max(0, (img.height - side) * 0.2);
+      const c = document.createElement("canvas"); c.width = c.height = size;
+      const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, size, size);
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(img.src); resolve(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => reject(new Error("That file isn't an image we can read. Try a JPG or PNG."));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function loadStudentPhoto(s) {
+  studentPhoto = null;
+  try { const p = await getDoc(doc(db, "students", s.uid, "media", "photo")); if (editing !== s) return; studentPhoto = p.exists() ? p.data().data : null; showPhoto("sPhotoBox", studentPhoto); } catch (e) { }
+}
+$("sPhotoFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; const s = editing; if (!f || !s) return;
+  try { const data = await resizePhoto(f); await setDoc(doc(db, "students", s.uid, "media", "photo"), { data, updatedAt: serverTimestamp() }); studentPhoto = data; showPhoto("sPhotoBox", data); toast("Photo saved"); }
+  catch (ex) { toast(ex.message || friendlyError(ex), "bad"); }
+});
+$("sPhotoRemove").addEventListener("click", async () => {
+  const s = editing; if (!s) return;
+  try { await deleteDoc(doc(db, "students", s.uid, "media", "photo")); studentPhoto = null; showPhoto("sPhotoBox", null); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
+});
+$("tPhotoFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; const t = profile; if (!f || !t) return;
+  try { const data = await resizePhoto(f); await updateDoc(doc(db, "teachers", t.uid), { photo: data }); t.photo = data; showPhoto("tPhotoBox", data); toast("Photo saved"); }
+  catch (ex) { toast(ex.message || friendlyError(ex), "bad"); }
+});
+$("tPhotoRemove").addEventListener("click", async () => {
+  const t = profile; if (!t) return;
+  try { await updateDoc(doc(db, "teachers", t.uid), { photo: null }); t.photo = null; showPhoto("tPhotoBox", null); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
+});
+
 // ---------- Teacher profile & CV ----------
 let profile = null;
 const toLines = v => Array.isArray(v) ? v.join("\n") : (v || "");
@@ -693,6 +753,7 @@ function openProfile(t) {
   $("pEdu").value = toLines(t.education); $("pExp").value = toLines(t.experience); $("pCert").value = toLines(t.certificates);
   $("pLang").value = toLines(t.languages); $("pSkills").value = toLines(t.skills);
   document.querySelectorAll("#profileForm .staff-admin").forEach(el => el.disabled = !!TEACHER);
+  showPhoto("tPhotoBox", t.photo || null);
   $("tmStudents").innerHTML = (ADMIN || TEACHER) && mine.length ? `<h3 style="font-size:17px;margin-bottom:8px">${TEACHER ? "My" : "Her"} students</h3><p class="hint">${mine.map(s => esc(s.name)).join(" &middot; ")}</p>` : "";
   $("teacherModal").classList.remove("hidden");
   warmUp();
