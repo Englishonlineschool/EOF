@@ -93,10 +93,8 @@
         <div class="field"><label for="fLevel">Level of entry</label>
           <select class="input" id="fLevel"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
         <div class="field"><label for="fCourse">Course</label>
-          <select class="input" id="fCourse">
-            <option>General English</option><option>Business English</option><option>IELTS Preparation</option>
-            <option>Conversational English</option><option>Kids Group</option><option>Exam Preparation</option><option>Olympiad Preparation</option><option>Professional Development</option>
-          </select></div>
+          <input class="input" id="fCourse" list="courses" placeholder="e.g. General English">
+          <datalist id="courses"><option>General English</option><option>Business English</option><option>High School Teens (Grade 9–12)</option><option>Secondary School (Grade 5–8)</option><option>Kids Group</option><option>IELTS Preparation</option><option>Conversational English</option><option>Exam Preparation</option><option>Olympiad Preparation</option><option>Professional Development</option></datalist></div>
         <div class="field"><label for="fTeacher">Teacher</label>
           <input class="input" id="fTeacher" list="teachers" placeholder="e.g. Mashel Auma">
           <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Mr. Frank</option><option>Mr. Kareem</option></datalist></div>
@@ -245,7 +243,7 @@ $("studentForm").addEventListener("submit", async e => {
     name: $("fName").value.trim(),
     phone: $("fPhone").value.trim(),
     level: $("fLevel").value,
-    course: $("fCourse").value,
+    course: $("fCourse").value.trim() || "General English",
     teacher: $("fTeacher").value.trim(),
     lessonDays: [...document.querySelectorAll("#fDays input:checked")].map(c => c.value),
     lessonTime: $("fTime").value.trim(),
