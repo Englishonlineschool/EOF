@@ -15,7 +15,7 @@
 <body>
 <header class="portal-top">
   <div class="portal-top-inner">
-    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Admin &middot; Student records</span></div></a>
+    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span id="roleLabel">Admin &middot; Student records</span></div></a>
     <div class="portal-top-actions">
       <span class="portal-link hide-sm" id="adminEmail"></span>
       <button class="btn btn-light btn-sm" id="logoutBtn" type="button">Log out</button>
@@ -30,6 +30,7 @@
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="students" role="tab">Students</button>
       <button class="tab" data-tab="attendance" role="tab">Attendance</button>
+      <button class="tab hidden" data-tab="teachers" role="tab" id="teachersTabBtn">Teachers</button>
     </div>
 
     <!-- Students -->
@@ -76,6 +77,32 @@
       </div>
       <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it.</p>
     </section>
+
+    <!-- Teachers (admin only) -->
+    <section id="tab-teachers" class="hidden">
+      <div class="toolbar">
+        <p class="hint" style="margin:0;flex:1;min-width:220px">Teachers log in with <b>Staff login</b>. Each teacher sees only the students whose <b>Teacher</b> field matches her name, and can mark attendance, add results and download student cards. They can't see phone numbers or change student details.</p>
+        <button class="btn btn-primary" id="addTeacherBtn" type="button">+ Add teacher</button>
+      </div>
+      <form id="teacherForm" class="result-form hidden" novalidate autocomplete="off">
+        <div class="grid-2">
+          <div class="field"><label for="tName">Full name <span class="hint" style="display:inline">(as written in students' Teacher field)</span></label><input class="input" id="tName" autocomplete="off" placeholder="e.g. Eda Yavuz"></div>
+          <div class="field"><label for="tEmail">Email (used to log in)</label><input class="input" id="tEmail" type="email" autocomplete="off"></div>
+          <div class="field"><label for="tPhone">Phone / WhatsApp</label><input class="input" id="tPhone" type="tel" autocomplete="off"></div>
+        </div>
+        <div class="err" id="teacherErr" role="alert"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" type="button" id="cancelTeacherBtn">Cancel</button>
+          <button class="btn btn-primary" type="submit" id="saveTeacherBtn">Create teacher account</button>
+        </div>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Teacher</th><th class="hide-sm">Email</th><th class="hide-sm">Phone</th><th>Students</th><th>Login</th><th></th></tr></thead>
+          <tbody id="teacherBody"><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </main>
 
@@ -85,13 +112,13 @@
     <button class="modal-x" type="button" data-close aria-label="Close">&times;</button>
     <h2 id="modalTitle">Register student</h2>
     <div class="notice hidden" id="numberNotice"></div>
-    <form id="studentForm" novalidate autocomplete="off">
+    <form id="studentForm" novalidate autocomplete="off"><fieldset id="studentFields" style="border:0;padding:0;margin:0;min-width:0">
       <h3 class="form-sec">Student</h3>
       <div class="grid-2">
         <div class="field"><label for="fName">Full name</label><input class="input" id="fName" autocomplete="off" required></div>
         <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" autocomplete="off" type="date"></div>
         <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
-        <div class="field"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
+        <div class="field admin-only"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
         <div class="field"><label for="fCity">City of residence</label><input class="input" id="fCity" autocomplete="off" placeholder="e.g. İzmir"></div>
         <div class="field"><label for="fCountry">Country of residence</label><input class="input" id="fCountry" list="countries" placeholder="e.g. Türkiye">
           <datalist id="countries"><option>Türkiye</option><option>Kyrgyzstan</option><option>Kazakhstan</option><option>Uzbekistan</option><option>Kenya</option><option>Russia</option><option>Germany</option><option>United Kingdom</option><option>Netherlands</option><option>Canada</option><option>United States</option></datalist></div>
@@ -124,14 +151,15 @@
       <h3 class="form-sec">Parent / guardian <span class="hint" style="display:inline;font-family:Poppins,sans-serif;font-weight:400">— for students under 18</span></h3>
       <div class="grid-2">
         <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName" autocomplete="off"></div>
-        <div class="field"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" autocomplete="off" type="tel"></div>
+        <div class="field admin-only"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" autocomplete="off" type="tel"></div>
       </div>
+      </fieldset>
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost hidden" id="resendBtn" type="button">Resend password email</button>
         <button class="btn btn-ghost hidden" id="deleteBtn" type="button" style="color:var(--red-dark)">Delete student</button>
         <span style="flex:1"></span>
-        <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+        <button class="btn btn-ghost" type="button" data-close id="cancelBtn">Cancel</button>
         <button class="btn btn-primary" id="saveBtn" type="submit">Register student</button>
       </div>
     </form>
@@ -163,7 +191,7 @@
             <select class="input" id="rOutcome"><option value="">—</option><option>Pass</option><option>Fail</option></select></div>
         </div>
         <div class="field"><label for="rComment">Teacher's comment <span class="hint" style="display:inline">(the student can see this)</span></label><textarea class="input" id="rComment" rows="2" placeholder="e.g. Great progress in reading. Keep practising past tenses."></textarea></div>
-        <label class="check-line"><input type="checkbox" id="rApplyLevel"> Also change the student's level to the level shown</label>
+        <label class="check-line admin-only"><input type="checkbox" id="rApplyLevel"> Also change the student's level to the level shown</label>
         <div class="err" id="resultErr" role="alert"></div>
         <div class="modal-actions">
           <button class="btn btn-ghost" type="button" id="cancelResultBtn">Cancel</button>
@@ -186,7 +214,7 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear } from "./eof-portal.js?v=2";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=2";
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
 const $ = id => document.getElementById(id);
 
@@ -194,7 +222,21 @@ $("logoutBtn").addEventListener("click", async () => { await signOut(auth); loca
 
 const me = await currentUser();
 if (!me) { location.replace("eof-admin-login.html"); throw new Error("not signed in"); }
-if (!(await isAdmin(me))) { location.replace("eof-account.html"); throw new Error("not admin"); }
+const ADMIN = await isAdmin(me);
+let TEACHER = null;   // {name, ...} when a teacher is logged in
+if (!ADMIN) {
+  const t = await getDoc(doc(db, "teachers", me.uid)).catch(() => null);
+  if (t && t.exists() && t.data().active !== false) TEACHER = t.data();
+  else { location.replace("eof-account.html"); throw new Error("not staff"); }
+  updateDoc(doc(db, "teachers", me.uid), { lastLogin: serverTimestamp() }).catch(() => {});
+  document.body.classList.add("teacher-mode");
+  $("roleLabel").innerHTML = "Teacher &middot; " + esc(TEACHER.name);
+  document.title = "My students | English Online Forum";
+  $("addBtn").classList.add("hidden");
+  $("search").placeholder = "Search my students";
+} else {
+  $("teachersTabBtn").classList.remove("hidden");
+}
 $("adminEmail").textContent = me.email;
 $("loading").classList.add("hidden");
 $("app").classList.remove("hidden");
@@ -207,12 +249,14 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === t));
   $("tab-students").classList.toggle("hidden", t.dataset.tab !== "students");
   $("tab-attendance").classList.toggle("hidden", t.dataset.tab !== "attendance");
+  $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
   if (t.dataset.tab === "attendance") renderAttendance();
+  if (t.dataset.tab === "teachers") loadTeachers();
 }));
 
 // ---------- Students ----------
 async function loadStudents() {
-  const snap = await getDocs(collection(db, "students"));
+  const snap = await getDocs(TEACHER ? query(collection(db, "students"), where("teacher", "==", TEACHER.name)) : collection(db, "students"));
   students = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
     .sort((a, b) => String(a.studentNumber).localeCompare(String(b.studentNumber)));
   renderStudents();
@@ -284,7 +328,7 @@ function openModal(s) {
   $("fEmail").disabled = !!s?.authUid;
   $("emailHint").textContent = s?.authUid ? "This is the student's login email." : (s ? "No login yet. Add their email and save to send them a password-setup email." : "Leave empty if you don't have it yet. Adding it later switches on their login.");
   $("deleteBtn").textContent = "Delete student"; delete $("deleteBtn").dataset.armed;
-  $("fPhone").value = s?.phone || "";
+  $("fPhone").value = "";
   $("fLevel").value = s?.level || "A1";
   $("fCourse").value = s?.course || "General English";
   $("fTeacher").value = s?.teacher || "";
@@ -297,19 +341,34 @@ function openModal(s) {
   $("fSchool").value = s?.school || "";
   $("fJob").value = s?.occupation || "";
   $("fParentName").value = s?.parentName || "";
-  $("fParentPhone").value = s?.parentPhone || "";
+  $("fParentPhone").value = "";
+  contact = { phone: "", parentPhone: "" };
+  if (s && ADMIN) loadContact(s);
+  $("studentFields").disabled = !!TEACHER;
+  $("saveBtn").classList.toggle("hidden", !!TEACHER);
+  $("cancelBtn").textContent = TEACHER ? "Close" : "Cancel";
 
   $("fStatus").value = s?.status || "active";
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
-  $("resendBtn").classList.toggle("hidden", !s?.authUid);
-  $("deleteBtn").classList.toggle("hidden", !s);
+  $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
+  $("deleteBtn").classList.toggle("hidden", !s || !!TEACHER);
   $("historyBox").classList.toggle("hidden", !s);
   $("resultsBox").classList.toggle("hidden", !s);
   $("resultForm").classList.add("hidden");
   if (s) { loadHistory(s); loadResults(s); warmUp(); }
   $("studentModal").classList.remove("hidden");
-  setTimeout(() => $("fName").focus(), 50);
+  if (!TEACHER) setTimeout(() => $("fName").focus(), 50);
+}
+// Phone numbers live in a separate admin-only record: students/{id}/private/contact
+let contact = { phone: "", parentPhone: "" };
+async function loadContact(s) {
+  try {
+    const c = await getDoc(doc(db, "students", s.uid, "private", "contact"));
+    if (editing !== s) return;
+    contact = { phone: c.data()?.phone || "", parentPhone: c.data()?.parentPhone || "" };
+    $("fPhone").value = contact.phone; $("fParentPhone").value = contact.parentPhone;
+  } catch (e) { console.warn("contact", e); }
 }
 function closeModal() { $("studentModal").classList.add("hidden"); editing = null; }
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeModal));
@@ -326,7 +385,6 @@ $("studentForm").addEventListener("submit", async e => {
   e.preventDefault();
   const data = {
     name: $("fName").value.trim(),
-    phone: $("fPhone").value.trim(),
     level: $("fLevel").value,
     course: $("fCourse").value.trim() || "General English",
     teacher: $("fTeacher").value.trim(),
@@ -339,9 +397,9 @@ $("studentForm").addEventListener("submit", async e => {
     timeZone: $("fTz").value.trim(),
     school: $("fSchool").value.trim(),
     occupation: $("fJob").value.trim(),
-    parentName: $("fParentName").value.trim(),
-    parentPhone: $("fParentPhone").value.trim()
+    parentName: $("fParentName").value.trim()
   };
+  const phones = { phone: $("fPhone").value.trim(), parentPhone: $("fParentPhone").value.trim() };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
@@ -358,6 +416,7 @@ $("studentForm").addEventListener("submit", async e => {
         msg = `Login created. Password email sent to ${email}.`;
       }
       await updateDoc(doc(db, "students", editing.uid), data);
+      await setDoc(doc(db, "students", editing.uid, "private", "contact"), phones, { merge: true });
       Object.assign(editing, data);
       toast(msg);
       closeModal(); renderStudents();
@@ -368,6 +427,7 @@ $("studentForm").addEventListener("submit", async e => {
       const studentNumber = await nextStudentNumber(data.registeredOn);
       const rec = { ...data, email, authUid, studentNumber, status: "active", levelHistory: [{ level: data.level, date: data.registeredOn }], createdAt: serverTimestamp() };
       await setDoc(ref, rec);
+      await setDoc(doc(db, "students", uid, "private", "contact"), phones);
       students.push({ uid, ...rec }); attStats[uid] = { p: 0, a: 0 };
       students.sort((a, b) => String(a.studentNumber).localeCompare(String(b.studentNumber)));
       closeModal(); renderStudents();
@@ -385,6 +445,7 @@ $("deleteBtn").addEventListener("click", async () => {
     const att = await getDocs(collection(db, "students", editing.uid, "attendance"));
     const res = await getDocs(collection(db, "students", editing.uid, "results")).catch(() => ({ docs: [] }));
     await Promise.all([...att.docs, ...res.docs].map(d => deleteDoc(d.ref)));
+    await deleteDoc(doc(db, "students", editing.uid, "private", "contact")).catch(() => {});
     await deleteDoc(doc(db, "students", editing.uid));
     const name = editing.name;
     students = students.filter(x => x.uid !== editing.uid);
@@ -520,9 +581,56 @@ $("cardBtn").addEventListener("click", async () => {
   try {
     const a = await getDocs(collection(db, "students", s.uid, "attendance"));
     const att = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
-    await downloadStudentCard(s, att, resultRows);
+    await downloadStudentCard(ADMIN ? { ...s, ...contact } : s, att, resultRows);
   } catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
   b.disabled = false; b.textContent = label;
+});
+
+// ---------- Teachers (admin only) ----------
+let teachers = [];
+async function loadTeachers() {
+  if (!ADMIN) return;
+  const snap = await getDocs(collection(db, "teachers"));
+  teachers = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  const names = new Set(["Mashel Auma", ...teachers.map(t => t.name), "Eda Yavuz", "Amina Ulanova", "Ms. Irene", "Mr. Frank", "Mr. Kareem"]);
+  $("teachers").innerHTML = [...names].map(n => `<option>${esc(n)}</option>`).join("");
+  $("teacherBody").innerHTML = teachers.length ? teachers.map(t => {
+    const count = students.filter(s => s.teacher === t.name && (s.status || "active") === "active").length;
+    const last = t.lastLogin && t.lastLogin.toDate ? t.lastLogin.toDate().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+    const badge = t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
+    return `<tr data-tid="${t.uid}"><td><b>${esc(t.name)}</b></td><td class="hide-sm">${esc(t.email)}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
+      <td style="white-space:nowrap">${t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="empty">No teacher accounts yet. Click “Add teacher”.</td></tr>`;
+}
+$("addTeacherBtn").addEventListener("click", () => { $("teacherForm").reset(); $("teacherErr").textContent = ""; $("teacherForm").classList.remove("hidden"); $("tName").focus(); });
+$("cancelTeacherBtn").addEventListener("click", () => $("teacherForm").classList.add("hidden"));
+$("teacherForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("tName").value.trim(), email = $("tEmail").value.trim().toLowerCase(), phone = $("tPhone").value.trim();
+  if (!name) { $("teacherErr").textContent = "Enter the teacher's name."; return; }
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $("teacherErr").textContent = "Enter a valid email address."; return; }
+  $("saveTeacherBtn").disabled = true; $("teacherErr").textContent = "";
+  try {
+    const uid = await createStudentLogin(email);   // creates the login and emails a password-setup link
+    await setDoc(doc(db, "teachers", uid), { name, email, phone, active: true, createdAt: serverTimestamp(), createdBy: me.email });
+    $("teacherForm").classList.add("hidden");
+    toast(`Teacher account created. Password email sent to ${email}.`);
+    loadTeachers();
+  } catch (ex) { $("teacherErr").textContent = friendlyError(ex); }
+  $("saveTeacherBtn").disabled = false;
+});
+$("teacherBody").addEventListener("click", async e => {
+  const tr = e.target.closest("tr[data-tid]"); if (!tr) return;
+  const t = teachers.find(x => x.uid === tr.dataset.tid); if (!t) return;
+  try {
+    if (e.target.closest("[data-t-resend]")) { await sendPasswordResetEmail(auth, t.email); toast(`Password email sent to ${t.email}`); return; }
+    const off = e.target.closest("[data-t-off]");
+    if (off) {
+      if (!off.dataset.armed) { off.dataset.armed = "1"; off.textContent = "Click again to remove access"; return; }
+      await updateDoc(doc(db, "teachers", t.uid), { active: false }); toast(`${t.name} can no longer log in to the staff area`); loadTeachers(); return;
+    }
+    if (e.target.closest("[data-t-on]")) { await updateDoc(doc(db, "teachers", t.uid), { active: true }); toast(`${t.name}'s access restored`); loadTeachers(); }
+  } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
 
 // ---------- Attendance ----------
@@ -578,7 +686,7 @@ $("attBody").addEventListener("click", async e => {
   }
 });
 
-loadStudents().catch(e => { $("studentBody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendlyError(e))}</td></tr>`; });
+loadStudents().then(() => ADMIN && loadTeachers()).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendlyError(e))}</td></tr>`; });
 </script>
 </body>
 </html>

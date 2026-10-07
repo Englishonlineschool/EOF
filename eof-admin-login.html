@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Login | English Online Forum</title>
+<title>Staff Login | English Online Forum</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -23,8 +23,8 @@
 <main>
   <div class="login-wrap">
     <div class="card admin-login">
-      <div class="eyebrow">Admin area</div>
-      <h1 id="loginTitle">Admin login</h1>
+      <div class="eyebrow">Teachers &amp; admin</div>
+      <h1 id="loginTitle">Staff login</h1>
       <p class="lead" id="loginLead">For English Online Forum teachers and administrators.</p>
 
       <form id="loginForm" novalidate>
@@ -51,7 +51,11 @@
 <footer class="portal-foot">&copy; <span id="yr"></span> English Online Forum &middot; <a href="eof-privacy-policy.html">Privacy Policy</a></footer>
 
 <script type="module">
-import { auth, configReady, currentUser, isAdmin, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, friendlyError } from "./eof-portal.js";
+import { auth, configReady, currentUser, isAdmin, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, friendlyError, db, doc, getDoc } from "./eof-portal.js";
+async function isStaff(u) {
+  if (await isAdmin(u)) return true;
+  try { const t = await getDoc(doc(db, "teachers", u.uid)); return t.exists() && t.data().active !== false; } catch { return false; }
+}
 document.getElementById("yr").textContent = new Date().getFullYear();
 
 const form = document.getElementById("loginForm");
@@ -64,10 +68,10 @@ const forgot = document.getElementById("forgotBtn");
 let resetMode = false;
 
 async function goHome(user, fromForm) {
-  if (await isAdmin(user)) { location.replace("eof-admin.html"); return true; }
+  if (await isStaff(user)) { location.replace("eof-admin.html"); return true; }
   if (!fromForm) return false;   // a student is signed in on this device: stay on this page
   await signOut(auth);
-  err.innerHTML = 'This is not an admin account. Students please use the <a href="eof-login.html">Student Login</a>.';
+  err.innerHTML = 'This is not a staff account. Students please use the <a href="eof-login.html">Student Login</a>.';
   return false;
 }
 
@@ -82,7 +86,7 @@ if (!configReady) {
 function setMode(reset) {
   resetMode = reset;
   pwField.classList.toggle("hidden", reset);
-  document.getElementById("loginTitle").textContent = reset ? "Reset your password" : "Admin login";
+  document.getElementById("loginTitle").textContent = reset ? "Reset your password" : "Staff login";
   document.getElementById("loginLead").textContent = reset
     ? "Enter your email and we'll send you a link to choose a new password."
     : "For English Online Forum teachers and administrators.";

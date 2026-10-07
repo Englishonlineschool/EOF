@@ -92,7 +92,7 @@
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
-  levelHistory, monthYear } from "./eof-portal.js?v=2";
+  levelHistory, monthYear, doc, getDoc } from "./eof-portal.js?v=2";
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
 let me = null, attRows = [], results = [];
 document.getElementById("yr").textContent = new Date().getFullYear();
@@ -102,7 +102,7 @@ $("logoutBtn").addEventListener("click", async () => { await signOut(auth); loca
 
 const user = await currentUser();
 if (!user) { location.replace("eof-login.html"); }
-else if (await isAdmin(user)) { location.replace("eof-admin.html"); }
+else if (await isAdmin(user) || (await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active !== false).catch(() => false))) { location.replace("eof-admin.html"); }
 else {
   try {
     const found = await getDocs(query(collection(db, "students"), where("authUid", "==", user.uid), limit(1)));
@@ -111,6 +111,9 @@ else {
     else {
       const snap = found.docs[0];
       const s = snap.data();
+      // phone numbers are kept in a separate private record
+      const c = await getDoc(doc(db, "students", snap.id, "private", "contact")).catch(() => null);
+      if (c && c.exists()) { s.phone = c.data().phone || s.phone || ""; s.parentPhone = c.data().parentPhone || s.parentPhone || ""; }
       $("firstName").textContent = (s.name || "").split(" ")[0] || "Student";
       $("courseLine").textContent = s.course ? s.course : "Welcome to your student portal.";
       $("studentNo").textContent = s.studentNumber || "—";
