@@ -190,10 +190,10 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
 const $ = id => document.getElementById(id);
 
-$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-login.html"); });
+$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-admin-login.html"); });
 
 const me = await currentUser();
-if (!me) { location.replace("eof-login.html"); throw new Error("not signed in"); }
+if (!me) { location.replace("eof-admin-login.html"); throw new Error("not signed in"); }
 if (!(await isAdmin(me))) { location.replace("eof-account.html"); throw new Error("not admin"); }
 $("adminEmail").textContent = me.email;
 $("loading").classList.add("hidden");
@@ -230,6 +230,15 @@ function age(dob) {
   let a = t.getFullYear() - y; if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) a--;
   return a;
 }
+function lastLoginText(s) {
+  const t = s.lastLogin && s.lastLogin.toDate ? s.lastLogin.toDate() : null;
+  return t ? t.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + ", " + t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+}
+function loginBadge(s) {
+  if (!s.authUid) return `<span class="login-badge none">No login yet</span>`;
+  const t = lastLoginText(s);
+  return t ? `<span class="login-badge ok">Last active ${esc(t)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
+}
 function rate(uid) {
   const s = attStats[uid];
   if (!s) return "…";
@@ -244,7 +253,7 @@ function renderStudents() {
   $("studentBody").innerHTML = list.length ? list.map(s => `
     <tr class="clickable" data-uid="${s.uid}">
       <td><b>${esc(s.studentNumber)}</b></td>
-      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
+      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div><div style="margin-top:3px">${loginBadge(s)}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${s.lastResult ? `${esc(resultSummary(s.lastResult))}<div class="hint" style="margin:0">${esc(prettyDate(s.lastResult.date))}</div>` : '<span class="hint" style="display:inline">—</span>'}</td>
       <td class="hide-sm">${esc(schedule(s))}</td>
@@ -269,7 +278,7 @@ function openModal(s) {
   $("modalTitle").textContent = s ? s.name : "Register student";
   $("saveBtn").textContent = s ? "Save changes" : "Register student";
   $("numberNotice").classList.toggle("hidden", !s);
-  if (s) $("numberNotice").innerHTML = `Student number <b>${esc(s.studentNumber)}</b> &middot; registered ${esc(prettyDate(s.registeredOn))}`;
+  if (s) $("numberNotice").innerHTML = `Student number <b>${esc(s.studentNumber)}</b> &middot; registered ${esc(prettyDate(s.registeredOn))}<br>Login: ${!s.authUid ? "not set up yet (add an email to create one)" : lastLoginText(s) ? "last active " + esc(lastLoginText(s)) : "invited, but hasn't logged in yet"}`;
   $("fName").value = s?.name || "";
   $("fEmail").value = s?.email || "";
   $("fEmail").disabled = !!s?.authUid;

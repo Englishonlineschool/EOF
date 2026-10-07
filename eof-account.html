@@ -90,7 +90,7 @@
 <footer class="portal-foot">&copy; <span id="yr"></span> English Online Forum &middot; <a href="eof-privacy-policy.html">Privacy Policy</a></footer>
 
 <script type="module">
-import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit,
+import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
   levelHistory, monthYear } from "./eof-portal.js?v=2";
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=2";
@@ -129,6 +129,7 @@ else {
       $("account").classList.remove("hidden");
 
       me = s; warmUp();
+      updateDoc(snap.ref, { lastLogin: serverTimestamp() }).catch(() => {});   // lets the school see when you were last active
       const hist = levelHistory(s);
       $("levelTrack").innerHTML = hist.length ? `<span class="hint" style="display:inline;margin-right:6px">My level progress</span>` + hist.map((x, i) =>
         `<span class="lt-step${i === hist.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
