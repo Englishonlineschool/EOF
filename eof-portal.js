@@ -7,7 +7,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, query,
-  orderBy, runTransaction, serverTimestamp, Timestamp, deleteDoc
+  orderBy, runTransaction, serverTimestamp, Timestamp, deleteDoc, where, limit
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./eof-firebase-config.js";
 
@@ -19,7 +19,7 @@ setPersistence(auth, browserLocalPersistence).catch(() => {});
 export {
   onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail,
   doc, getDoc, getDocs, setDoc, updateDoc, collection, query, orderBy,
-  serverTimestamp, Timestamp, deleteDoc
+  serverTimestamp, Timestamp, deleteDoc, where, limit
 };
 
 export const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];

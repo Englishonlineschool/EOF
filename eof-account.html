@@ -75,7 +75,7 @@
 <footer class="portal-foot">&copy; <span id="yr"></span> English Online Forum &middot; <a href="eof-privacy-policy.html">Privacy Policy</a></footer>
 
 <script type="module">
-import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, collection,
+import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit,
   esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError } from "./eof-portal.js";
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);
@@ -87,10 +87,11 @@ if (!user) { location.replace("eof-login.html"); }
 else if (await isAdmin(user)) { location.replace("eof-admin.html"); }
 else {
   try {
-    const snap = await getDoc(doc(db, "students", user.uid));
+    const found = await getDocs(query(collection(db, "students"), where("authUid", "==", user.uid), limit(1)));
     $("loading").classList.add("hidden");
-    if (!snap.exists()) { $("noRecord").classList.remove("hidden"); }
+    if (found.empty) { $("noRecord").classList.remove("hidden"); }
     else {
+      const snap = found.docs[0];
       const s = snap.data();
       $("firstName").textContent = (s.name || "").split(" ")[0] || "Student";
       $("courseLine").textContent = s.course ? s.course : "Welcome to your student portal.";
@@ -103,7 +104,7 @@ else {
       $("fEmail").textContent = s.email || user.email;
       $("account").classList.remove("hidden");
 
-      const att = await getDocs(collection(db, "students", user.uid, "attendance"));
+      const att = await getDocs(collection(db, "students", snap.id, "attendance"));
       const rows = att.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
       const p = rows.filter(r => r.status === "present").length;
       const a = rows.filter(r => r.status === "absent").length;
