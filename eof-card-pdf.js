@@ -64,9 +64,12 @@ function safeFile(s) { return String(s || "Student").normalize("NFKD").replace(/
 function drawPhoto(doc, data, x, y, size) {
   if (!data) return;
   try {
-    doc.setFillColor(255, 255, 255); doc.setDrawColor(226, 230, 239); doc.setLineWidth(0.4);
-    doc.roundedRect(x - 1.2, y - 1.2, size + 2.4, size + 2.4, 2.5, 2.5, "FD");
+    const r = size / 2, cx = x + r, cy = y + r;
+    doc.setFillColor(226, 230, 239); doc.circle(cx, cy, r + 1.3, "F");
+    doc.setFillColor(255, 255, 255); doc.circle(cx, cy, r + 0.7, "F");
+    doc.saveGraphicsState(); doc.circle(cx, cy, r, null); doc.clip(); doc.discardPath();
     doc.addImage(data, "JPEG", x, y, size, size);
+    doc.restoreGraphicsState();
   } catch (e) { console.warn("photo", e); }
 }
 
@@ -334,7 +337,7 @@ function buildTeacher(t, studentCount, F, logoData, nameImg) {
   if (t.bio) { h2("About"); para(t.bio); }
 
   h2("At English Online Forum");
-  const rows = [["Teaches", t.teaches], ["Joined", t.joinedOn ? prettyDate(t.joinedOn) : ""], ["Active students", studentCount != null ? String(studentCount) : ""],
+  const rows = [["Teaches", t.teaches], ["Joined", t.joinedOn ? prettyDate(t.joinedOn) : ""], ["Date of birth", t.dob ? prettyDate(t.dob) : ""], ["Active students", studentCount != null ? String(studentCount) : ""],
     ["Email", t.email], ["Phone", t.phone]].filter(r => r[1]);
   const colW = TW / 2;
   for (let i = 0; i < rows.length; i += 2) {

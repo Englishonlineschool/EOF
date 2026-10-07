@@ -240,6 +240,7 @@
         <div class="field"><label for="pName">Full name</label><input class="input staff-admin" id="pName" autocomplete="off"></div>
         <div class="field"><label for="pTeaches">Teaches</label><input class="input staff-admin" id="pTeaches" autocomplete="off" placeholder="e.g. Kids' Groups"></div>
         <div class="field"><label for="pJoined">Joined EOF on</label><input class="input staff-admin" id="pJoined" type="date"></div>
+        <div class="field"><label for="pDob">Date of birth</label><input class="input staff-admin" id="pDob" type="date"></div>
         <div class="field"><label for="pEmail">Email</label><input class="input" id="pEmail" disabled></div>
         <div class="field"><label for="pPhone">Phone / WhatsApp</label><input class="input staff-admin" id="pPhone" type="tel" autocomplete="off"></div>
       </div>
@@ -271,7 +272,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=2";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=4";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=5";
 const $ = id => document.getElementById(id);
 
 $("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-admin-login.html"); });
@@ -415,7 +416,7 @@ function openModal(s) {
   $("resultsBox").classList.toggle("hidden", !s);
   $("resultForm").classList.add("hidden");
   $("sPhotoRow").classList.toggle("hidden", !s);
-  showPhoto("sPhotoBox", null);
+  showPhoto("sPhotoBox", null, s?.name);
   if (s) { loadHistory(s); loadResults(s); loadStudentPhoto(s); warmUp(); }
   $("studentModal").classList.remove("hidden");
   if (!TEACHER) setTimeout(() => $("fName").focus(), 50);
@@ -659,7 +660,7 @@ async function loadTeachers() {
     const count = students.filter(s => s.teacher === t.name && (s.status || "active") === "active").length;
     const last = t.lastLogin && t.lastLogin.toDate ? t.lastLogin.toDate().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
     const badge = t.role === "admin" ? `<span class="login-badge ok">Admin account</span>` : t.pending ? `<span class="login-badge never">Waiting for email · no login yet</span>` : t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
-    return `<tr data-tid="${t.uid}" class="clickable"><td><b>${esc(teacherDisplayName(t))}</b><div class="hint" style="margin:0">${esc(t.teaches || "")}</div></td><td class="hide-sm">${t.joinedOn ? esc(prettyDate(t.joinedOn)) : "—"}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
+    return `<tr data-tid="${t.uid}" class="clickable"><td><div class="who">${t.photo ? `<img class="avatar" src="${t.photo}" alt="">` : `<span class="avatar ph-initials">${esc(initials(t.name))}</span>`}<div><b>${esc(teacherDisplayName(t))}</b><div class="hint" style="margin:0">${esc(t.teaches || "")}</div></div></div></td><td class="hide-sm">${t.joinedOn ? esc(prettyDate(t.joinedOn)) : "—"}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
       <td style="white-space:nowrap">${t.role === "admin" ? "" : t.pending ? `<span class="hint" style="display:inline">Send me her email to create the login</span>` : t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
   }).join("") : `<tr><td colspan="6" class="empty">No teacher accounts yet. Click “Add teacher”.</td></tr>`;
 }
@@ -697,7 +698,8 @@ $("teacherBody").addEventListener("click", async e => {
 
 // ---------- Photos (stored small, inside the database) ----------
 let studentPhoto = null;
-function showPhoto(id, data) { $(id).innerHTML = data ? `<img src="${data}" alt="">` : "<span>No photo</span>"; }
+const initials = n => String(n || "").split(/\s+/).filter(w => w && !/^(Mr|Ms|Mrs|Dr)\.?$/i.test(w)).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
+function showPhoto(id, data, name) { $(id).innerHTML = data ? `<img src="${data}" alt="">` : `<span class="ph-initials">${esc(initials(name))}</span>`; }
 function resizePhoto(file, size = 360) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -714,25 +716,25 @@ function resizePhoto(file, size = 360) {
 }
 async function loadStudentPhoto(s) {
   studentPhoto = null;
-  try { const p = await getDoc(doc(db, "students", s.uid, "media", "photo")); if (editing !== s) return; studentPhoto = p.exists() ? p.data().data : null; showPhoto("sPhotoBox", studentPhoto); } catch (e) { }
+  try { const p = await getDoc(doc(db, "students", s.uid, "media", "photo")); if (editing !== s) return; studentPhoto = p.exists() ? p.data().data : null; showPhoto("sPhotoBox", studentPhoto, s.name); } catch (e) { }
 }
 $("sPhotoFile").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; const s = editing; if (!f || !s) return;
-  try { const data = await resizePhoto(f); await setDoc(doc(db, "students", s.uid, "media", "photo"), { data, updatedAt: serverTimestamp() }); studentPhoto = data; showPhoto("sPhotoBox", data); toast("Photo saved"); }
+  try { const data = await resizePhoto(f); await setDoc(doc(db, "students", s.uid, "media", "photo"), { data, updatedAt: serverTimestamp() }); studentPhoto = data; showPhoto("sPhotoBox", data, s.name); toast("Photo saved"); }
   catch (ex) { toast(ex.message || friendlyError(ex), "bad"); }
 });
 $("sPhotoRemove").addEventListener("click", async () => {
   const s = editing; if (!s) return;
-  try { await deleteDoc(doc(db, "students", s.uid, "media", "photo")); studentPhoto = null; showPhoto("sPhotoBox", null); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
+  try { await deleteDoc(doc(db, "students", s.uid, "media", "photo")); studentPhoto = null; showPhoto("sPhotoBox", null, s.name); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
 $("tPhotoFile").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; const t = profile; if (!f || !t) return;
-  try { const data = await resizePhoto(f); await updateDoc(doc(db, "teachers", t.uid), { photo: data }); t.photo = data; showPhoto("tPhotoBox", data); toast("Photo saved"); }
+  try { const data = await resizePhoto(f); await updateDoc(doc(db, "teachers", t.uid), { photo: data }); t.photo = data; showPhoto("tPhotoBox", data, t.name); if (ADMIN) loadTeachers(); toast("Photo saved"); }
   catch (ex) { toast(ex.message || friendlyError(ex), "bad"); }
 });
 $("tPhotoRemove").addEventListener("click", async () => {
   const t = profile; if (!t) return;
-  try { await updateDoc(doc(db, "teachers", t.uid), { photo: null }); t.photo = null; showPhoto("tPhotoBox", null); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
+  try { await updateDoc(doc(db, "teachers", t.uid), { photo: null }); t.photo = null; showPhoto("tPhotoBox", null, t.name); if (ADMIN) loadTeachers(); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
 
 // ---------- Teacher profile & CV ----------
@@ -748,12 +750,12 @@ function openProfile(t) {
   $("tmNotice").innerHTML = `${t.joinedOn ? "Joined EOF on <b>" + esc(prettyDate(t.joinedOn)) + "</b> &middot; " : ""}<b>${mine.length}</b> active student${mine.length === 1 ? "" : "s"}` +
     (TEACHER ? "<br>You can update your CV below. Ask the school if your name, title, joining date or phone need changing." : "");
   $("pTitle").value = t.title || "Ms"; $("pName").value = t.name || ""; $("pTeaches").value = t.teaches || "";
-  $("pJoined").value = t.joinedOn || ""; $("pEmail").value = t.email || (t.role === "admin" ? "englishonlineforum@gmail.com" : "No login yet");
+  $("pJoined").value = t.joinedOn || ""; $("pDob").value = t.dob || ""; $("pEmail").value = t.email || (t.role === "admin" ? "englishonlineforum@gmail.com" : "No login yet");
   $("pPhone").value = t.phone || ""; $("pBio").value = t.bio || "";
   $("pEdu").value = toLines(t.education); $("pExp").value = toLines(t.experience); $("pCert").value = toLines(t.certificates);
   $("pLang").value = toLines(t.languages); $("pSkills").value = toLines(t.skills);
   document.querySelectorAll("#profileForm .staff-admin").forEach(el => el.disabled = !!TEACHER);
-  showPhoto("tPhotoBox", t.photo || null);
+  showPhoto("tPhotoBox", t.photo || null, t.name);
   $("tmStudents").innerHTML = (ADMIN || TEACHER) && mine.length ? `<h3 style="font-size:17px;margin-bottom:8px">${TEACHER ? "My" : "Her"} students</h3><p class="hint">${mine.map(s => esc(s.name)).join(" &middot; ")}</p>` : "";
   $("teacherModal").classList.remove("hidden");
   warmUp();
@@ -764,7 +766,7 @@ $("profileForm").addEventListener("submit", async e => {
   e.preventDefault();
   const t = profile; if (!t) return;
   const cv = { bio: $("pBio").value.trim(), education: fromLines("pEdu"), experience: fromLines("pExp"), certificates: fromLines("pCert"), languages: fromLines("pLang"), skills: fromLines("pSkills") };
-  const data = TEACHER ? cv : { ...cv, title: $("pTitle").value, name: $("pName").value.trim(), teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, phone: $("pPhone").value.trim() };
+  const data = TEACHER ? cv : { ...cv, title: $("pTitle").value, name: $("pName").value.trim(), teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, dob: $("pDob").value, phone: $("pPhone").value.trim() };
   if (!TEACHER && !data.name) { $("profileErr").textContent = "Enter the teacher's name."; return; }
   $("pSaveBtn").disabled = true; $("profileErr").textContent = "";
   try {
@@ -778,7 +780,7 @@ $("profileForm").addEventListener("submit", async e => {
 $("pPdfBtn").addEventListener("click", async () => {
   const t = profile; if (!t) return;
   const b = $("pPdfBtn"), label = b.textContent; b.disabled = true; b.textContent = "Preparing PDF…";
-  const current = { ...t, title: $("pTitle").value, name: $("pName").value.trim() || t.name, teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, phone: $("pPhone").value.trim(),
+  const current = { ...t, title: $("pTitle").value, name: $("pName").value.trim() || t.name, teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, dob: $("pDob").value, phone: $("pPhone").value.trim(),
     bio: $("pBio").value.trim(), education: fromLines("pEdu"), experience: fromLines("pExp"), certificates: fromLines("pCert"), languages: fromLines("pLang"), skills: fromLines("pSkills") };
   if (t.role === "admin") current.email = "englishonlineforum@gmail.com";
   try { await downloadTeacherProfile(current, students.filter(s => s.teacher === current.name && (s.status || "active") === "active").length); }
