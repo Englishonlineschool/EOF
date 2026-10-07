@@ -42,6 +42,8 @@ label{display:block;font-size:13px;font-weight:600;color:var(--accent);margin-bo
 .hint{font-size:12.5px;color:var(--muted);margin-top:5px;}
 .err{color:var(--red-dark);font-size:13.5px;min-height:20px;margin-top:6px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+.form-sec{font-size:17px;margin:6px 0 12px;padding-top:14px;border-top:1px solid var(--line);}
+.form-sec:first-of-type{border-top:none;padding-top:0;}
 .days{display:flex;flex-wrap:wrap;gap:6px;}
 .days label{margin:0;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid var(--line);border-radius:999px;font-weight:500;color:var(--text);cursor:pointer;font-size:13.5px;user-select:none;}
 .days input{accent-color:var(--accent);}

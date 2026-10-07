@@ -86,25 +86,44 @@
     <h2 id="modalTitle">Register student</h2>
     <div class="notice hidden" id="numberNotice"></div>
     <form id="studentForm" novalidate>
+      <h3 class="form-sec">Student</h3>
       <div class="grid-2">
         <div class="field"><label for="fName">Full name</label><input class="input" id="fName" required></div>
+        <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" type="date"></div>
         <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
-        <div class="field"><label for="fPhone">Phone / WhatsApp</label><input class="input" id="fPhone" type="tel" placeholder="Optional"></div>
-        <div class="field"><label for="fLevel">Level of entry</label>
-          <select class="input" id="fLevel"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
-        <div class="field"><label for="fCourse">Course</label>
+        <div class="field"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" type="tel" placeholder="Optional"></div>
+        <div class="field"><label for="fCity">City of residence</label><input class="input" id="fCity" placeholder="e.g. İzmir"></div>
+        <div class="field"><label for="fCountry">Country of residence</label><input class="input" id="fCountry" list="countries" placeholder="e.g. Türkiye">
+          <datalist id="countries"><option>Türkiye</option><option>Kyrgyzstan</option><option>Kazakhstan</option><option>Uzbekistan</option><option>Kenya</option><option>Russia</option><option>Germany</option><option>United Kingdom</option><option>Netherlands</option><option>Canada</option><option>United States</option></datalist></div>
+        <div class="field"><label for="fTz">Time zone</label><input class="input" id="fTz" list="zones" placeholder="e.g. Türkiye (UTC+3)">
+          <datalist id="zones"><option>Türkiye (UTC+3)</option><option>Kyrgyzstan (UTC+6)</option><option>Kazakhstan (UTC+5)</option><option>Kenya (UTC+3)</option><option>UK (UTC+0/+1)</option><option>Central Europe (UTC+1/+2)</option></datalist></div>
+        <div class="field"><label for="fSchool">School &amp; grade</label><input class="input" id="fSchool" placeholder="e.g. Grade 10, Cambridge"></div>
+      </div>
+
+      <h3 class="form-sec">Course</h3>
+      <div class="grid-2">
+        <div class="field"><label for="fCourse">Type of course</label>
           <input class="input" id="fCourse" list="courses" placeholder="e.g. General English">
           <datalist id="courses"><option>General English</option><option>Business English</option><option>High School Teens (Grade 9–12)</option><option>Secondary School (Grade 5–8)</option><option>Kids Group</option><option>IELTS Preparation</option><option>Conversational English</option><option>Exam Preparation</option><option>Olympiad Preparation</option><option>Professional Development</option></datalist></div>
+        <div class="field"><label for="fLevel">Level</label>
+          <select class="input" id="fLevel"><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
         <div class="field"><label for="fTeacher">Teacher</label>
           <input class="input" id="fTeacher" list="teachers" placeholder="e.g. Mashel Auma">
           <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Mr. Frank</option><option>Mr. Kareem</option></datalist></div>
+        <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
       </div>
       <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div></div>
       <div class="grid-2">
         <div class="field"><label for="fTime">Lesson time</label><input class="input" id="fTime" placeholder="e.g. 18:00 (Bishkek)"></div>
-        <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
         <div class="field" id="statusField"><label for="fStatus">Status</label>
           <select class="input" id="fStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="left">Left</option></select></div>
+      </div>
+
+      <h3 class="form-sec">Parent / guardian <span class="hint" style="display:inline;font-family:Poppins,sans-serif;font-weight:400">— for students under 18</span></h3>
+      <div class="grid-2">
+        <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName"></div>
+        <div class="field"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" type="tel"></div>
+        <div class="field"><label for="fParentEmail">Email</label><input class="input" id="fParentEmail" type="email" placeholder="Optional"></div>
       </div>
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
@@ -166,6 +185,11 @@ async function loadStudents() {
   renderStudents();
 }
 
+function age(dob) {
+  const [y, m, d] = dob.split("-").map(Number), t = new Date();
+  let a = t.getFullYear() - y; if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) a--;
+  return a;
+}
 function rate(uid) {
   const s = attStats[uid];
   if (!s) return "…";
@@ -180,7 +204,7 @@ function renderStudents() {
   $("studentBody").innerHTML = list.length ? list.map(s => `
     <tr class="clickable" data-uid="${s.uid}">
       <td><b>${esc(s.studentNumber)}</b></td>
-      <td>${esc(s.name)}<div class="hint" style="margin:0">${esc(s.course || "")}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
+      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}${s.authUid ? "" : ' · <span style="color:#9A6A12">no login yet</span>'}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${esc(schedule(s))}</td>
       <td class="hide-sm">${esc(prettyDate(s.registeredOn))}</td>
@@ -216,6 +240,14 @@ function openModal(s) {
   $("fTeacher").value = s?.teacher || "";
   $("fTime").value = s?.lessonTime || "";
   $("fReg").value = s?.registeredOn || isoDate();
+  $("fDob").value = s?.dob || "";
+  $("fCity").value = s?.city || "";
+  $("fCountry").value = s?.country || "";
+  $("fTz").value = s?.timeZone || "";
+  $("fSchool").value = s?.school || "";
+  $("fParentName").value = s?.parentName || "";
+  $("fParentPhone").value = s?.parentPhone || "";
+  $("fParentEmail").value = s?.parentEmail || "";
   $("fStatus").value = s?.status || "active";
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
@@ -247,10 +279,19 @@ $("studentForm").addEventListener("submit", async e => {
     teacher: $("fTeacher").value.trim(),
     lessonDays: [...document.querySelectorAll("#fDays input:checked")].map(c => c.value),
     lessonTime: $("fTime").value.trim(),
-    registeredOn: $("fReg").value || isoDate()
+    registeredOn: $("fReg").value || isoDate(),
+    dob: $("fDob").value || "",
+    city: $("fCity").value.trim(),
+    country: $("fCountry").value.trim(),
+    timeZone: $("fTz").value.trim(),
+    school: $("fSchool").value.trim(),
+    parentName: $("fParentName").value.trim(),
+    parentPhone: $("fParentPhone").value.trim(),
+    parentEmail: $("fParentEmail").value.trim()
   };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
+  if (data.parentEmail && !/^\S+@\S+\.\S+$/.test(data.parentEmail)) { $("formErr").textContent = "Please check the parent's email address."; return; }
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
   $("saveBtn").disabled = true; $("formErr").textContent = "";
   try {

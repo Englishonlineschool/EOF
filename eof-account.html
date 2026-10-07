@@ -44,11 +44,14 @@
       <h2>My details</h2>
       <div class="facts">
         <div class="fact"><small>Full name</small><b id="fName"></b></div>
-        <div class="fact"><small>Level of entry</small><b><span class="level-pill" id="fLevel"></span></b></div>
+        <div class="fact"><small>Course &amp; level</small><b><span id="fCourse"></span> <span class="level-pill" id="fLevel"></span></b></div>
+        <div class="fact"><small>Date of birth</small><b id="fDob"></b></div>
+        <div class="fact"><small>City / country</small><b id="fLoc"></b></div>
         <div class="fact"><small>Date of registration</small><b id="fReg"></b></div>
         <div class="fact"><small>Lesson days</small><b id="fDays"></b></div>
         <div class="fact"><small>Teacher</small><b id="fTeacher"></b></div>
         <div class="fact"><small>Email</small><b id="fEmail" style="font-size:15px;word-break:break-all"></b></div>
+        <div class="fact" id="parentFact"><small>Parent / guardian</small><b id="fParent"></b></div>
       </div>
     </section>
 
@@ -98,6 +101,11 @@ else {
       $("studentNo").textContent = s.studentNumber || "—";
       $("fName").textContent = s.name || "—";
       $("fLevel").textContent = s.level || "—";
+      $("fCourse").textContent = s.course || "";
+      $("fDob").textContent = s.dob ? prettyDate(s.dob) : "—";
+      $("fLoc").textContent = [s.city, s.country].filter(Boolean).join(", ") || "—";
+      if (s.parentName || s.parentPhone) $("fParent").textContent = [s.parentName, s.parentPhone].filter(Boolean).join(" · ");
+      else $("parentFact").classList.add("hidden");
       $("fReg").textContent = prettyDate(s.registeredOn);
       $("fDays").textContent = schedule(s);
       $("fTeacher").textContent = s.teacher || "—";
