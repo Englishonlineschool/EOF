@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Staff Login | English Online Forum</title>
+<title>Admin Login | English Online Forum</title>
 <meta name="robots" content="noindex">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -15,7 +15,7 @@
 <body>
 <header class="portal-top">
   <div class="portal-top-inner">
-    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Admin &middot; Staff only</span></div></a>
+    <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span id="roleSub">Admin area</span></div></a>
     <div class="portal-top-actions"><a class="portal-link" href="/">&larr; Back to website</a></div>
   </div>
 </header>
@@ -23,9 +23,9 @@
 <main>
   <div class="login-wrap">
     <div class="card admin-login">
-      <div class="eyebrow">Teachers &amp; admin</div>
-      <h1 id="loginTitle">Staff login</h1>
-      <p class="lead" id="loginLead">For English Online Forum teachers and administrators.</p>
+      <div class="eyebrow" id="roleEyebrow">Admin area</div>
+      <h1 id="loginTitle">Admin login</h1>
+      <p class="lead" id="loginLead">For English Online Forum administrators.</p>
 
       <form id="loginForm" novalidate>
         <div class="field">
@@ -44,7 +44,7 @@
         <button class="linkbtn" id="forgotBtn" type="button">Forgot your password?</button>
       </div>
     </div>
-    <p class="hint" style="text-align:center;margin-top:16px;">Are you a student? <a href="eof-login.html">Go to the Student Login</a>.</p>
+    <p class="hint" style="text-align:center;margin-top:16px;" id="otherLogins">Are you a student? <a href="eof-login.html">Student Login</a> &middot; Teacher? <a href="eof-admin-login.html?as=teacher">Teacher Login</a></p>
   </div>
 </main>
 
@@ -52,6 +52,16 @@
 
 <script type="module">
 import { auth, configReady, currentUser, isAdmin, signOut, signInWithEmailAndPassword, sendPasswordResetEmail, friendlyError, db, doc, getDoc } from "./eof-portal.js";
+const TEACHER_PAGE = new URLSearchParams(location.search).get("as") === "teacher";
+const ROLE = TEACHER_PAGE
+  ? { title: "Teacher login", lead: "For English Online Forum teachers. See your students, mark attendance and add results.", eyebrow: "Teachers", sub: "Teacher area" }
+  : { title: "Admin login", lead: "For English Online Forum administrators.", eyebrow: "Admin area", sub: "Admin area" };
+document.title = (TEACHER_PAGE ? "Teacher Login" : "Admin Login") + " | English Online Forum";
+document.getElementById("loginTitle").textContent = ROLE.title;
+document.getElementById("loginLead").textContent = ROLE.lead;
+document.getElementById("roleEyebrow").textContent = ROLE.eyebrow;
+document.getElementById("roleSub").textContent = ROLE.sub;
+if (TEACHER_PAGE) document.getElementById("otherLogins").innerHTML = 'Are you a student? <a href="eof-login.html">Go to the Student Login</a>.';
 async function isStaff(u) {
   if (await isAdmin(u)) return true;
   try { const t = await getDoc(doc(db, "teachers", u.uid)); return t.exists() && t.data().active !== false; } catch { return false; }
@@ -71,7 +81,7 @@ async function goHome(user, fromForm) {
   if (await isStaff(user)) { location.replace("eof-admin.html"); return true; }
   if (!fromForm) return false;   // a student is signed in on this device: stay on this page
   await signOut(auth);
-  err.innerHTML = 'This is not a staff account. Students please use the <a href="eof-login.html">Student Login</a>.';
+  err.innerHTML = 'This is not a teacher or admin account. Students please use the <a href="eof-login.html">Student Login</a>.';
   return false;
 }
 
@@ -86,10 +96,10 @@ if (!configReady) {
 function setMode(reset) {
   resetMode = reset;
   pwField.classList.toggle("hidden", reset);
-  document.getElementById("loginTitle").textContent = reset ? "Reset your password" : "Staff login";
+  document.getElementById("loginTitle").textContent = reset ? "Reset your password" : ROLE.title;
   document.getElementById("loginLead").textContent = reset
     ? "Enter your email and we'll send you a link to choose a new password."
-    : "For English Online Forum teachers and administrators.";
+    : ROLE.lead;
   btn.textContent = reset ? "Send reset link" : "Log in";
   forgot.textContent = reset ? "Back to login" : "Forgot your password?";
   err.textContent = ""; err.style.color = "";

@@ -276,7 +276,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
 import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=5";
 const $ = id => document.getElementById(id);
 
-$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-admin-login.html"); });
+$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace(typeof TEACHER !== "undefined" && TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
 
 const me = await currentUser();
 if (!me) { location.replace("eof-admin-login.html"); throw new Error("not signed in"); }
