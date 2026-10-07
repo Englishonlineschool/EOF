@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=6">
+<link rel="stylesheet" href="eof-portal.css?v=7">
 </head>
 <body>
 <header class="portal-top">
@@ -37,7 +37,7 @@
     <!-- Students -->
     <section id="tab-students">
       <div class="toolbar">
-        <input class="input" id="search" type="search" placeholder="Search name, number or email">
+        <input class="input" id="search" type="search" placeholder="Search students">
         <select class="input" id="statusFilter" style="max-width:170px">
           <option value="active">Active students</option>
           <option value="all">All students</option>
@@ -49,11 +49,11 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Last result</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
+          <thead><tr><th class="hide-sm">Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Last result</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
           <tbody id="studentBody"><tr><td colspan="8" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Click a student to edit their details, add test results, see their attendance or download their student card.</p>
+      <p class="hint" style="margin-top:10px" id="listHint">Click a student to edit their details, add test results, see their attendance or download their student card.</p>
     </section>
 
     <!-- Attendance -->
@@ -65,7 +65,7 @@
         <button class="btn btn-ghost btn-sm" id="todayBtn" type="button">Today</button>
         <span style="flex:1"></span>
         <select class="input" id="attScope" style="max-width:260px">
-          <option value="day">Students with a lesson this day</option>
+          <option value="day">Lessons on this day</option>
           <option value="all">All active students</option>
         </select>
       </div>
@@ -82,7 +82,7 @@
     <!-- Teachers (admin only) -->
     <section id="tab-teachers" class="hidden">
       <div class="toolbar">
-        <p class="hint" style="margin:0;flex:1;min-width:220px">Click a teacher to see her profile and CV, edit it, or download it as a PDF. Teachers log in with <b>Staff login</b>. Each teacher sees only the students whose <b>Teacher</b> field matches her name, and can mark attendance, add results and download student cards. They can't see phone numbers or change student details.</p>
+        <p class="hint" style="margin:0;flex:1;min-width:220px">Click a teacher to see her profile and CV, edit it, or download it as a PDF. Teachers log in with <b>Log in → Teacher Login</b> at the top of the website. Each teacher sees only the students whose <b>Teacher</b> field matches her name, and can mark attendance, add results and download student cards. They can't see phone numbers or change student details.</p>
         <button class="btn btn-primary" id="addTeacherBtn" type="button">+ Add teacher</button>
       </div>
       <form id="teacherForm" class="result-form hidden" novalidate autocomplete="off">
@@ -118,7 +118,7 @@
         <label class="btn btn-ghost btn-sm admin-only" for="sPhotoFile">Upload photo</label>
         <input type="file" id="sPhotoFile" accept="image/*" hidden>
         <button class="linkbtn admin-only" type="button" id="sPhotoRemove">Remove photo</button>
-        <p class="hint">Square photos work best. It's resized automatically.</p>
+        <p class="hint admin-only">Square photos work best. It's resized automatically.</p>
       </div>
     </div>
     <div class="notice hidden" id="numberNotice"></div>
@@ -292,6 +292,7 @@ if (!ADMIN) {
   document.title = "My students | English Online Forum";
   $("addBtn").classList.add("hidden");
   $("search").placeholder = "Search my students";
+  $("listHint").textContent = "Click a student to see their details, add test results, mark attendance or download their student card.";
   $("myProfileTabBtn").classList.remove("hidden");
 } else {
   $("teachersTabBtn").classList.remove("hidden");
@@ -357,8 +358,8 @@ function renderStudents() {
     (!q || [s.name, s.studentNumber, s.email].some(v => String(v || "").toLowerCase().includes(q))));
   $("studentBody").innerHTML = list.length ? list.map(s => `
     <tr class="clickable" data-uid="${s.uid}">
-      <td><b>${esc(s.studentNumber)}</b></td>
-      <td>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div><div style="margin-top:3px">${loginBadge(s)}</div></td>
+      <td class="hide-sm"><b>${esc(s.studentNumber)}</b></td>
+      <td><span class="show-sm hint" style="margin:0">${esc(s.studentNumber)}</span>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div><div style="margin-top:3px">${loginBadge(s)}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${s.lastResult ? `${esc(resultSummary(s.lastResult))}<div class="hint" style="margin:0">${esc(prettyDate(s.lastResult.date))}</div>` : '<span class="hint" style="display:inline">—</span>'}</td>
       <td class="hide-sm">${esc(schedule(s))}</td>
