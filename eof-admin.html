@@ -597,9 +597,9 @@ async function loadTeachers() {
   $("teacherBody").innerHTML = teachers.length ? teachers.map(t => {
     const count = students.filter(s => s.teacher === t.name && (s.status || "active") === "active").length;
     const last = t.lastLogin && t.lastLogin.toDate ? t.lastLogin.toDate().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
-    const badge = t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
-    return `<tr data-tid="${t.uid}"><td><b>${esc(t.name)}</b></td><td class="hide-sm">${esc(t.email)}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
-      <td style="white-space:nowrap">${t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
+    const badge = t.pending ? `<span class="login-badge never">Waiting for email · no login yet</span>` : t.active === false ? `<span class="login-badge none">Access removed</span>` : last ? `<span class="login-badge ok">Last active ${esc(last)}</span>` : `<span class="login-badge never">Invited · hasn't logged in yet</span>`;
+    return `<tr data-tid="${t.uid}"><td><b>${esc(t.name)}</b></td><td class="hide-sm">${esc(t.email || "—")}</td><td class="hide-sm">${esc(t.phone || "—")}</td><td>${count} active</td><td>${badge}</td>
+      <td style="white-space:nowrap">${t.pending ? `<span class="hint" style="display:inline">Send me her email to create the login</span>` : t.active === false ? `<button class="linkbtn" data-t-on type="button">Restore access</button>` : `<button class="linkbtn" data-t-resend type="button">Resend password email</button> &middot; <button class="linkbtn" data-t-off type="button" style="color:var(--red-dark)">Remove access</button>`}</td></tr>`;
   }).join("") : `<tr><td colspan="6" class="empty">No teacher accounts yet. Click “Add teacher”.</td></tr>`;
 }
 $("addTeacherBtn").addEventListener("click", () => { $("teacherForm").reset(); $("teacherErr").textContent = ""; $("teacherForm").classList.remove("hidden"); $("tName").focus(); });
