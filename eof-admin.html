@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=7">
+<link rel="stylesheet" href="eof-portal.css?v=8">
 </head>
 <body>
 <header class="portal-top">
@@ -68,7 +68,9 @@
           <option value="day">Lessons on this day</option>
           <option value="all">All active students</option>
         </select>
+        <button class="btn btn-navy btn-sm" id="weekBtn" type="button">Week overview</button>
       </div>
+      <div id="attDayView">
       <h2 id="attHeading" style="font-size:22px;margin:4px 0 14px"></h2>
       <div class="table-wrap">
         <table>
@@ -77,6 +79,27 @@
         </table>
       </div>
       <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it.</p>
+      </div>
+    </section>
+
+    <!-- Week overview (per teacher) -->
+    <section id="tab-week" class="hidden">
+      <div class="toolbar">
+        <button class="btn btn-ghost btn-sm" id="wkBack" type="button">&larr; Day view</button>
+        <select class="input admin-only" id="wkTeacher" style="max-width:240px" aria-label="Teacher"></select>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" id="wkPrev" type="button" aria-label="Previous week">&laquo;</button>
+        <button class="btn btn-ghost btn-sm" id="wkToday" type="button">This week</button>
+        <button class="btn btn-ghost btn-sm" id="wkNext" type="button" aria-label="Next week">&raquo;</button>
+      </div>
+      <div class="wk-head">
+        <h2 id="wkTitle"></h2>
+        <div class="wk-sub" id="wkRange"></div>
+        <div class="wk-sum" id="wkSum"></div>
+      </div>
+      <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
+      <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
+      <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and time. Click a lesson to open that day and mark attendance.</p>
     </section>
 
     <!-- Teachers (admin only) -->
@@ -309,6 +332,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === t));
   $("tab-students").classList.toggle("hidden", t.dataset.tab !== "students");
   $("tab-attendance").classList.toggle("hidden", t.dataset.tab !== "attendance");
+  $("tab-week").classList.add("hidden");
   $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
   if (t.dataset.tab === "attendance") renderAttendance();
   if (t.dataset.tab === "teachers") loadTeachers();
@@ -859,6 +883,89 @@ $("attBody").addEventListener("click", async e => {
     tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === prev));
     toast(friendlyError(ex), "bad");
   }
+});
+
+// ---------- Week overview (per teacher) ----------
+const WK_COLORS = ["#C9B6F2", "#F4B9B5", "#BFD9FB", "#FBE2AE", "#CDEFCB", "#F7C9E4", "#BEE8E6", "#E4D3B8"];
+let wkStart = null, wkToken = 0;
+const mondayOf = iso => { const [y, m, d] = iso.split("-").map(Number); const t = new Date(y, m - 1, d); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return isoDate(t); };
+const addDays = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); return isoDate(new Date(y, m - 1, d + n)); };
+const shortDate = iso => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+// "18:00 (Bishkek)" → minutes since midnight, for sorting time columns
+function timeKey(t) {
+  const m = String(t || "").match(/(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?/i);
+  if (!m) return 99999;
+  let h = +m[1]; const ap = (m[3] || "").toLowerCase();
+  if (ap === "pm" && h < 12) h += 12; if (ap === "am" && h === 12) h = 0;
+  return h * 60 + +(m[2] || 0);
+}
+function wkTeacherNames() {
+  const names = new Set(students.filter(s => (s.status || "active") === "active" && s.teacher).map(s => s.teacher));
+  (typeof teachers !== "undefined" ? teachers : []).forEach(t => t.active !== false && names.add(t.name));
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+function openWeek(fromDate) {
+  wkStart = mondayOf(fromDate || $("attDate").value || isoDate());
+  if (ADMIN) {
+    const cur = $("wkTeacher").value, names = wkTeacherNames();
+    $("wkTeacher").innerHTML = names.map(n => `<option>${esc(n)}</option>`).join("") + `<option value="__all">All teachers</option>`;
+    $("wkTeacher").value = names.includes(cur) || cur === "__all" ? cur : (names.includes("Mashel Auma") ? "Mashel Auma" : (names[0] || "__all"));
+  }
+  $("tab-attendance").classList.add("hidden");
+  $("tab-week").classList.remove("hidden");
+  renderWeek();
+}
+async function renderWeek() {
+  const who = TEACHER ? TEACHER.name : $("wkTeacher").value;
+  const all = who === "__all";
+  const list = students.filter(s => (s.status || "active") === "active" && (all || s.teacher === who) && (s.lessonDays || []).length);
+  const dates = DAYS.map((_, i) => addDays(wkStart, i));
+  const today = isoDate();
+  const tName = all ? "All teachers" : (TEACHER ? teacherDisplayName(TEACHER) : (teachers.find(t => t.name === who) ? teacherDisplayName(teachers.find(t => t.name === who)) : who));
+  $("wkTitle").textContent = tName;
+  $("wkRange").textContent = `Week of ${shortDate(dates[0])} – ${prettyDate(dates[6])}`;
+  // Time columns
+  const slots = [...new Set(list.map(s => (s.lessonTime || "").trim() || "Time not set"))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
+  const color = {}; list.forEach((s, i) => color[s.uid] = WK_COLORS[i % WK_COLORS.length]);
+  const showDays = DAYS.filter((d, i) => i < 6 || list.some(s => s.lessonDays.includes(d)));
+  if (!list.length) { $("wkSum").textContent = ""; $("wkGrid").innerHTML = `<tbody><tr><td class="empty">No active students with lesson days${all ? "" : ` for ${esc(tName)}`}. Set lesson days and a time on each student's record.</td></tr></tbody>`; return; }
+  const token = ++wkToken;
+  // Load marks for every lesson this week
+  const lessons = [];
+  showDays.forEach(d => { const date = dates[DAYS.indexOf(d)]; list.filter(s => s.lessonDays.includes(d)).forEach(s => lessons.push({ s, d, date, slot: (s.lessonTime || "").trim() || "Time not set" })); });
+  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.date)).then(x => x.exists() ? x.data().status : null).catch(() => null)));
+  if (token !== wkToken) return;
+  lessons.forEach((l, i) => l.mark = marks[i]);
+  const n = { p: 0, a: 0, u: 0 }; lessons.forEach(l => l.mark === "present" ? n.p++ : l.mark === "absent" ? n.a++ : l.date <= today ? n.u++ : 0);
+  $("wkSum").innerHTML = `<b>${lessons.length}</b> lesson${lessons.length === 1 ? "" : "s"} &middot; <span class="ok">${n.p} present</span> &middot; <span class="no">${n.a} absent</span>${n.u ? ` &middot; ${n.u} not marked yet` : ""}`;
+  const head = `<thead><tr><th class="wk-corner"></th>${slots.map((t, i) => `<th><span class="wk-n">${i + 1}</span>${esc(t)}</th>`).join("")}</tr></thead>`;
+  const body = showDays.map(d => {
+    const date = dates[DAYS.indexOf(d)];
+    const cells = slots.map(t => {
+      const here = lessons.filter(l => l.d === d && l.slot === t);
+      return `<td>${here.map(l => {
+        const st = l.mark === "present" ? "p" : l.mark === "absent" ? "a" : (l.date <= today ? "u" : "f");
+        const label = st === "p" ? "Present" : st === "a" ? "Absent" : st === "u" ? "Not marked" : "";
+        return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)}">
+          <span class="wk-name">${esc(l.s.name)}</span>
+          <span class="wk-meta">${esc(l.s.level || "")}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
+          ${label ? `<span class="wk-st">${label}</span>` : ""}</button>`;
+      }).join("")}</td>`;
+    }).join("");
+    return `<tr class="${date === today ? "wk-today" : ""}"><th class="wk-day">${d.slice(0, 2)}<small>${shortDate(date)}</small></th>${cells}</tr>`;
+  }).join("");
+  $("wkGrid").innerHTML = head + `<tbody>${body}</tbody>`;
+}
+$("weekBtn").addEventListener("click", () => openWeek());
+$("wkBack").addEventListener("click", () => { $("tab-week").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance(); });
+$("wkPrev").addEventListener("click", () => { wkStart = addDays(wkStart, -7); renderWeek(); });
+$("wkNext").addEventListener("click", () => { wkStart = addDays(wkStart, 7); renderWeek(); });
+$("wkToday").addEventListener("click", () => { wkStart = mondayOf(isoDate()); renderWeek(); });
+$("wkTeacher").addEventListener("change", renderWeek);
+$("wkGrid").addEventListener("click", e => {
+  const b = e.target.closest("[data-wk-date]"); if (!b) return;
+  $("attDate").value = b.dataset.wkDate; $("attScope").value = "day";
+  $("tab-week").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance();
 });
 
 loadStudents().then(() => ADMIN && loadTeachers()).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendlyError(e))}</td></tr>`; });
