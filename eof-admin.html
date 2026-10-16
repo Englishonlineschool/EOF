@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=9">
+<link rel="stylesheet" href="eof-portal.css?v=10">
 </head>
 <body>
 <header class="portal-top">
@@ -97,6 +97,7 @@
         <div class="wk-sub" id="wkRange"></div>
         <div class="wk-sum" id="wkSum"></div>
       </div>
+      <div class="wk-issues hidden" id="wkIssues"></div>
       <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
       <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
       <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and time. Click a lesson to open that day and mark attendance.</p>
@@ -899,10 +900,14 @@ function timeKey(t) {
   if (ap === "pm" && h < 12) h += 12; if (ap === "am" && h === 12) h = 0;
   return h * 60 + +(m[2] || 0);
 }
+// "Mr. Mashel  Auma" and "mashel auma" count as the same teacher
+const normT = n => String(n || "").toLowerCase().replace(/^\s*(mr|mrs|ms|miss|dr)\.?\s+/, "").replace(/\s+/g, " ").trim();
 function wkTeacherNames() {
-  const names = new Set(students.filter(s => (s.status || "active") === "active" && s.teacher).map(s => s.teacher));
-  (typeof teachers !== "undefined" ? teachers : []).forEach(t => t.active !== false && names.add(t.name));
-  return [...names].sort((a, b) => a.localeCompare(b));
+  const byKey = new Map();
+  teachers.forEach(t => t.active !== false && t.name && byKey.set(normT(t.name), t.name));
+  if (!byKey.has(normT("Mashel Auma"))) byKey.set(normT("Mashel Auma"), "Mashel Auma");
+  students.filter(s => (s.status || "active") === "active" && normT(s.teacher)).forEach(s => { if (!byKey.has(normT(s.teacher))) byKey.set(normT(s.teacher), s.teacher.trim()); });
+  return [...byKey.values()].sort((a, b) => a.localeCompare(b));
 }
 function openWeek(fromDate) {
   wkStart = mondayOf(fromDate || $("attDate").value || isoDate());
@@ -918,7 +923,15 @@ function openWeek(fromDate) {
 async function renderWeek() {
   const who = TEACHER ? TEACHER.name : $("wkTeacher").value;
   const all = who === "__all";
-  const list = students.filter(s => (s.status || "active") === "active" && (all || s.teacher === who) && (s.lessonDays || []).length);
+  const mine = students.filter(s => (s.status || "active") === "active" && (all || TEACHER || normT(s.teacher) === normT(who)));
+  const list = mine.filter(s => (s.lessonDays || []).length);
+  // Active students the grid can't place — shown under the grid so nobody silently disappears
+  const known = new Set(wkTeacherNames().map(normT).filter(k => teachers.some(t => normT(t.name) === k) || k === normT("Mashel Auma")));
+  const issues = mine.filter(s => !(s.lessonDays || []).length).map(s => [s, "no lesson days ticked"]);
+  if (ADMIN && !all) students.filter(s => (s.status || "active") === "active" && !known.has(normT(s.teacher)))
+    .forEach(s => issues.push([s, normT(s.teacher) ? `Teacher field says “${esc(s.teacher)}”, which doesn't match a teacher` : "no teacher set"]));
+  $("wkIssues").innerHTML = issues.length ? `<b>Not on the timetable (${issues.length}):</b> ` + issues.map(([s, why]) => `<button type="button" class="linkbtn" data-wk-fix="${s.uid}">${esc(s.name)}</button> <span class="hint" style="display:inline;margin:0">— ${why}</span>`).join("; ") + `. Click a name to fix the record.` : "";
+  $("wkIssues").classList.toggle("hidden", !issues.length);
   const dates = DAYS.map((_, i) => addDays(wkStart, i));
   const today = isoDate();
   const tName = all ? "All teachers" : (TEACHER ? teacherDisplayName(TEACHER) : (teachers.find(t => t.name === who) ? teacherDisplayName(teachers.find(t => t.name === who)) : who));
@@ -962,6 +975,11 @@ $("wkPrev").addEventListener("click", () => { wkStart = addDays(wkStart, -7); re
 $("wkNext").addEventListener("click", () => { wkStart = addDays(wkStart, 7); renderWeek(); });
 $("wkToday").addEventListener("click", () => { wkStart = mondayOf(isoDate()); renderWeek(); });
 $("wkTeacher").addEventListener("change", renderWeek);
+$("wkIssues").addEventListener("click", e => {
+  const b = e.target.closest("[data-wk-fix]"); if (!b) return;
+  const s = students.find(x => x.uid === b.dataset.wkFix); if (!s) return;
+  openModal(s);
+});
 $("wkGrid").addEventListener("click", e => {
   const b = e.target.closest("[data-wk-date]"); if (!b) return;
   $("attDate").value = b.dataset.wkDate; $("attScope").value = "day";

@@ -233,3 +233,4 @@ tr.wk-today td{background:#FFF8EC;}
 .wk-key{width:14px;height:14px;border-radius:4px;display:inline-block;}
 .wk-key.p{background:#CDEFCB;} .wk-key.a{background:#D5D7DC;outline:1.5px dashed #9AA0AC;outline-offset:-2px;} .wk-key.u{background:#BFD9FB;}
 @media (max-width:640px){ .wk-sum{margin-left:0;width:100%;} .wk-head h2{font-size:22px;} }
+.wk-issues{background:#FFF3DD;border:1px solid #F0D29A;color:#7A5410;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:14px;line-height:1.6;}
