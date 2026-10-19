@@ -77,13 +77,13 @@
     return d.getDate() + ' ' + m[d.getMonth()] + ' ' + d.getFullYear();
   }
   function resultId(r, d){
-    var p = r.isDemo ? 'DEM' : 'FPT';
+    var p = r.idPrefix || (r.isDemo ? 'DEM' : 'FPT');
     var ymd = String(d.getFullYear()).slice(2) + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', s = '';
     for(var i=0;i<4;i++){ s += chars[Math.floor(Math.random()*chars.length)]; }
     return 'EOF-' + p + '-' + ymd + '-' + s;
   }
-  var TR = {'\u0430':'a','\u0431':'b','\u0432':'v','\u0433':'g','\u0434':'d','\u0435':'e','\u0451':'e','\u0436':'zh','\u0437':'z','\u0438':'i','\u0439':'y','\u043a':'k','\u043b':'l','\u043c':'m','\u043d':'n','\u04a3':'ng','\u043e':'o','\u04e9':'o','\u043f':'p','\u0440':'r','\u0441':'s','\u0442':'t','\u0443':'u','\u04af':'u','\u0444':'f','\u0445':'kh','\u0446':'ts','\u0447':'ch','\u0448':'sh','\u0449':'sch','\u044a':'','\u044b':'y','\u044c':'','\u044d':'e','\u044e':'yu','\u044f':'ya','\u0456':'i','\u0457':'yi','\u0454':'ye','\u049b':'k','\u0493':'g','\u04b1':'u','\u04d9':'a','\u04bb':'h'};
+  var TR = {'\u0430':'a','\u0431':'b','\u0432':'v','\u0433':'g','\u0434':'d','\u0435':'e','\u0451':'e','\u0436':'zh','\u0437':'z','\u0438':'i','\u0439':'y','\u043a':'k','\u043b':'l','\u043c':'m','\u043d':'n','\u04a3':'ng','\u043e':'o','\u04e9':'o','\u043f':'p','\u0440':'r','\u0441':'s','\u0442':'t','\u0443':'u','\u04af':'u','\u0444':'f','\u0445':'kh','\u0446':'ts','\u0447':'ch','\u0448':'sh','\u0449':'sch','\u044a':'','\u044b':'y','\u044c':'','\u044d':'e','\u044e':'yu','\u044f':'ya','\u0456':'i','\u0131':'i','\u0457':'yi','\u0454':'ye','\u049b':'k','\u0493':'g','\u04b1':'u','\u04d9':'a','\u04bb':'h'};
   function translit(s){ return String(s||'').split('').map(function(ch){ var lo = ch.toLowerCase(), t = TR[lo]; if(t === undefined) return ch; return ch === lo ? t : t.charAt(0).toUpperCase() + t.slice(1); }).join(''); }
   function safeFile(s){ s = translit(s); return (s||'Student').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9\s-]/g,'').trim().replace(/\s+/g,'-').slice(0,40) || 'Student'; }
   function fitsFont(s){ return /^[\u0020-\u007E\u00A0-\u00FF\u2018\u2019\u201C\u201D\u2013\u2014]*$/.test(s); }
@@ -133,6 +133,14 @@
     }
 
     var W = 210, H = 297, CX = W/2, now = new Date(), id = resultId(r, now);
+    var LV = r.levels || LEVELS, LN = r.levelNames || LEVEL_FULL, S = r.school || null;
+    // Names the embedded font can't draw (e.g. Cyrillic) are drawn as an image on the certificate line;
+    // in running text we use a Latin transliteration, or "this student" for other scripts.
+    var rawName = String(r.name || 'Student').trim(), rawFirst = rawName.split(/\s+/)[0];
+    var textName = fitsFont(rawName) ? rawName : (fitsFont(translit(rawName)) ? translit(rawName) : '');
+    var first = textName ? textName.split(/\s+/)[0] : 'this student';
+    var First = first.charAt(0).toUpperCase() + first.slice(1);
+    var dy = S ? 5 : 0;   // schools: room for the grade line under the name
     var fill = function(c){ doc.setFillColor(c[0],c[1],c[2]); };
     var ink = function(c){ doc.setTextColor(c[0],c[1],c[2]); };
     var pen = function(c){ doc.setDrawColor(c[0],c[1],c[2]); };
@@ -161,6 +169,7 @@
     /* Title block */
     ink(BRAND.red); font('Poppins','bold',8.6);
     var eyebrow = r.isDemo ? 'DEMO PLACEMENT TEST \u2022 INDICATIVE RESULT' : 'FULL PLACEMENT TEST \u2022 OFFICIAL RESULT';
+    if(S){ eyebrow = (r.isDemo ? 'SCHOOLS DEMO TEST \u2022 ' : 'PLACEMENT TEST FOR SCHOOLS \u2022 ') + S.band.toUpperCase() + (r.isDemo ? ' \u2022 INDICATIVE RESULT' : ' \u2022 OFFICIAL RESULT'); }
     spaced(eyebrow, CX, 74, 0.9, 'center');
     ink(BRAND.grey); font('Poppins','normal',10); doc.text('This result is presented to', CX, 82.5, {align:'center'});
 
@@ -174,9 +183,10 @@
       doc.addImage(im.data, 'PNG', CX - w/2, 99 - h, w, h);
     }
     fill(BRAND.red); doc.roundedRect(CX-12, 102, 24, 1.2, 0.6, 0.6, 'F');
+    if(S){ ink(BRAND.grey); font('PoppinsMed','normal',9); doc.text((S.grade ? 'Grade ' + S.grade + '   \u2022   ' : '') + S.band + ' (Grades ' + S.grades + ')', CX, 108.6, {align:'center'}); }
 
     /* Score ring \u2014 same gradient as the website badge */
-    var cy = 132, R = 23, T = 5.2, seg = 180, start = -40*Math.PI/180;
+    var cy = 132 + dy, R = 23, T = 5.2, seg = 180, start = -40*Math.PI/180;
     for(var i=0;i<seg;i++){
       var a0 = start + (i/seg)*2*Math.PI, a1 = start + ((i+1.6)/seg)*2*Math.PI;
       var p = function(a, rad){ return [CX + rad*Math.sin(a), cy - rad*Math.cos(a)]; };
@@ -187,23 +197,25 @@
     fill([255,255,255]); doc.circle(CX, cy, R-T, 'F');
     ink(BRAND.navy); font('Poppins','bold',19); doc.text(r.pct + '/100', CX, cy+0.5, {align:'center'});
     ink(BRAND.red); font('Poppins','bold',11); doc.text(r.level, CX, cy+6.6, {align:'center'});
-    font('PoppinsMed','normal',7.4); doc.text(LEVEL_FULL[r.level] || '', CX, cy+10.6, {align:'center'});
+    font('PoppinsMed','normal',7.4); doc.text(LN[r.level] || '', CX, cy+10.6, {align:'center'});
 
     /* Level description */
     ink(BRAND.text); font('Poppins','normal',10.2);
-    var desc = doc.splitTextToSize(r.desc || '', 150);
-    doc.text(desc, CX, 164, {align:'center', lineHeightFactor:1.55});
-    var yAfter = 164 + desc.length*5.6;
+    var descTxt = r.pdfDesc || r.desc || '';
+    if(S && rawFirst !== first){ descTxt = descTxt.split(rawFirst).join(First); }
+    var desc = doc.splitTextToSize(descTxt, 150);
+    doc.text(desc, CX, 164 + dy, {align:'center', lineHeightFactor:1.55});
+    var yAfter = 164 + dy + desc.length*5.6;
 
     /* CEFR scale */
-    var y0 = Math.max(yAfter + 4, 181), pillW = 30, gap = 2.5, total = pillW*5 + gap*4, x0 = CX - total/2;
+    var y0 = Math.max(yAfter + 4, 181 + dy), gap = 2.5, total = 160, pillW = (total - gap*(LV.length-1))/LV.length, x0 = CX - total/2;
     ink(BRAND.navy); font('Poppins','bold',8.2); spaced('CEFR LEVEL', x0, y0, 0.7);
-    LEVELS.forEach(function(L, k){
-      var x = x0 + k*(pillW+gap), y = y0 + 3.5, on = (L === r.level), past = LEVELS.indexOf(L) < LEVELS.indexOf(r.level);
+    LV.forEach(function(L, k){
+      var x = x0 + k*(pillW+gap), y = y0 + 3.5, on = (L === r.level), past = LV.indexOf(L) < LV.indexOf(r.level);
       fill(on ? BRAND.red : (past ? [214,221,240] : BRAND.soft)); doc.roundedRect(x, y, pillW, 11, 2.2, 2.2, 'F');
       ink(on ? [255,255,255] : (past ? BRAND.navy : BRAND.grey));
       font('Poppins','bold',11); doc.text(L, x+pillW/2, y+5.6, {align:'center'});
-      font('Poppins','normal',6.4); doc.text(LEVEL_FULL[L], x+pillW/2, y+9.1, {align:'center'});
+      font('Poppins','normal',6.4); doc.text(LN[L], x+pillW/2, y+9.1, {align:'center'});
     });
 
     /* Skill breakdown: CEFR level per skill + score bar */
@@ -221,10 +233,24 @@
     });
 
     /* Next step box */
-    var yb = Math.min(ys + 9 + (r.skills||[]).length*7.6 + 3, 249);
-    fill(BRAND.soft); doc.roundedRect(x0, yb, total, 20, 3, 3, 'F');
-    fill(BRAND.red); doc.roundedRect(x0, yb, 1.6, 20, 0.8, 0.8, 'F');
+    var bh = S ? 24 : 20;
+    var yb = Math.min(ys + 9 + (r.skills||[]).length*7.6 + 3, S ? 245 : 249);
+    fill(BRAND.soft); doc.roundedRect(x0, yb, total, bh, 3, 3, 'F');
+    fill(BRAND.red); doc.roundedRect(x0, yb, 1.6, bh, 0.8, 0.8, 'F');
     ink(BRAND.navy); font('Poppins','bold',10.5);
+    if(S){
+      doc.text(r.isDemo ? 'Next step: take the full Placement Test for Schools' : 'Next step: book a place in a ' + S.group, x0+7, yb+7.4);
+      ink(BRAND.text); font('Poppins','normal',8.8);
+      if(r.isDemo){
+        doc.text('This demo gives an indicative level only. The full ' + S.band + ' test (' + S.fullMinutes + ' minutes) gives', x0+7, yb+12.6);
+        doc.text('an official CEFR result and a detailed report for parents.', x0+7, yb+16.8);
+      } else {
+        doc.text('Send this PDF to us on WhatsApp (' + BRAND.phoneDisplay + ') and our team will match', x0+7, yb+12.6);
+        doc.text(first + ' with the right group, teacher and timetable. Full details on page 2.', x0+7, yb+16.8);
+      }
+      ink(BRAND.grey); font('PoppinsMed','normal',8.2);
+      doc.text('Cambridge English reference: ' + S.cambridge, x0+7, yb+21.2);
+    } else {
     doc.text(r.isDemo ? 'Next step: take the 60-minute Full Placement Test' : 'Next step: book your ' + r.level + ' class', x0+7, yb+7.4);
     ink(BRAND.text); font('Poppins','normal',8.8);
     if(r.isDemo){
@@ -234,11 +260,13 @@
       doc.text('Send this PDF to us on WhatsApp (' + BRAND.phoneDisplay + ') and our team will', x0+7, yb+12.6);
       doc.text('match you with the right teacher and timetable. Full details on page 2.', x0+7, yb+16.8);
     }
+    }
 
     /* Footer */
     ink(BRAND.grey); font('Poppins','normal',8);
     doc.text(r.isDemo ? 'DEMO RESULT \u2014 indicative only. This is not an official placement or a certificate of English proficiency.'
-                      : 'Official EOF placement result, aligned to the CEFR. It is not a certificate of English proficiency.', CX, 273.8, {align:'center'});
+                      : (S ? 'Official EOF placement result for schools, aligned to the CEFR. It is not a certificate of English proficiency.'
+                           : 'Official EOF placement result, aligned to the CEFR. It is not a certificate of English proficiency.'), CX, 273.8, {align:'center'});
     function footer(){
       fill(BRAND.navy); doc.rect(0, 278, W, 19, 'F');
       ink([255,255,255]); font('PoppinsMed','normal',9.2);
@@ -264,7 +292,7 @@
       fill(BRAND.navy); doc.rect(0, 0, W, 30, 'F'); fill(BRAND.red); doc.rect(0, 30, W, 1.2, 'F');
       fill([255,255,255]); doc.circle(24, 15, 9.5, 'F'); if(logo){ doc.addImage(logo, 'PNG', 15.5, 6.5, 17, 17); }
       ink([255,255,255]); font('Poppins','bold',14); doc.text('Detailed Placement Report', 40, 14);
-      ink([200,208,228]); font('Poppins','normal',8.6); doc.text(name + '   \u2022   ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + '   \u2022   ' + r.pct + '/100', 40, 21);
+      ink([200,208,228]); font('Poppins','normal',8.6); doc.text((textName || '') + (S && S.grade ? '   \u2022   Grade ' + S.grade : '') + '   \u2022   ' + r.level + ' ' + (LN[r.level]||'') + '   \u2022   ' + r.pct + '/100', 40, 21);
 
       var X = 18, TW = W - 36, y = 44;
       function h2(t){ ink(BRAND.red); font('Poppins','bold',8.4); spaced(t.toUpperCase(), X, y, 0.8); y += 5; }
@@ -291,8 +319,8 @@
       y += 8;
 
       /* can-do statements */
-      h2('What you can do at ' + r.level + ' (' + (LEVEL_FULL[r.level]||'') + ')');
-      (CAN_DO[r.level]||[]).forEach(function(t){
+      h2((S ? 'What ' + first + ' can do at ' : 'What you can do at ') + r.level + ' (' + (LN[r.level]||'') + ')');
+      ((S ? S.canDo : CAN_DO[r.level])||[]).forEach(function(t){
         fill(BRAND.red); doc.circle(X+1.6, y+1.6, 1, 'F');
         ink(BRAND.text); font('Poppins','normal',9.4);
         var lines = doc.splitTextToSize(t, TW-8); doc.text(lines, X+6, y+2.8, {lineHeightFactor:1.45}); y += lines.length*4.9 + 2;
@@ -304,6 +332,15 @@
       var sorted = (r.skills||[]).slice().sort(function(a,b){ return a.pct - b.pct; });
       var weak = sorted[0], strong = sorted[sorted.length-1];
       var focus = [];
+      if(S){
+        if(strong && weak && strong.pct - weak.pct >= 8){
+          focus.push(First + '\u2019s strongest area is ' + strong.label.toLowerCase() + ' (' + strong.level + '). The priority should be ' + weak.label.toLowerCase() + ' (' + weak.level + ').');
+        } else {
+          focus.push(First + '\u2019s skills are well balanced, so ' + first + ' is ready to move on across all areas of a ' + r.level + ' course.');
+        }
+        if(weak && S.tips) focus.push(S.tips[weak.key] || '');
+        focus.push('Speaking and writing are not part of this online test. The teacher will check them in the first lesson and confirm the group.');
+      } else {
       if(strong && weak && strong.pct - weak.pct >= 8){
         focus.push('Your strongest area is ' + strong.label.toLowerCase() + ' (' + strong.level + '). Your priority should be ' + weak.label.toLowerCase() + ' (' + weak.level + ').');
       } else {
@@ -311,6 +348,7 @@
       }
       if(weak) focus.push(TIPS[weak.key] || '');
       focus.push('Speaking and writing are not part of this online test. Your teacher will check them in your first lesson and confirm your class.');
+      }
       focus.forEach(function(t){
         if(!t) return;
         fill(BRAND.navy); doc.circle(X+1.6, y+1.6, 1, 'F');
@@ -321,24 +359,26 @@
 
       /* score bands */
       h2('How to read your score');
-      var bw2 = TW/5;
-      [['A1','0\u201319'],['A2','20\u201339'],['B1','40\u201359'],['B2','60\u201379'],['C1','80\u2013100']].forEach(function(bd, k){
+      var BANDS = (S && S.bands) || [['A1','0\u201319'],['A2','20\u201339'],['B1','40\u201359'],['B2','60\u201379'],['C1','80\u2013100']];
+      var bw2 = TW/BANDS.length;
+      BANDS.forEach(function(bd, k){
         var bx = X + k*bw2, on = bd[0] === r.level;
         fill(on ? BRAND.red : BRAND.soft); doc.roundedRect(bx+1, y, bw2-2, 15, 2, 2, 'F');
         ink(on ? [255,255,255] : BRAND.navy); font('Poppins','bold',10); doc.text(bd[0] + '  ' + bd[1], bx + bw2/2, y+6.3, {align:'center'});
-        ink(on ? [255,255,255] : BRAND.grey); font('Poppins','normal',7); doc.text(LEVEL_FULL[bd[0]], bx + bw2/2, y+11.2, {align:'center'});
+        ink(on ? [255,255,255] : BRAND.grey); font('Poppins','normal',7); doc.text(LN[bd[0]] || '', bx + bw2/2, y+11.2, {align:'center'});
       });
       y += 22;
 
       /* test details */
       h2('Test details');
       var det = [
-        ['Test', 'EOF Full Placement Test (60 minutes): Grammar & Vocabulary, Reading, Listening'],
+        ['Test', S ? S.testDesc : 'EOF Full Placement Test (60 minutes): Grammar & Vocabulary, Reading, Listening'],
         ['Date', fmtDate(now)],
-        ['Time taken', (r.minutes||'\u2014') + ' minutes' + (r.timedOut ? ' (time limit reached)' : '')],
+        ['Time taken', (r.minutes||'\u2014') + (r.minutes === 1 ? ' minute' : ' minutes') + (r.timedOut ? ' (time limit reached)' : '')],
         ['Questions answered', (r.answered!=null ? r.answered : '\u2014') + ' of ' + (r.total!=null ? r.total : '\u2014')],
         ['Result ID', id]
       ];
+      if(S && S.parent){ det.splice(2, 0, ['Parent', S.parent]); }
       det.forEach(function(d){
         ink(BRAND.grey); font('Poppins','normal',8.6); doc.text(d[0], X, y+3);
         ink(BRAND.navy); font('PoppinsMed','normal',8.6); doc.text(d[1], X+42, y+3);
@@ -350,7 +390,8 @@
       footer();
     }
 
-    return { doc:doc, id:id, fileName:(r.isDemo ? 'EOF-DEMO-Result-' : 'EOF-Result-') + safeFile(name) + '-' + r.level + '.pdf' };
+    var pre = S ? ('EOF-Schools-' + S.band + (r.isDemo ? '-DEMO-Result-' : '-Result-')) : (r.isDemo ? 'EOF-DEMO-Result-' : 'EOF-Result-');
+    return { doc:doc, id:id, fileName: pre + safeFile(name) + '-' + r.level + '.pdf' };
   }
 
   /* ---------- Results page UI ---------- */
@@ -358,9 +399,13 @@
 
   function waText(r, attached){
     var lines = (r.skills||[]).map(function(s){ return s.label + ': ' + s.pct + '%'; }).join('\n');
-    var t = 'Hi English Online Forum! I just took the ' + r.testLabel + ' on your website.\n\nName: ' + r.name + '\nResult: ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + ' (' + r.pct + '%)\n' + lines;
+    var LN = r.levelNames || LEVEL_FULL, S = r.school;
+    var t = S
+      ? 'Hi English Online Forum! ' + r.name + ' has just taken the ' + r.testLabel + ' on your website.\n\nStudent: ' + r.name + (S.grade ? ' (Grade ' + S.grade + ')' : '') + (S.parent ? '\nParent: ' + S.parent : '') + '\nResult: ' + r.level + ' ' + (LN[r.level]||'') + ' (' + r.pct + '%)\n' + lines
+      : 'Hi English Online Forum! I just took the ' + r.testLabel + ' on your website.\n\nName: ' + r.name + '\nResult: ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + ' (' + r.pct + '%)\n' + lines;
     if(r.contact){ t += '\nContact: ' + r.contact; }
-    t += attached ? '\n\nMy result PDF is attached. I would like to book my class.' : '\n\nI would like to book my class.';
+    if(S){ t += attached ? '\n\nThe result PDF is attached. We would like to book a class.' : '\n\nWe would like to book a class.'; }
+    else { t += attached ? '\n\nMy result PDF is attached. I would like to book my class.' : '\n\nI would like to book my class.'; }
     return t;
   }
 
@@ -380,7 +425,7 @@
     var waUrl = 'https://wa.me/' + BRAND.whatsapp + '?text=';
     var canShareFile = state.file && navigator.canShare && navigator.canShare({ files:[state.file] });
     if(canShareFile && isMobile()){
-      navigator.share({ files:[state.file], title:'My English Online Forum result', text: waText(r, true) })
+      navigator.share({ files:[state.file], title: r.school ? 'English Online Forum \u2014 ' + r.testLabel + ' result' : 'My English Online Forum result', text: waText(r, true) })
         .then(function(){ setHint('<i class="fa-solid fa-circle-check"></i> Sent! Our team will reply on WhatsApp to book your class.'); })
         .catch(function(err){ if(err && err.name === 'AbortError') return; download(); window.open(waUrl + encodeURIComponent(waText(r,true)), '_blank'); });
       return;
@@ -396,7 +441,7 @@
     if(!host) return;
     host.hidden = false;
     document.getElementById('eofPdfName').textContent = 'Preparing your result PDF\u2026';
-    document.getElementById('eofPdfMeta').textContent = r.testLabel + ' \u2022 ' + r.level + ' ' + (LEVEL_FULL[r.level]||'') + (r.isDemo ? ' \u2022 demo' : '');
+    document.getElementById('eofPdfMeta').textContent = r.testLabel + ' \u2022 ' + r.level + ' ' + ((r.levelNames || LEVEL_FULL)[r.level]||'') + (r.isDemo ? ' \u2022 demo' : '');
     setHint(isMobile()
       ? '<i class="fa-brands fa-whatsapp"></i> Tap <b>Send PDF on WhatsApp</b>, choose WhatsApp, then pick <b>English Online Forum</b> (' + BRAND.phoneDisplay + ').'
       : '<i class="fa-solid fa-circle-info"></i> We\u2019ll download your PDF and open our WhatsApp chat so you can attach it.');

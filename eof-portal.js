@@ -22,7 +22,7 @@ export {
   serverTimestamp, Timestamp, deleteDoc, where, limit
 };
 
-export const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
+export const LEVELS = ["Pre-A1", "A1", "A2", "B1", "B2", "C1", "C2"];
 export const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export const DAY_NAMES = { Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday", Fri: "Friday", Sat: "Saturday", Sun: "Sunday" };
 
