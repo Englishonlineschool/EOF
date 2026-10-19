@@ -180,7 +180,7 @@ def build(page):
         n = t.count(old); assert n == count, (page['file'], n, old[:80]); t = t.replace(old, new)
 
     # ---------- head ----------
-    rep('<title>Full Placement Test — Live | English Online Forum</title>', '<title>' + html.escape(title) + '</title>')
+    rep('<title>General English Placement Test — Live | English Online Forum</title>', '<title>' + html.escape(title) + '</title>')
     t = re.sub(r'<meta name="description" content="[^"]*">', '<meta name="description" content="' + html.escape(descr) + '">', t, count=1)
     t = t.replace('https://englishonlineforum.com/eof-exam-full.html', 'https://englishonlineforum.com/' + page['file'])
     t = re.sub(r'(<meta property="og:title" content=")[^"]*(">)', lambda m: m.group(1) + html.escape(title) + m.group(2), t, count=1)
@@ -206,7 +206,7 @@ def build(page):
     # ---------- start card ----------
     rep('<a href="eof-placement-full-test.html" target="_top" class="exam-back-link"><i class="fa-solid fa-arrow-left"></i> Back to test options</a>',
         '<a href="eof-placement-test.html#schools" target="_top" class="exam-back-link"><i class="fa-solid fa-arrow-left"></i> Back to test options</a>')
-    rep('<div class="exam-eyebrow">Full Placement Test</div>',
+    rep('<div class="exam-eyebrow">General English Placement Test</div>',
         '<div class="exam-eyebrow">Placement Test for Schools &middot; ' + P['band'] + (' &middot; Demo' if page['demo'] else '') + '</div>')
     m = re.search(r'<h1>Ready to Begin\?</h1>\s*<p>.*?</p>', t, re.S); assert m
     t = t[:m.start()] + ('<h1>Ready to Begin?</h1>\n'
@@ -288,7 +288,7 @@ def build(page):
       var lp = -0.5*Math.pow((t-SCHOOL.prior)/2,2);   // weak prior N(centre of the test's range, 2^2)""")
     rep("""  function scoreOf(theta){ return Math.max(0, Math.min(100, Math.round(50 + 20*theta))); }""",
         """  function scoreOf(theta){ return Math.max(0, Math.min(100, Math.round((theta - LO) / LEVELS.length * 100))); }""")
-    rep("""    var desc = LEVEL_DESC[level] + (EXAM.isDemo ? ' This is a demo result: take the 60-minute Full Placement Test for your official level.' : '');""",
+    rep("""    var desc = LEVEL_DESC[level] + (EXAM.isDemo ? ' This is a demo result: take the 60-minute General English Placement Test for your official level.' : '');""",
         """    var first = name.split(/\\s+/)[0];
     var desc = SCHOOL.desc[level].split('{n}').join(first) + (EXAM.isDemo ? ' This is a demo result: take the full ' + SCHOOL.band + ' test (' + SCHOOL.fullMinutes + ' minutes) for an official level.' : '');""")
     rep("""    var waText = 'Hi English Online Forum! I just took the ' + EXAM.testTypeLabel + ' on your website.\\n\\nName: ' + name + '\\nResult: ' + level + ' ' + LEVEL_NAME[level] + ' (' + score + '/100)' + (EXAM.isDemo ? ' — demo result' : '') + '\\n'

@@ -168,7 +168,7 @@
 
     /* Title block */
     ink(BRAND.red); font('Poppins','bold',8.6);
-    var eyebrow = r.isDemo ? 'DEMO PLACEMENT TEST \u2022 INDICATIVE RESULT' : 'FULL PLACEMENT TEST \u2022 OFFICIAL RESULT';
+    var eyebrow = r.isDemo ? 'GENERAL ENGLISH DEMO TEST \u2022 INDICATIVE RESULT' : 'GENERAL ENGLISH PLACEMENT TEST \u2022 OFFICIAL RESULT';
     if(S){ eyebrow = (r.isDemo ? 'SCHOOLS DEMO TEST \u2022 ' : 'PLACEMENT TEST FOR SCHOOLS \u2022 ') + S.band.toUpperCase() + (r.isDemo ? ' \u2022 INDICATIVE RESULT' : ' \u2022 OFFICIAL RESULT'); }
     spaced(eyebrow, CX, 74, 0.9, 'center');
     ink(BRAND.grey); font('Poppins','normal',10); doc.text('This result is presented to', CX, 82.5, {align:'center'});
@@ -251,10 +251,10 @@
       ink(BRAND.grey); font('PoppinsMed','normal',8.2);
       doc.text('Cambridge English reference: ' + S.cambridge, x0+7, yb+21.2);
     } else {
-    doc.text(r.isDemo ? 'Next step: take the 60-minute Full Placement Test' : 'Next step: book your ' + r.level + ' class', x0+7, yb+7.4);
+    doc.text(r.isDemo ? 'Next step: take the 60-minute General English Placement Test' : 'Next step: book your ' + r.level + ' class', x0+7, yb+7.4);
     ink(BRAND.text); font('Poppins','normal',8.8);
     if(r.isDemo){
-      doc.text('This demo gives an indicative level only. The Full Placement Test gives your', x0+7, yb+12.6);
+      doc.text('This demo gives an indicative level only. The full General English test gives your', x0+7, yb+12.6);
       doc.text('official CEFR result and a detailed skills report.', x0+7, yb+16.8);
     } else {
       doc.text('Send this PDF to us on WhatsApp (' + BRAND.phoneDisplay + ') and our team will', x0+7, yb+12.6);
@@ -372,7 +372,7 @@
       /* test details */
       h2('Test details');
       var det = [
-        ['Test', S ? S.testDesc : 'EOF Full Placement Test (60 minutes): Grammar & Vocabulary, Reading, Listening'],
+        ['Test', S ? S.testDesc : 'General English Placement Test (60 minutes): grammar, reading, listening'],
         ['Date', fmtDate(now)],
         ['Time taken', (r.minutes||'\u2014') + (r.minutes === 1 ? ' minute' : ' minutes') + (r.timedOut ? ' (time limit reached)' : '')],
         ['Questions answered', (r.answered!=null ? r.answered : '\u2014') + ' of ' + (r.total!=null ? r.total : '\u2014')],
