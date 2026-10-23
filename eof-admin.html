@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=10">
+<link rel="stylesheet" href="eof-portal.css?v=11">
 </head>
 <body>
 <header class="portal-top">
@@ -49,8 +49,8 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th class="hide-sm">Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Last result</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
-          <tbody id="studentBody"><tr><td colspan="8" class="empty">Loading&hellip;</td></tr></tbody>
+          <thead><tr><th class="col-no">No.</th><th class="hide-sm">Student no.</th><th>Name</th><th>Level</th><th class="hide-sm">Last result</th><th class="hide-sm">Lesson days</th><th class="hide-sm">Registered</th><th>Attendance</th><th>Status</th></tr></thead>
+          <tbody id="studentBody"><tr><td colspan="9" class="empty">Loading&hellip;</td></tr></tbody>
         </table>
       </div>
       <p class="hint" style="margin-top:10px" id="listHint">Click a student to edit their details, add test results, see their attendance or download their student card.</p>
@@ -74,7 +74,7 @@
       <h2 id="attHeading" style="font-size:22px;margin:4px 0 14px"></h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Student</th><th class="hide-sm">Level</th><th class="hide-sm">Time</th><th>Mark</th></tr></thead>
+          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Level</th><th class="hide-sm">Time</th><th>Mark</th></tr></thead>
           <tbody id="attBody"></tbody>
         </table>
       </div>
@@ -381,8 +381,9 @@ function renderStudents() {
   const f = $("statusFilter").value;
   const list = students.filter(s => (f === "all" || (s.status || "active") === f) &&
     (!q || [s.name, s.studentNumber, s.email].some(v => String(v || "").toLowerCase().includes(q))));
-  $("studentBody").innerHTML = list.length ? list.map(s => `
+  $("studentBody").innerHTML = list.length ? list.map((s, i) => `
     <tr class="clickable" data-uid="${s.uid}">
+      <td class="col-no">${i + 1}</td>
       <td class="hide-sm"><b>${esc(s.studentNumber)}</b></td>
       <td><span class="show-sm hint" style="margin:0">${esc(s.studentNumber)}</span>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div><div style="margin-top:3px">${loginBadge(s)}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
@@ -391,7 +392,7 @@ function renderStudents() {
       <td class="hide-sm">${esc(prettyDate(s.registeredOn))}</td>
       <td>${rate(s.uid)}</td>
       <td><span class="badge ${esc(s.status || "active")}">${esc({ active: "Active", paused: "Paused", left: "Inactive" }[s.status || "active"] || s.status)}</span></td>
-    </tr>`).join("") : `<tr><td colspan="8" class="empty">${students.length ? "No students match." : "No students yet. Click “Register student” to add the first one."}</td></tr>`;
+    </tr>`).join("") : `<tr><td colspan="9" class="empty">${students.length ? "No students match." : "No students yet. Click “Register student” to add the first one."}</td></tr>`;
 }
 $("search").addEventListener("input", renderStudents);
 $("statusFilter").addEventListener("change", renderStudents);
@@ -850,12 +851,13 @@ async function renderAttendance() {
   const active = students.filter(s => (s.status || "active") === "active");
   const list = $("attScope").value === "all" ? active : active.filter(s => (s.lessonDays || []).includes(dk));
   const token = ++attToken;
-  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="4" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
-  $("attBody").innerHTML = `<tr><td colspan="4" class="empty">Loading&hellip;</td></tr>`;
+  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="5" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
+  $("attBody").innerHTML = `<tr><td colspan="5" class="empty">Loading&hellip;</td></tr>`;
   const marks = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", date)).then(d => d.exists() ? d.data().status : null)));
   if (token !== attToken) return;
   $("attBody").innerHTML = list.map((s, i) => `
     <tr data-uid="${s.uid}">
+      <td class="col-no">${i + 1}</td>
       <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
       <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${esc(s.lessonTime || "—")}</td>
@@ -986,7 +988,7 @@ $("wkGrid").addEventListener("click", e => {
   $("tab-week").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance();
 });
 
-loadStudents().then(() => ADMIN && loadTeachers()).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="7" class="empty">${esc(friendlyError(e))}</td></tr>`; });
+loadStudents().then(() => ADMIN && loadTeachers()).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="9" class="empty">${esc(friendlyError(e))}</td></tr>`; });
 </script>
 </body>
 </html>
