@@ -243,10 +243,13 @@ tr.wk-today td{background:#FFF8EC;}
 .slot .input{padding:8px 10px;font-size:14px;min-width:0;width:100%;}
 .slot-day{font-size:14px;color:var(--accent);grid-column:1 / -1;}
 .slot-f{display:flex;flex-direction:column;gap:4px;margin:0;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;min-width:0;}
-.slot-f .s-city-other{margin-top:6px;}
-.slot-time{display:flex;align-items:center;gap:6px;}
-.slot-time select{flex:1;}
-.slot-time b{color:var(--muted);}
+.combo{position:relative;}
+.combo-list{position:absolute;z-index:20;left:0;right:0;top:calc(100% + 4px);max-height:240px;overflow-y:auto;margin:0;padding:4px;list-style:none;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 28px rgba(13,24,54,.18);text-transform:none;letter-spacing:0;}
+.combo-opt{padding:8px 10px;border-radius:7px;font-size:14px;font-weight:500;color:var(--text);cursor:pointer;}
+.combo-opt:hover,.combo-opt.active{background:#EEF2FB;color:var(--accent);}
+.combo-opt.sel{font-weight:700;}
+.combo-new{color:var(--accent-light);font-style:italic;}
+.combo-empty{padding:8px 10px;font-size:13px;color:var(--muted);font-weight:500;}
 .slot-tz{grid-column:1 / -1;font-size:12px;color:var(--muted);}
 .slot-tz:empty{display:none;}
 .slot-copy{align-self:flex-start;font-size:13px;}

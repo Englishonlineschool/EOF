@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=14">
+<link rel="stylesheet" href="eof-portal.css?v=15">
 </head>
 <body>
 <header class="portal-top">
@@ -482,37 +482,98 @@ function slotsOf(s) {
 }
 const slotPlace = x => x.city || x.country || "";
 
-const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
-const MINS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+// Every time of day in 5-minute steps: "00:00" … "23:55"
+const TIMES = Array.from({ length: 288 }, (_, i) => String(Math.floor(i / 12)).padStart(2, "0") + ":" + String((i % 12) * 5).padStart(2, "0"));
 const opt = (v, label, sel) => `<option value="${esc(v)}"${sel ? " selected" : ""}>${esc(label)}</option>`;
-function cityOptions(country, city) {
-  const list = country ? (CITIES[country] || []).map(([c]) => c) : [];
-  const other = !!city && !list.some(c => fold(c) === fold(city));
-  return opt("", country ? "— Choose city —" : "Choose a country first", !city) +
-    list.map(c => opt(c, c, fold(c) === fold(city))).join("") +
-    (country ? opt("__other", "Other (type it)…", other) : "");
-}
+const timeOptions = t => opt("", "— Choose time —", !t) + [...new Set([...TIMES, ...(t && !TIMES.includes(t) ? [t] : [])])].sort().map(x => opt(x, x, x === t)).join("");
+const citiesOf = country => (CITIES[findCountry(country)] || []).map(([c]) => c);
+
 function slotRow(d, v = {}) {
-  const [h, m] = (v.time || "").split(":");
   const country = findCountry(v.country) || "";
-  const cityKnown = country && (CITIES[country] || []).some(([c]) => fold(c) === fold(v.city));
   return `<div class="slot" data-day="${d}">
     <b class="slot-day">${DAY_NAMES[d]}</b>
-    <label class="slot-f"><span>Time</span><span class="slot-time">
-      <select class="input s-h" aria-label="${DAY_NAMES[d]} hour">${opt("", "Hour", !h)}${HOURS.map(x => opt(x, x, x === h)).join("")}</select><b>:</b>
-      <select class="input s-m" aria-label="${DAY_NAMES[d]} minutes">${opt("", "Min", !m)}${[...new Set([...MINS, ...(m && !MINS.includes(m) ? [m] : [])])].sort().map(x => opt(x, x, x === m)).join("")}</select></span></label>
+    <label class="slot-f"><span>Time</span><select class="input s-time" aria-label="${DAY_NAMES[d]} lesson time">${timeOptions(v.time || "")}</select></label>
     <label class="slot-f"><span>Lesson</span><select class="input s-len" aria-label="${DAY_NAMES[d]} single or double lesson">${opt("1", "Single", (v.lessons || 1) == 1)}${opt("2", "Double", v.lessons == 2)}</select></label>
-    <label class="slot-f"><span>Country</span><select class="input s-country" aria-label="${DAY_NAMES[d]} country">${opt("", "— Choose country —", !country)}${COUNTRY_NAMES.map(c => opt(c, c, c === country)).join("")}</select></label>
-    <label class="slot-f"><span>City</span><select class="input s-city" aria-label="${DAY_NAMES[d]} city">${cityOptions(country, v.city)}</select>
-      <input class="input s-city-other${cityKnown || !v.city ? " hidden" : ""}" value="${esc(cityKnown ? "" : v.city || "")}" placeholder="Type the city" aria-label="${DAY_NAMES[d]} city name"></label>
+    <div class="slot-f"><span>Country</span><div class="combo"><input class="input s-country" data-combo="country" value="${esc(country)}" placeholder="Type or scroll…" autocomplete="off" role="combobox" aria-expanded="false" aria-label="${DAY_NAMES[d]} country"><ul class="combo-list hidden" role="listbox"></ul></div></div>
+    <div class="slot-f"><span>City</span><div class="combo"><input class="input s-city" data-combo="city" value="${esc(v.city || "")}" placeholder="${country ? "Type or scroll…" : "Choose a country first"}" autocomplete="off" role="combobox" aria-expanded="false" aria-label="${DAY_NAMES[d]} city"><ul class="combo-list hidden" role="listbox"></ul></div></div>
     <span class="slot-tz"></span>
   </div>`;
 }
-const slotTime = r => { const h = r.querySelector(".s-h").value, m = r.querySelector(".s-m").value; return h ? `${h}:${m || "00"}` : ""; };
-const slotCity = r => r.querySelector(".s-city").value === "__other" ? r.querySelector(".s-city-other").value.trim() : r.querySelector(".s-city").value;
+
+// ----- Type-to-filter dropdown for country and city -----
+function comboItems(input) {
+  const q = fold(input.value), row = input.closest(".slot");
+  const all = input.dataset.combo === "country" ? COUNTRY_NAMES : citiesOf(row.querySelector(".s-country").value);
+  if (!q || input.dataset.showAll) return all;
+  const starts = all.filter(x => fold(x).startsWith(q)), has = all.filter(x => !fold(x).startsWith(q) && fold(x).includes(q));
+  return [...starts, ...has];
+}
+function openCombo(input, showAll) {
+  if (showAll) input.dataset.showAll = "1"; else delete input.dataset.showAll;
+  const list = input.nextElementSibling, items = comboItems(input), typed = input.value.trim();
+  const extra = input.dataset.combo === "city" && typed && !showAll && !items.some(x => fold(x) === fold(typed)) && findCountry(input.closest(".slot").querySelector(".s-country").value)
+    ? `<li class="combo-opt combo-new" data-val="${esc(typed)}">Use “${esc(typed)}”</li>` : "";
+  if (input.dataset.combo === "city" && !findCountry(input.closest(".slot").querySelector(".s-country").value)) {
+    list.innerHTML = `<li class="combo-empty">Choose the country first</li>`;
+  } else {
+    list.innerHTML = items.map(x => `<li class="combo-opt${fold(x) === fold(typed) ? " sel" : ""}" data-val="${esc(x)}" role="option">${esc(x)}</li>`).join("") + extra || `<li class="combo-empty">No match</li>`;
+  }
+  list.classList.remove("hidden"); input.setAttribute("aria-expanded", "true");
+  const cur = list.querySelector(".sel") || (showAll ? null : list.querySelector(".combo-opt"));
+  list.querySelectorAll(".active").forEach(x => x.classList.remove("active"));
+  if (cur) { cur.classList.add("active"); cur.scrollIntoView({ block: "nearest" }); } else list.scrollTop = 0;
+}
+function closeCombos(except) {
+  $("fSlots").querySelectorAll(".combo-list").forEach(l => { if (l !== except) { l.classList.add("hidden"); l.previousElementSibling.setAttribute("aria-expanded", "false"); } });
+}
+function pickCombo(input, val) {
+  const changed = input.value !== val;
+  input.value = val; closeCombos();
+  const row = input.closest(".slot");
+  if (input.dataset.combo === "country" && changed) {
+    const c = row.querySelector(".s-city"); c.value = ""; c.placeholder = "Type or scroll…";
+    refreshSlot(row); c.focus(); openCombo(c, true); return;
+  }
+  refreshSlot(row);
+}
+$("fSlots").addEventListener("focusin", e => { if (e.target.dataset.combo) { closeCombos(e.target.nextElementSibling); openCombo(e.target, true); e.target.select(); } });
+$("fSlots").addEventListener("mousedown", e => {
+  const li = e.target.closest(".combo-opt"); if (!li) return;
+  e.preventDefault(); pickCombo(li.closest(".combo").querySelector("input"), li.dataset.val);
+});
+$("fSlots").addEventListener("keydown", e => {
+  const input = e.target; if (!input.dataset.combo) return;
+  const list = input.nextElementSibling, opts = [...list.querySelectorAll(".combo-opt")];
+  let i = opts.findIndex(x => x.classList.contains("active"));
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault(); if (list.classList.contains("hidden")) openCombo(input, true);
+    i = Math.max(0, Math.min(opts.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)));
+    opts.forEach((x, j) => x.classList.toggle("active", j === i)); opts[i]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Enter") {
+    if (!list.classList.contains("hidden") && opts[i]) { e.preventDefault(); pickCombo(input, opts[i].dataset.val); }
+  } else if (e.key === "Escape") { closeCombos(); }
+});
+$("fSlots").addEventListener("focusout", e => {
+  const input = e.target; if (!input.dataset.combo) return;
+  setTimeout(() => {
+    if (document.activeElement === input) return;
+    input.nextElementSibling.classList.add("hidden"); input.setAttribute("aria-expanded", "false");
+    // Snap a typed country to the list (e.g. "turkey" → "Türkiye"); clear it if it matches nothing
+    if (input.dataset.combo === "country" && input.value.trim()) {
+      const c = findCountry(input.value) || comboItems(input).find(x => fold(x).startsWith(fold(input.value))) || "";
+      if (c !== input.value) pickCombo(input, c);
+    }
+    if (input.dataset.combo === "city" && input.value.trim()) {
+      const hit = citiesOf(input.closest(".slot").querySelector(".s-country").value).find(x => fold(x) === fold(input.value));
+      if (hit) input.value = hit;
+    }
+    refreshSlot(input.closest(".slot"));
+  }, 120);
+});
+
 function refreshSlot(row) {
-  const country = row.querySelector(".s-country").value, t = slotTime(row);
-  const tz = country ? resolveTz(country, slotCity(row)) : null;
+  const country = findCountry(row.querySelector(".s-country").value), t = row.querySelector(".s-time").value;
+  const tz = country ? resolveTz(country, row.querySelector(".s-city").value) : null;
   let txt = "";
   if (tz) {
     txt = utcLabel(tz, isoDate());
@@ -521,7 +582,7 @@ function refreshSlot(row) {
   }
   row.querySelector(".slot-tz").textContent = txt;
 }
-const readSlot = r => ({ time: slotTime(r), country: r.querySelector(".s-country").value, city: slotCity(r), lessons: +r.querySelector(".s-len").value || 1 });
+const readSlot = r => ({ time: r.querySelector(".s-time").value, country: findCountry(r.querySelector(".s-country").value) || "", city: r.querySelector(".s-city").value.trim(), lessons: +r.querySelector(".s-len").value || 1 });
 let slotMemory = {};   // keeps a day's choices if it's unticked and ticked again
 function renderSlots(initial) {
   if (initial) slotMemory = initial;
@@ -532,13 +593,8 @@ function renderSlots(initial) {
   $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
 }
 $("fDays").addEventListener("change", () => renderSlots());
-$("fSlots").addEventListener("change", e => {
-  const r = e.target.closest(".slot"); if (!r) return;
-  if (e.target.classList.contains("s-country")) { r.querySelector(".s-city").innerHTML = cityOptions(e.target.value, ""); r.querySelector(".s-city-other").classList.add("hidden"); }
-  if (e.target.classList.contains("s-city")) { const o = r.querySelector(".s-city-other"); o.classList.toggle("hidden", e.target.value !== "__other"); if (e.target.value === "__other") o.focus(); }
-  refreshSlot(r);
-});
-$("fSlots").addEventListener("input", e => { const r = e.target.closest(".slot"); if (r) refreshSlot(r); });
+$("fSlots").addEventListener("change", e => { const r = e.target.closest(".slot"); if (r && e.target.tagName === "SELECT") refreshSlot(r); });
+$("fSlots").addEventListener("input", e => { if (e.target.dataset.combo) openCombo(e.target, false); });
 $("fSlots").addEventListener("click", e => {
   if (e.target.id !== "slotCopy") return;
   const rows = [...$("fSlots").querySelectorAll(".slot")], v = readSlot(rows[0]);
@@ -655,6 +711,7 @@ $("studentForm").addEventListener("submit", async e => {
   data.lessonSlots = {};
   for (const r of $("fSlots").querySelectorAll(".slot")) {
     const v = readSlot(r), d = r.dataset.day;
+    if (r.querySelector(".s-country").value.trim() && !v.country) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the country from the list.`; r.querySelector(".s-country").focus(); return; }
     if (v.country && !v.city) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the city.`; r.querySelector(".s-city").focus(); return; }
     data.lessonSlots[d] = { time: v.time, country: v.country, city: v.city, tz: v.country ? resolveTz(v.country, v.city) : null, lessons: v.lessons };
   }
