@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=11">
+<link rel="stylesheet" href="eof-portal.css?v=12">
 </head>
 <body>
 <header class="portal-top">
@@ -100,7 +100,7 @@
       <div class="wk-issues hidden" id="wkIssues"></div>
       <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
       <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
-      <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and time. Click a lesson to open that day and mark attendance.</p>
+      <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and times, shown in your own time. Click a lesson to open that day and mark attendance.</p>
     </section>
 
     <!-- Teachers (admin only) -->
@@ -175,9 +175,11 @@
           <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Lorraine Osiany Auma</option><option>Mr. Kareem</option></datalist></div>
         <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
       </div>
-      <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div></div>
+      <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div>
+        <div class="slots" id="fSlots"></div>
+        <datalist id="slotCountries"></datalist>
+        <div class="hint" id="fSlotsHint">Tick a day, then set the lesson time and the city it's in. The timetable converts it to your own time.</div></div>
       <div class="grid-2">
-        <div class="field"><label for="fTime">Lesson time</label><input class="input" id="fTime" placeholder="e.g. 18:00 (Bishkek)"></div>
         <div class="field" id="statusField"><label for="fStatus">Status</label>
           <select class="input" id="fStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="left">Inactive</option></select></div>
       </div>
@@ -296,8 +298,9 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear, query, where } from "./eof-portal.js?v=2";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=5";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=3";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=6";
+import { CITIES } from "./eof-cities.js?v=1";
 const $ = id => document.getElementById(id);
 
 $("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace(typeof TEACHER !== "undefined" && TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
@@ -404,6 +407,105 @@ $("studentBody").addEventListener("click", e => {
 $("fDays").innerHTML = DAYS.map(d => `<label><input type="checkbox" value="${d}">${d}</label>`).join("");
 let editing = null;
 
+// ---------- Lesson times per day (time + country + city → time zone) ----------
+const fold = v => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ı/g, "i").toLowerCase().replace(/\s+/g, " ").trim();
+const COUNTRY_ALIAS = { turkey: "Türkiye", turkiye: "Türkiye", usa: "United States of America", "united states": "United States of America", us: "United States of America", america: "United States of America", uk: "United Kingdom", england: "United Kingdom", korea: "South Korea", uae: "United Arab Emirates", "czech republic": "Czechia" };
+const COUNTRY_NAMES = Object.keys(CITIES);
+$("slotCountries").innerHTML = COUNTRY_NAMES.map(c => `<option value="${esc(c)}">`).join("");
+function findCountry(v) {
+  const f = fold(v); if (!f) return null;
+  return COUNTRY_NAMES.find(c => fold(c) === f) || (COUNTRY_ALIAS[f] && CITIES[COUNTRY_ALIAS[f]] ? COUNTRY_ALIAS[f] : null);
+}
+// Most common time zone in a country (used when the city isn't in the list)
+function countryTz(country) {
+  const n = {}; (CITIES[country] || []).forEach(([, tz]) => n[tz] = (n[tz] || 0) + 1);
+  return Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+}
+function resolveTz(countryIn, cityIn) {
+  const country = findCountry(countryIn); if (!country) return null;
+  const hit = (CITIES[country] || []).find(([c]) => fold(c) === fold(cityIn));
+  return hit ? hit[1] : countryTz(country);
+}
+const VIEW_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Bishkek";
+const tzCity = tz => String(tz || "").split("/").pop().replace(/_/g, " ");
+function tzOffsetMin(tz, ms) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+  return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - Math.floor(ms / 60000) * 60000) / 60000;
+}
+const utcLabel = (tz, date) => { const o = tzOffsetMin(tz, Date.parse(date + "T12:00:00Z")); return "UTC" + (o >= 0 ? "+" : "−") + Math.floor(Math.abs(o) / 60) + (Math.abs(o) % 60 ? ":" + String(Math.abs(o) % 60).padStart(2, "0") : ""); };
+// A lesson at `time` on `date` in `tz` → the same moment in the viewer's time zone
+function toViewer(date, time, tz) {
+  if (!time) return null;
+  const [h, mi] = time.split(":").map(Number);
+  if (!tz || tz === VIEW_TZ) return { time, shift: 0 };
+  const [y, m, d] = date.split("-").map(Number), wall = Date.UTC(y, m - 1, d, h, mi);
+  let ms = wall - tzOffsetMin(tz, wall) * 60000; ms = wall - tzOffsetMin(tz, ms) * 60000;
+  const v = new Date(ms + tzOffsetMin(VIEW_TZ, ms) * 60000);
+  return { time: String(v.getUTCHours()).padStart(2, "0") + ":" + String(v.getUTCMinutes()).padStart(2, "0"), shift: Math.round((Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()) - Date.UTC(y, m - 1, d)) / 86400000) };
+}
+const hhmm = t => { const m = String(t || "").match(/(\d{1,2})[:.](\d{2})/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
+// Per-day lessons for a student, including older records that only have lessonTime
+function slotsOf(s) {
+  const out = {};
+  (s.lessonDays || []).forEach(d => {
+    const x = s.lessonSlots?.[d];
+    if (x) { out[d] = { ...x }; return; }
+    // Older records: a single "18:00 (Bishkek)"-style time. Without a city it's shown exactly as typed.
+    const t = hhmm(s.lessonTime), bk = /bishkek/i.test(s.lessonTime || "");
+    out[d] = bk ? { time: t, country: "Kyrgyzstan", city: "Bishkek", tz: "Asia/Bishkek" } : { time: t, country: "", city: "", tz: null };
+  });
+  return out;
+}
+const slotPlace = x => x.city || x.country || "";
+
+function slotRow(d, v = {}) {
+  return `<div class="slot" data-day="${d}">
+    <b class="slot-day">${DAY_NAMES[d]}</b>
+    <input class="input s-time" type="time" value="${esc(v.time || "")}" aria-label="${DAY_NAMES[d]} lesson time">
+    <input class="input s-country" list="slotCountries" value="${esc(v.country || "")}" placeholder="Country" aria-label="${DAY_NAMES[d]} country">
+    <input class="input s-city" list="slotCities-${d}" value="${esc(v.city || "")}" placeholder="City" aria-label="${DAY_NAMES[d]} city">
+    <datalist id="slotCities-${d}"></datalist>
+    <span class="slot-tz"></span>
+  </div>`;
+}
+function refreshSlot(row) {
+  const cIn = row.querySelector(".s-country").value, country = findCountry(cIn);
+  row.querySelector("datalist").innerHTML = country ? CITIES[country].map(([c]) => `<option value="${esc(c)}">`).join("") : "";
+  const tz = resolveTz(cIn, row.querySelector(".s-city").value), t = row.querySelector(".s-time").value;
+  let txt = "";
+  if (tz) {
+    txt = utcLabel(tz, isoDate());
+    const v = toViewer(isoDate(), t, tz);
+    if (v && tz !== VIEW_TZ && (v.time !== t || v.shift)) txt += ` · ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}`;
+  } else if (cIn.trim()) txt = "Pick a country from the list";
+  row.querySelector(".slot-tz").textContent = txt;
+  row.querySelector(".slot-tz").classList.toggle("bad", !tz && !!cIn.trim());
+}
+const readSlot = r => ({ time: r.querySelector(".s-time").value, country: findCountry(r.querySelector(".s-country").value) || r.querySelector(".s-country").value.trim(), city: r.querySelector(".s-city").value.trim() });
+let slotMemory = {};   // keeps a day's values if it's unticked and ticked again
+function renderSlots(initial) {
+  if (initial) slotMemory = initial;
+  else $("fSlots").querySelectorAll(".slot").forEach(r => slotMemory[r.dataset.day] = readSlot(r));
+  const ticked = [...document.querySelectorAll("#fDays input:checked")].map(c => c.value);
+  let last = null;
+  $("fSlots").innerHTML = ticked.map(d => {
+    let v = slotMemory[d];
+    if (!v || (!v.time && !v.country)) {
+      const home = findCountry($("fCountry").value);
+      v = last ? { ...last } : { time: "", country: home || "", city: home ? $("fCity").value.trim() : "" };
+    }
+    last = v; return slotRow(d, v);
+  }).join("") + (ticked.length > 1 ? `<button type="button" class="linkbtn slot-copy" id="slotCopy">Use ${DAY_NAMES[ticked[0]]}'s time and city for all days</button>` : "");
+  $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
+}
+$("fDays").addEventListener("change", () => renderSlots());
+$("fSlots").addEventListener("input", e => { const r = e.target.closest(".slot"); if (r) refreshSlot(r); });
+$("fSlots").addEventListener("click", e => {
+  if (e.target.id !== "slotCopy") return;
+  const rows = [...$("fSlots").querySelectorAll(".slot")], v = readSlot(rows[0]);
+  rows.slice(1).forEach(r => { r.querySelector(".s-time").value = v.time; r.querySelector(".s-country").value = v.country; r.querySelector(".s-city").value = v.city; refreshSlot(r); });
+});
+
 function openModal(s) {
   editing = s || null;
   $("formErr").textContent = "";
@@ -420,7 +522,6 @@ function openModal(s) {
   $("fLevel").value = s?.level || "A1";
   $("fCourse").value = s?.course || "General English";
   $("fTeacher").value = s?.teacher || "";
-  $("fTime").value = s?.lessonTime || "";
   $("fReg").value = s?.registeredOn || isoDate();
   $("fDob").value = s?.dob || "";
   $("fCity").value = s?.city || "";
@@ -439,6 +540,9 @@ function openModal(s) {
   $("fStatus").value = s?.status || "active";
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
+  renderSlots(s ? slotsOf(s) : {});
+  if (s && !s.lessonSlots) $("fSlotsHint").textContent = "Lesson times now go per day. Check each day's time and add the city it's in, then save.";
+  else $("fSlotsHint").textContent = "Tick a day, then set the lesson time and the city it's in. The timetable converts it to your own time.";
   $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER || !!s?.portalBlocked);
   $("accessBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
   delete $("accessBtn").dataset.armed;
@@ -496,7 +600,6 @@ $("studentForm").addEventListener("submit", async e => {
     course: $("fCourse").value.trim() || "General English",
     teacher: $("fTeacher").value.trim(),
     lessonDays: [...document.querySelectorAll("#fDays input:checked")].map(c => c.value),
-    lessonTime: $("fTime").value.trim(),
     registeredOn: $("fReg").value || isoDate(),
     dob: $("fDob").value || "",
     city: $("fCity").value.trim(),
@@ -509,6 +612,15 @@ $("studentForm").addEventListener("submit", async e => {
   const phones = { phone: $("fPhone").value.trim(), parentPhone: $("fParentPhone").value.trim() };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
+  data.lessonSlots = {};
+  for (const r of $("fSlots").querySelectorAll(".slot")) {
+    const v = readSlot(r), d = r.dataset.day;
+    if (v.country && !findCountry(v.country)) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the country from the list.`; r.querySelector(".s-country").focus(); return; }
+    data.lessonSlots[d] = { time: v.time, country: v.country, city: v.city, tz: v.country ? resolveTz(v.country, v.city) : null };
+  }
+  // Short summary kept for the student page and the student card, e.g. "Mon 19:00, Wed 18:00 (İzmir)"
+  const places = [...new Set(Object.values(data.lessonSlots).map(slotPlace).filter(Boolean))];
+  data.lessonTime = Object.entries(data.lessonSlots).filter(([, v]) => v.time).map(([d, v]) => `${d} ${v.time}` + (places.length > 1 && slotPlace(v) ? ` ${slotPlace(v)}` : "")).join(", ") + (places.length === 1 && Object.values(data.lessonSlots).some(v => v.time) ? ` (${places[0]})` : "");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
   $("saveBtn").disabled = true; $("formErr").textContent = "";
   try {
@@ -844,6 +956,14 @@ $("attDate").addEventListener("change", renderAttendance);
 $("attScope").addEventListener("change", renderAttendance);
 
 let attToken = 0;
+function timeCell(s, date, dk) {
+  const x = slotsOf(s)[dk];
+  if (!x) return `<span class="hint" style="margin:0">No lesson this day</span>`;
+  if (!x.time) return "—";
+  const v = toViewer(date, x.time, x.tz), place = slotPlace(x);
+  if (v.time === x.time && !v.shift) return `<b>${esc(x.time)}</b>${place ? ` <span class="hint" style="display:inline;margin:0">${esc(place)}</span>` : ""}`;
+  return `<b>${esc(v.time)}</b>${v.shift ? ` <span class="hint" style="display:inline;margin:0">(${v.shift > 0 ? "next day" : "day before"})</span>` : ""}<div class="hint" style="margin:0">${esc(x.time)} in ${esc(place)}</div>`;
+}
 async function renderAttendance() {
   const date = $("attDate").value || isoDate();
   const dk = dayKey(date);
@@ -860,7 +980,7 @@ async function renderAttendance() {
       <td class="col-no">${i + 1}</td>
       <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
       <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
-      <td class="hide-sm">${esc(s.lessonTime || "—")}</td>
+      <td class="hide-sm">${timeCell(s, date, dk)}</td>
       <td><div class="att-actions">
         <button class="att-btn p ${marks[i] === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
         <button class="att-btn a ${marks[i] === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
@@ -940,14 +1060,17 @@ async function renderWeek() {
   $("wkTitle").textContent = tName;
   $("wkRange").textContent = `Week of ${shortDate(dates[0])} – ${prettyDate(dates[6])}`;
   // Time columns
-  const slots = [...new Set(list.map(s => (s.lessonTime || "").trim() || "Time not set"))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
   const color = {}; list.forEach((s, i) => color[s.uid] = WK_COLORS[i % WK_COLORS.length]);
   const showDays = DAYS.filter((d, i) => i < 6 || list.some(s => s.lessonDays.includes(d)));
   if (!list.length) { $("wkSum").textContent = ""; $("wkGrid").innerHTML = `<tbody><tr><td class="empty">No active students with lesson days${all ? "" : ` for ${esc(tName)}`}. Set lesson days and a time on each student's record.</td></tr></tbody>`; return; }
   const token = ++wkToken;
   // Load marks for every lesson this week
   const lessons = [];
-  showDays.forEach(d => { const date = dates[DAYS.indexOf(d)]; list.filter(s => s.lessonDays.includes(d)).forEach(s => lessons.push({ s, d, date, slot: (s.lessonTime || "").trim() || "Time not set" })); });
+  showDays.forEach(d => { const date = dates[DAYS.indexOf(d)]; list.filter(s => s.lessonDays.includes(d)).forEach(s => {
+    const x = slotsOf(s)[d] || {}, v = toViewer(date, x.time, x.tz);
+    lessons.push({ s, d, date, x, slot: v ? v.time : "Time not set", local: v && (v.time !== x.time || v.shift) ? `${x.time} ${slotPlace(x)}` : "" });
+  }); });
+  const slots = [...new Set(lessons.map(l => l.slot))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
   const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.date)).then(x => x.exists() ? x.data().status : null).catch(() => null)));
   if (token !== wkToken) return;
   lessons.forEach((l, i) => l.mark = marks[i]);
@@ -963,7 +1086,7 @@ async function renderWeek() {
         const label = st === "p" ? "Present" : st === "a" ? "Absent" : st === "u" ? "Not marked" : "";
         return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)}">
           <span class="wk-name">${esc(l.s.name)}</span>
-          <span class="wk-meta">${esc(l.s.level || "")}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
+          <span class="wk-meta">${esc(l.s.level || "")}${l.local ? " · " + esc(l.local) : ""}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
           ${label ? `<span class="wk-st">${label}</span>` : ""}</button>`;
       }).join("")}</td>`;
     }).join("");

@@ -63,8 +63,15 @@ export function dayKey(iso) {
 }
 
 export function schedule(s) {
-  const days = (s.lessonDays || []).map(d => DAY_NAMES[d] || d).join(", ");
-  if (!days) return "Not set yet";
+  const ds = s.lessonDays || [];
+  if (!ds.length) return "Not set yet";
+  const sl = s.lessonSlots;
+  if (sl && ds.some(d => sl[d]?.time)) {
+    const place = x => x?.city || x?.country || "";
+    const places = [...new Set(ds.map(d => place(sl[d])).filter(Boolean))];
+    return ds.map(d => `${DAY_NAMES[d] || d}${sl[d]?.time ? " " + sl[d].time : ""}${places.length > 1 && place(sl[d]) ? " (" + place(sl[d]) + ")" : ""}`).join(", ") + (places.length === 1 ? ` · ${places[0]} time` : "");
+  }
+  const days = ds.map(d => DAY_NAMES[d] || d).join(", ");
   return s.lessonTime ? `${days} · ${s.lessonTime}` : days;
 }
 
