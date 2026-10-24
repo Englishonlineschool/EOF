@@ -67,7 +67,7 @@ export function schedule(s) {
   if (!ds.length) return "Not set yet";
   const sl = s.lessonSlots;
   if (sl && ds.some(d => sl[d]?.time)) {
-    const place = x => x?.city || x?.country || "";
+    const place = x => x?.city || x?.country || s.city || s.country || "";
     const places = [...new Set(ds.map(d => place(sl[d])).filter(Boolean))];
     return ds.map(d => `${DAY_NAMES[d] || d}${sl[d]?.time ? " " + sl[d].time : ""}${sl[d]?.lessons == 2 ? " double" : ""}${places.length > 1 && place(sl[d]) ? " (" + place(sl[d]) + ")" : ""}`).join(", ") + (places.length === 1 ? ` · ${places[0]} time` : "");
   }

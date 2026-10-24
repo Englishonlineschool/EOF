@@ -92,8 +92,8 @@
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
-  levelHistory, monthYear, doc, getDoc } from "./eof-portal.js?v=4";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=7";
+  levelHistory, monthYear, doc, getDoc } from "./eof-portal.js?v=5";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=8";
 let me = null, attRows = [], results = [];
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);

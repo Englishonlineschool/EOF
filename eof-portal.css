@@ -264,3 +264,6 @@ th.num,td.num{text-align:center;}
 .mo-big{font-size:17px;color:var(--accent);}
 .mo-abs{color:var(--red);font-weight:600;}
 #moFoot td{border-top:2px solid var(--line);background:#F7F8FB;}
+.tz-auto{padding:11px 14px;border:1.5px dashed var(--line);border-radius:10px;color:var(--muted);font-size:14px;background:#FAFBFD;}
+.tz-auto.set{border-style:solid;color:var(--accent);font-weight:600;background:#EEF2FB;}
+.field .combo-list{text-transform:none;}

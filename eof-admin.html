@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=15">
+<link rel="stylesheet" href="eof-portal.css?v=16">
 </head>
 <body>
 <header class="portal-top">
@@ -175,11 +175,9 @@
         <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" autocomplete="off" type="date"></div>
         <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
         <div class="field admin-only"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
-        <div class="field"><label for="fCity">City of residence</label><input class="input" id="fCity" autocomplete="off" placeholder="e.g. İzmir"></div>
-        <div class="field"><label for="fCountry">Country of residence</label><input class="input" id="fCountry" list="countries" placeholder="e.g. Türkiye">
-          <datalist id="countries"><option>Türkiye</option><option>Kyrgyzstan</option><option>Kazakhstan</option><option>Uzbekistan</option><option>Kenya</option><option>Russia</option><option>Germany</option><option>United Kingdom</option><option>Netherlands</option><option>Canada</option><option>United States</option></datalist></div>
-        <div class="field"><label for="fTz">Time zone</label><input class="input" id="fTz" list="zones" placeholder="e.g. Türkiye (UTC+3)">
-          <datalist id="zones"><option>Türkiye (UTC+3)</option><option>Kyrgyzstan (UTC+6)</option><option>Kazakhstan (UTC+5)</option><option>Kenya (UTC+3)</option><option>UK (UTC+0/+1)</option><option>Central Europe (UTC+1/+2)</option></datalist></div>
+        <div class="field"><label for="fCountry">Country of residence</label><div class="combo"><input class="input" id="fCountry" data-combo="country" placeholder="Type or scroll…" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
+        <div class="field"><label for="fCity">City of residence</label><div class="combo"><input class="input" id="fCity" data-combo="city" placeholder="Choose the country first" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
+        <div class="field"><label>Time zone</label><div class="tz-auto" id="fTzShow">Set automatically from the city</div></div>
         <div class="field"><label for="fJob">Occupation</label><input class="input" id="fJob" list="jobs" placeholder="e.g. Student, Lawyer, Doctor">
           <datalist id="jobs"><option>Student</option><option>University student</option><option>Lawyer</option><option>Doctor</option><option>Teacher</option><option>Engineer</option><option>Nurse</option><option>Accountant</option><option>Business owner</option><option>Manager</option><option>IT / Software</option><option>Pharmacist</option><option>Architect</option><option>Homemaker</option><option>Retired</option></datalist></div>
         <div class="field"><label for="fSchool">School &amp; grade</label><input class="input" id="fSchool" placeholder="e.g. Grade 10, Cambridge"></div>
@@ -200,7 +198,7 @@
       <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div>
         <div class="slots" id="fSlots"></div>
         
-        <div class="hint" id="fSlotsHint">Tick a day, then choose the time, country, city and Single or Double lesson.</div></div>
+        <div class="hint" id="fSlotsHint">Tick a day, then choose the time (in the student's city) and Single or Double.</div></div>
       <div class="grid-2">
         <div class="field" id="statusField"><label for="fStatus">Status</label>
           <select class="input" id="fStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="left">Inactive</option></select></div>
@@ -320,8 +318,8 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear, query, where } from "./eof-portal.js?v=4";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=7";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=5";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=8";
 import { CITIES } from "./eof-cities.js?v=1";
 const $ = id => document.getElementById(id);
 
@@ -473,7 +471,12 @@ function slotsOf(s) {
   const out = {};
   (s.lessonDays || []).forEach(d => {
     const x = s.lessonSlots?.[d];
-    if (x) { out[d] = { ...x }; return; }
+    if (x) {
+      if (x.tz) { out[d] = { ...x }; return; }                 // saved with its own city (24 Oct test version)
+      const country = findCountry(s.country) || "", tz = s.tz || (country ? resolveTz(country, s.city) : null);
+      out[d] = { ...x, country, city: s.city || "", tz };
+      return;
+    }
     // Older records: a single "18:00 (Bishkek)"-style time. Without a city it's shown exactly as typed.
     const t = hhmm(s.lessonTime), bk = /bishkek/i.test(s.lessonTime || "");
     out[d] = bk ? { time: t, country: "Kyrgyzstan", city: "Bishkek", tz: "Asia/Bishkek" } : { time: t, country: "", city: "", tz: null };
@@ -488,22 +491,16 @@ const opt = (v, label, sel) => `<option value="${esc(v)}"${sel ? " selected" : "
 const timeOptions = t => opt("", "— Choose time —", !t) + [...new Set([...TIMES, ...(t && !TIMES.includes(t) ? [t] : [])])].sort().map(x => opt(x, x, x === t)).join("");
 const citiesOf = country => (CITIES[findCountry(country)] || []).map(([c]) => c);
 
-function slotRow(d, v = {}) {
-  const country = findCountry(v.country) || "";
-  return `<div class="slot" data-day="${d}">
-    <b class="slot-day">${DAY_NAMES[d]}</b>
-    <label class="slot-f"><span>Time</span><select class="input s-time" aria-label="${DAY_NAMES[d]} lesson time">${timeOptions(v.time || "")}</select></label>
-    <label class="slot-f"><span>Lesson</span><select class="input s-len" aria-label="${DAY_NAMES[d]} single or double lesson">${opt("1", "Single", (v.lessons || 1) == 1)}${opt("2", "Double", v.lessons == 2)}</select></label>
-    <div class="slot-f"><span>Country</span><div class="combo"><input class="input s-country" data-combo="country" value="${esc(country)}" placeholder="Type or scroll…" autocomplete="off" role="combobox" aria-expanded="false" aria-label="${DAY_NAMES[d]} country"><ul class="combo-list hidden" role="listbox"></ul></div></div>
-    <div class="slot-f"><span>City</span><div class="combo"><input class="input s-city" data-combo="city" value="${esc(v.city || "")}" placeholder="${country ? "Type or scroll…" : "Choose a country first"}" autocomplete="off" role="combobox" aria-expanded="false" aria-label="${DAY_NAMES[d]} city"><ul class="combo-list hidden" role="listbox"></ul></div></div>
-    <span class="slot-tz"></span>
-  </div>`;
+// Residence currently chosen in the form → its time zone
+function formResidence() {
+  const country = findCountry($("fCountry").value), city = $("fCity").value.trim();
+  return { country, city, tz: country ? resolveTz(country, city) : null };
 }
 
-// ----- Type-to-filter dropdown for country and city -----
+// ----- Type-to-filter dropdown (country and city of residence) -----
 function comboItems(input) {
-  const q = fold(input.value), row = input.closest(".slot");
-  const all = input.dataset.combo === "country" ? COUNTRY_NAMES : citiesOf(row.querySelector(".s-country").value);
+  const q = fold(input.value);
+  const all = input.dataset.combo === "country" ? COUNTRY_NAMES : citiesOf($("fCountry").value);
   if (!q || input.dataset.showAll) return all;
   const starts = all.filter(x => fold(x).startsWith(q)), has = all.filter(x => !fold(x).startsWith(q) && fold(x).includes(q));
   return [...starts, ...has];
@@ -511,37 +508,36 @@ function comboItems(input) {
 function openCombo(input, showAll) {
   if (showAll) input.dataset.showAll = "1"; else delete input.dataset.showAll;
   const list = input.nextElementSibling, items = comboItems(input), typed = input.value.trim();
-  const extra = input.dataset.combo === "city" && typed && !showAll && !items.some(x => fold(x) === fold(typed)) && findCountry(input.closest(".slot").querySelector(".s-country").value)
-    ? `<li class="combo-opt combo-new" data-val="${esc(typed)}">Use “${esc(typed)}”</li>` : "";
-  if (input.dataset.combo === "city" && !findCountry(input.closest(".slot").querySelector(".s-country").value)) {
-    list.innerHTML = `<li class="combo-empty">Choose the country first</li>`;
-  } else {
-    list.innerHTML = items.map(x => `<li class="combo-opt${fold(x) === fold(typed) ? " sel" : ""}" data-val="${esc(x)}" role="option">${esc(x)}</li>`).join("") + extra || `<li class="combo-empty">No match</li>`;
+  if (input.dataset.combo === "city" && !findCountry($("fCountry").value)) list.innerHTML = `<li class="combo-empty">Choose the country first</li>`;
+  else {
+    const extra = input.dataset.combo === "city" && typed && !showAll && !items.some(x => fold(x) === fold(typed)) ? `<li class="combo-opt combo-new" data-val="${esc(typed)}">Use “${esc(typed)}”</li>` : "";
+    list.innerHTML = (items.map(x => `<li class="combo-opt${fold(x) === fold(typed) ? " sel" : ""}" data-val="${esc(x)}" role="option">${esc(x)}</li>`).join("") + extra) || `<li class="combo-empty">No match</li>`;
   }
   list.classList.remove("hidden"); input.setAttribute("aria-expanded", "true");
-  const cur = list.querySelector(".sel") || (showAll ? null : list.querySelector(".combo-opt"));
   list.querySelectorAll(".active").forEach(x => x.classList.remove("active"));
-  if (cur) { cur.classList.add("active"); cur.scrollIntoView({ block: "nearest" }); } else list.scrollTop = 0;
+  const cur = list.querySelector(".sel") || (showAll ? null : list.querySelector(".combo-opt"));
+  if (cur) { cur.classList.add("active"); list.scrollTop = cur.offsetTop - 4; } else list.scrollTop = 0;
 }
-function closeCombos(except) {
-  $("fSlots").querySelectorAll(".combo-list").forEach(l => { if (l !== except) { l.classList.add("hidden"); l.previousElementSibling.setAttribute("aria-expanded", "false"); } });
-}
+function closeCombo(input) { input.nextElementSibling.classList.add("hidden"); input.setAttribute("aria-expanded", "false"); }
 function pickCombo(input, val) {
   const changed = input.value !== val;
-  input.value = val; closeCombos();
-  const row = input.closest(".slot");
+  input.value = val; closeCombo(input);
   if (input.dataset.combo === "country" && changed) {
-    const c = row.querySelector(".s-city"); c.value = ""; c.placeholder = "Type or scroll…";
-    refreshSlot(row); c.focus(); openCombo(c, true); return;
+    $("fCity").value = ""; $("fCity").placeholder = val ? "Type or scroll…" : "Choose the country first";
+    refreshResidence(); if (val) { $("fCity").focus(); }
+    return;
   }
-  refreshSlot(row);
+  refreshResidence();
 }
-$("fSlots").addEventListener("focusin", e => { if (e.target.dataset.combo) { closeCombos(e.target.nextElementSibling); openCombo(e.target, true); e.target.select(); } });
-$("fSlots").addEventListener("mousedown", e => {
+const form = $("studentForm");
+form.addEventListener("focusin", e => { if (e.target.dataset.combo) { openCombo(e.target, true); e.target.select(); } });
+form.addEventListener("click", e => { if (e.target.dataset.combo && e.target.nextElementSibling.classList.contains("hidden")) openCombo(e.target, true); });
+form.addEventListener("input", e => { if (e.target.dataset.combo) openCombo(e.target, false); });
+form.addEventListener("mousedown", e => {
   const li = e.target.closest(".combo-opt"); if (!li) return;
   e.preventDefault(); pickCombo(li.closest(".combo").querySelector("input"), li.dataset.val);
 });
-$("fSlots").addEventListener("keydown", e => {
+form.addEventListener("keydown", e => {
   const input = e.target; if (!input.dataset.combo) return;
   const list = input.nextElementSibling, opts = [...list.querySelectorAll(".combo-opt")];
   let i = opts.findIndex(x => x.classList.contains("active"));
@@ -550,56 +546,68 @@ $("fSlots").addEventListener("keydown", e => {
     i = Math.max(0, Math.min(opts.length - 1, i + (e.key === "ArrowDown" ? 1 : -1)));
     opts.forEach((x, j) => x.classList.toggle("active", j === i)); opts[i]?.scrollIntoView({ block: "nearest" });
   } else if (e.key === "Enter") {
-    if (!list.classList.contains("hidden") && opts[i]) { e.preventDefault(); pickCombo(input, opts[i].dataset.val); }
-  } else if (e.key === "Escape") { closeCombos(); }
+    e.preventDefault(); if (!list.classList.contains("hidden") && opts[i]) pickCombo(input, opts[i].dataset.val);
+  } else if (e.key === "Escape") { e.stopPropagation(); closeCombo(input); }
 });
-$("fSlots").addEventListener("focusout", e => {
+form.addEventListener("focusout", e => {
   const input = e.target; if (!input.dataset.combo) return;
   setTimeout(() => {
     if (document.activeElement === input) return;
-    input.nextElementSibling.classList.add("hidden"); input.setAttribute("aria-expanded", "false");
-    // Snap a typed country to the list (e.g. "turkey" → "Türkiye"); clear it if it matches nothing
+    closeCombo(input);
+    // Snap what was typed to the list (e.g. "turkey" → "Türkiye", "izmir" → "İzmir")
     if (input.dataset.combo === "country" && input.value.trim()) {
       const c = findCountry(input.value) || comboItems(input).find(x => fold(x).startsWith(fold(input.value))) || "";
-      if (c !== input.value) pickCombo(input, c);
+      if (c !== input.value) { pickCombo(input, c); return; }
     }
     if (input.dataset.combo === "city" && input.value.trim()) {
-      const hit = citiesOf(input.closest(".slot").querySelector(".s-country").value).find(x => fold(x) === fold(input.value));
+      const hit = citiesOf($("fCountry").value).find(x => fold(x) === fold(input.value));
       if (hit) input.value = hit;
     }
-    refreshSlot(input.closest(".slot"));
+    refreshResidence();
   }, 120);
 });
 
+// ----- Lesson days: only time and single/double; city comes from residence -----
+function slotRow(d, v = {}) {
+  return `<div class="slot" data-day="${d}">
+    <b class="slot-day">${DAY_NAMES[d]}</b>
+    <label class="slot-f"><span>Time</span><select class="input s-time" aria-label="${DAY_NAMES[d]} lesson time">${timeOptions(v.time || "")}</select></label>
+    <label class="slot-f"><span>Lesson</span><select class="input s-len" aria-label="${DAY_NAMES[d]} single or double lesson">${opt("1", "Single", (v.lessons || 1) == 1)}${opt("2", "Double", v.lessons == 2)}</select></label>
+    <span class="slot-tz"></span>
+  </div>`;
+}
 function refreshSlot(row) {
-  const country = findCountry(row.querySelector(".s-country").value), t = row.querySelector(".s-time").value;
-  const tz = country ? resolveTz(country, row.querySelector(".s-city").value) : null;
+  const t = row.querySelector(".s-time").value, r = formResidence(), place = r.city || r.country;
   let txt = "";
-  if (tz) {
-    txt = utcLabel(tz, isoDate());
-    const v = toViewer(isoDate(), t, tz);
-    if (v && tz !== VIEW_TZ && (v.time !== t || v.shift)) txt += ` · ${t} there = ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}`;
-  }
+  if (t && r.tz) {
+    const v = toViewer(isoDate(), t, r.tz);
+    txt = (v.time !== t || v.shift) ? `${t} in ${place} = ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}` : `${t} in ${place} (same as your time)`;
+  } else if (t) txt = "Choose the country and city of residence above to convert this time.";
   row.querySelector(".slot-tz").textContent = txt;
 }
-const readSlot = r => ({ time: r.querySelector(".s-time").value, country: findCountry(r.querySelector(".s-country").value) || "", city: r.querySelector(".s-city").value.trim(), lessons: +r.querySelector(".s-len").value || 1 });
+function refreshResidence() {
+  const r = formResidence();
+  $("fTzShow").textContent = r.tz ? `${utcLabel(r.tz, isoDate())} · ${r.city || r.country} time` : "Set automatically from the city";
+  $("fTzShow").classList.toggle("set", !!r.tz);
+  $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
+}
+const readSlot = r => ({ time: r.querySelector(".s-time").value, lessons: +r.querySelector(".s-len").value || 1 });
 let slotMemory = {};   // keeps a day's choices if it's unticked and ticked again
 function renderSlots(initial) {
   if (initial) slotMemory = initial;
   else $("fSlots").querySelectorAll(".slot").forEach(r => slotMemory[r.dataset.day] = readSlot(r));
   const ticked = [...document.querySelectorAll("#fDays input:checked")].map(c => c.value);
   $("fSlots").innerHTML = ticked.map(d => slotRow(d, slotMemory[d] || {})).join("") +
-    (ticked.length > 1 ? `<button type="button" class="linkbtn slot-copy" id="slotCopy">Copy ${DAY_NAMES[ticked[0]]}'s choices to the other days</button>` : "");
-  $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
+    (ticked.length > 1 ? `<button type="button" class="linkbtn slot-copy" id="slotCopy">Copy ${DAY_NAMES[ticked[0]]}'s time to the other days</button>` : "");
+  refreshResidence();
 }
 $("fDays").addEventListener("change", () => renderSlots());
-$("fSlots").addEventListener("change", e => { const r = e.target.closest(".slot"); if (r && e.target.tagName === "SELECT") refreshSlot(r); });
-$("fSlots").addEventListener("input", e => { if (e.target.dataset.combo) openCombo(e.target, false); });
+$("fSlots").addEventListener("change", e => { const r = e.target.closest(".slot"); if (r) refreshSlot(r); });
 $("fSlots").addEventListener("click", e => {
   if (e.target.id !== "slotCopy") return;
   const rows = [...$("fSlots").querySelectorAll(".slot")], v = readSlot(rows[0]);
   rows.slice(1).forEach(r => { r.outerHTML = slotRow(r.dataset.day, v); });
-  $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
+  refreshResidence();
 });
 
 function openModal(s) {
@@ -620,9 +628,9 @@ function openModal(s) {
   $("fTeacher").value = s?.teacher || "";
   $("fReg").value = s?.registeredOn || isoDate();
   $("fDob").value = s?.dob || "";
-  $("fCity").value = s?.city || "";
-  $("fCountry").value = s?.country || "";
-  $("fTz").value = s?.timeZone || "";
+  $("fCountry").value = findCountry(s?.country) || s?.country || "";
+  { const known = citiesOf($("fCountry").value).find(x => fold(x) === fold(s?.city)); $("fCity").value = known || s?.city || ""; }
+  $("fCity").placeholder = findCountry($("fCountry").value) ? "Type or scroll…" : "Choose the country first";
   $("fSchool").value = s?.school || "";
   $("fJob").value = s?.occupation || "";
   $("fParentName").value = s?.parentName || "";
@@ -637,8 +645,7 @@ function openModal(s) {
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
   renderSlots(s ? slotsOf(s) : {});
-  if (s && !s.lessonSlots) $("fSlotsHint").textContent = "Lesson times now go per day. Choose each day's time, country, city and Single or Double, then save.";
-  else $("fSlotsHint").textContent = "Tick a day, then choose the time, country, city and Single or Double lesson.";
+  $("fSlotsHint").textContent = s && !s.lessonSlots ? "Lesson times now go per day. Choose each day's time and Single or Double, then save." : "Tick a day, then choose the time (in the student's city) and Single or Double.";
   $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER || !!s?.portalBlocked);
   $("accessBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
   delete $("accessBtn").dataset.armed;
@@ -699,8 +706,7 @@ $("studentForm").addEventListener("submit", async e => {
     registeredOn: $("fReg").value || isoDate(),
     dob: $("fDob").value || "",
     city: $("fCity").value.trim(),
-    country: $("fCountry").value.trim(),
-    timeZone: $("fTz").value.trim(),
+    country: findCountry($("fCountry").value) || $("fCountry").value.trim(),
     school: $("fSchool").value.trim(),
     occupation: $("fJob").value.trim(),
     parentName: $("fParentName").value.trim()
@@ -708,16 +714,15 @@ $("studentForm").addEventListener("submit", async e => {
   const phones = { phone: $("fPhone").value.trim(), parentPhone: $("fParentPhone").value.trim() };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
+  if ($("fCountry").value.trim() && !findCountry($("fCountry").value)) { $("formErr").textContent = "Choose the country of residence from the list."; $("fCountry").focus(); return; }
+  const res = formResidence();
+  data.tz = res.tz || null;
+  data.timeZone = res.tz ? `${utcLabel(res.tz, isoDate())} (${res.city || res.country})` : "";
   data.lessonSlots = {};
-  for (const r of $("fSlots").querySelectorAll(".slot")) {
-    const v = readSlot(r), d = r.dataset.day;
-    if (r.querySelector(".s-country").value.trim() && !v.country) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the country from the list.`; r.querySelector(".s-country").focus(); return; }
-    if (v.country && !v.city) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the city.`; r.querySelector(".s-city").focus(); return; }
-    data.lessonSlots[d] = { time: v.time, country: v.country, city: v.city, tz: v.country ? resolveTz(v.country, v.city) : null, lessons: v.lessons };
-  }
-  // Short summary kept for the student page and the student card, e.g. "Mon 19:00, Wed 18:00 (İzmir)"
-  const places = [...new Set(Object.values(data.lessonSlots).map(slotPlace).filter(Boolean))];
-  data.lessonTime = Object.entries(data.lessonSlots).filter(([, v]) => v.time).map(([d, v]) => `${d} ${v.time}${v.lessons == 2 ? " double" : ""}` + (places.length > 1 && slotPlace(v) ? ` ${slotPlace(v)}` : "")).join(", ") + (places.length === 1 && Object.values(data.lessonSlots).some(v => v.time) ? ` (${places[0]})` : "");
+  $("fSlots").querySelectorAll(".slot").forEach(r => data.lessonSlots[r.dataset.day] = readSlot(r));
+  // Short summary kept for the student page and the student card, e.g. "Mon 19:00, Wed 18:00 double (İzmir)"
+  const timed = Object.entries(data.lessonSlots).filter(([, v]) => v.time);
+  data.lessonTime = timed.map(([d, v]) => `${d} ${v.time}${v.lessons == 2 ? " double" : ""}`).join(", ") + (timed.length && (res.city || res.country) ? ` (${res.city || res.country})` : "");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
   $("saveBtn").disabled = true; $("formErr").textContent = "";
   try {
