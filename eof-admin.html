@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=12">
+<link rel="stylesheet" href="eof-portal.css?v=14">
 </head>
 <body>
 <header class="portal-top">
@@ -69,17 +69,39 @@
           <option value="all">All active students</option>
         </select>
         <button class="btn btn-navy btn-sm" id="weekBtn" type="button">Week overview</button>
+        <button class="btn btn-navy btn-sm" id="monthBtn" type="button">Monthly count</button>
       </div>
       <div id="attDayView">
       <h2 id="attHeading" style="font-size:22px;margin:4px 0 14px"></h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Level</th><th class="hide-sm">Time</th><th>Mark</th></tr></thead>
+          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Level</th><th class="hide-sm">Time</th><th>Lesson</th><th>Mark</th></tr></thead>
           <tbody id="attBody"></tbody>
         </table>
       </div>
       <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it.</p>
       </div>
+    </section>
+
+    <!-- Monthly lesson count -->
+    <section id="tab-month" class="hidden">
+      <div class="toolbar">
+        <button class="btn btn-ghost btn-sm" id="moBack" type="button">&larr; Day view</button>
+        <select class="input admin-only" id="moTeacher" style="max-width:240px" aria-label="Teacher"></select>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" id="moPrev" type="button" aria-label="Previous month">&laquo;</button>
+        <button class="btn btn-ghost btn-sm" id="moNow" type="button">This month</button>
+        <button class="btn btn-ghost btn-sm" id="moNext" type="button" aria-label="Next month">&raquo;</button>
+      </div>
+      <div class="wk-head"><h2 id="moTitle"></h2><div class="wk-sum" id="moSum"></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Teacher</th><th class="num">Lessons taught</th><th class="num hide-sm">Single</th><th class="num hide-sm">Double</th><th class="num">Absent</th></tr></thead>
+          <tbody id="moBody"></tbody>
+          <tfoot id="moFoot"></tfoot>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px">Counts come from the attendance marks. A double lesson counts as 2 lessons. Absences are counted separately and aren't included in “Lessons taught”.</p>
     </section>
 
     <!-- Week overview (per teacher) -->
@@ -177,8 +199,8 @@
       </div>
       <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div>
         <div class="slots" id="fSlots"></div>
-        <datalist id="slotCountries"></datalist>
-        <div class="hint" id="fSlotsHint">Tick a day, then set the lesson time and the city it's in. The timetable converts it to your own time.</div></div>
+        
+        <div class="hint" id="fSlotsHint">Tick a day, then choose the time, country, city and Single or Double lesson.</div></div>
       <div class="grid-2">
         <div class="field" id="statusField"><label for="fStatus">Status</label>
           <select class="input" id="fStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="left">Inactive</option></select></div>
@@ -298,8 +320,8 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear, query, where } from "./eof-portal.js?v=3";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=6";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=4";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=7";
 import { CITIES } from "./eof-cities.js?v=1";
 const $ = id => document.getElementById(id);
 
@@ -330,6 +352,7 @@ $("app").classList.remove("hidden");
 
 let students = [];           // [{uid, ...data}]
 const attStats = {};         // uid -> {p, a}
+const attDocs = {};          // uid -> {date: {status, lessons}}
 
 // ---------- Tabs ----------
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
@@ -337,6 +360,7 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   $("tab-students").classList.toggle("hidden", t.dataset.tab !== "students");
   $("tab-attendance").classList.toggle("hidden", t.dataset.tab !== "attendance");
   $("tab-week").classList.add("hidden");
+  $("tab-month").classList.add("hidden");
   $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
   if (t.dataset.tab === "attendance") renderAttendance();
   if (t.dataset.tab === "teachers") loadTeachers();
@@ -352,7 +376,8 @@ async function loadStudents() {
   // Attendance totals (loaded after the table is shown)
   await Promise.all(students.map(async s => {
     const a = await getDocs(collection(db, "students", s.uid, "attendance"));
-    let p = 0, ab = 0; a.forEach(d => d.data().status === "present" ? p++ : ab++);
+    let p = 0, ab = 0; attDocs[s.uid] = {};
+    a.forEach(d => { const x = d.data(); attDocs[s.uid][d.id] = { status: x.status, lessons: x.lessons || null }; x.status === "present" ? p++ : ab++; });
     attStats[s.uid] = { p, a: ab };
   }));
   renderStudents();
@@ -411,7 +436,6 @@ let editing = null;
 const fold = v => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ı/g, "i").toLowerCase().replace(/\s+/g, " ").trim();
 const COUNTRY_ALIAS = { turkey: "Türkiye", turkiye: "Türkiye", usa: "United States of America", "united states": "United States of America", us: "United States of America", america: "United States of America", uk: "United Kingdom", england: "United Kingdom", korea: "South Korea", uae: "United Arab Emirates", "czech republic": "Czechia" };
 const COUNTRY_NAMES = Object.keys(CITIES);
-$("slotCountries").innerHTML = COUNTRY_NAMES.map(c => `<option value="${esc(c)}">`).join("");
 function findCountry(v) {
   const f = fold(v); if (!f) return null;
   return COUNTRY_NAMES.find(c => fold(c) === f) || (COUNTRY_ALIAS[f] && CITIES[COUNTRY_ALIAS[f]] ? COUNTRY_ALIAS[f] : null);
@@ -458,52 +482,68 @@ function slotsOf(s) {
 }
 const slotPlace = x => x.city || x.country || "";
 
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+const MINS = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
+const opt = (v, label, sel) => `<option value="${esc(v)}"${sel ? " selected" : ""}>${esc(label)}</option>`;
+function cityOptions(country, city) {
+  const list = country ? (CITIES[country] || []).map(([c]) => c) : [];
+  const other = !!city && !list.some(c => fold(c) === fold(city));
+  return opt("", country ? "— Choose city —" : "Choose a country first", !city) +
+    list.map(c => opt(c, c, fold(c) === fold(city))).join("") +
+    (country ? opt("__other", "Other (type it)…", other) : "");
+}
 function slotRow(d, v = {}) {
+  const [h, m] = (v.time || "").split(":");
+  const country = findCountry(v.country) || "";
+  const cityKnown = country && (CITIES[country] || []).some(([c]) => fold(c) === fold(v.city));
   return `<div class="slot" data-day="${d}">
     <b class="slot-day">${DAY_NAMES[d]}</b>
-    <input class="input s-time" type="time" value="${esc(v.time || "")}" aria-label="${DAY_NAMES[d]} lesson time">
-    <input class="input s-country" list="slotCountries" value="${esc(v.country || "")}" placeholder="Country" aria-label="${DAY_NAMES[d]} country">
-    <input class="input s-city" list="slotCities-${d}" value="${esc(v.city || "")}" placeholder="City" aria-label="${DAY_NAMES[d]} city">
-    <datalist id="slotCities-${d}"></datalist>
+    <label class="slot-f"><span>Time</span><span class="slot-time">
+      <select class="input s-h" aria-label="${DAY_NAMES[d]} hour">${opt("", "Hour", !h)}${HOURS.map(x => opt(x, x, x === h)).join("")}</select><b>:</b>
+      <select class="input s-m" aria-label="${DAY_NAMES[d]} minutes">${opt("", "Min", !m)}${[...new Set([...MINS, ...(m && !MINS.includes(m) ? [m] : [])])].sort().map(x => opt(x, x, x === m)).join("")}</select></span></label>
+    <label class="slot-f"><span>Lesson</span><select class="input s-len" aria-label="${DAY_NAMES[d]} single or double lesson">${opt("1", "Single", (v.lessons || 1) == 1)}${opt("2", "Double", v.lessons == 2)}</select></label>
+    <label class="slot-f"><span>Country</span><select class="input s-country" aria-label="${DAY_NAMES[d]} country">${opt("", "— Choose country —", !country)}${COUNTRY_NAMES.map(c => opt(c, c, c === country)).join("")}</select></label>
+    <label class="slot-f"><span>City</span><select class="input s-city" aria-label="${DAY_NAMES[d]} city">${cityOptions(country, v.city)}</select>
+      <input class="input s-city-other${cityKnown || !v.city ? " hidden" : ""}" value="${esc(cityKnown ? "" : v.city || "")}" placeholder="Type the city" aria-label="${DAY_NAMES[d]} city name"></label>
     <span class="slot-tz"></span>
   </div>`;
 }
+const slotTime = r => { const h = r.querySelector(".s-h").value, m = r.querySelector(".s-m").value; return h ? `${h}:${m || "00"}` : ""; };
+const slotCity = r => r.querySelector(".s-city").value === "__other" ? r.querySelector(".s-city-other").value.trim() : r.querySelector(".s-city").value;
 function refreshSlot(row) {
-  const cIn = row.querySelector(".s-country").value, country = findCountry(cIn);
-  row.querySelector("datalist").innerHTML = country ? CITIES[country].map(([c]) => `<option value="${esc(c)}">`).join("") : "";
-  const tz = resolveTz(cIn, row.querySelector(".s-city").value), t = row.querySelector(".s-time").value;
+  const country = row.querySelector(".s-country").value, t = slotTime(row);
+  const tz = country ? resolveTz(country, slotCity(row)) : null;
   let txt = "";
   if (tz) {
     txt = utcLabel(tz, isoDate());
     const v = toViewer(isoDate(), t, tz);
-    if (v && tz !== VIEW_TZ && (v.time !== t || v.shift)) txt += ` · ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}`;
-  } else if (cIn.trim()) txt = "Pick a country from the list";
+    if (v && tz !== VIEW_TZ && (v.time !== t || v.shift)) txt += ` · ${t} there = ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}`;
+  }
   row.querySelector(".slot-tz").textContent = txt;
-  row.querySelector(".slot-tz").classList.toggle("bad", !tz && !!cIn.trim());
 }
-const readSlot = r => ({ time: r.querySelector(".s-time").value, country: findCountry(r.querySelector(".s-country").value) || r.querySelector(".s-country").value.trim(), city: r.querySelector(".s-city").value.trim() });
-let slotMemory = {};   // keeps a day's values if it's unticked and ticked again
+const readSlot = r => ({ time: slotTime(r), country: r.querySelector(".s-country").value, city: slotCity(r), lessons: +r.querySelector(".s-len").value || 1 });
+let slotMemory = {};   // keeps a day's choices if it's unticked and ticked again
 function renderSlots(initial) {
   if (initial) slotMemory = initial;
   else $("fSlots").querySelectorAll(".slot").forEach(r => slotMemory[r.dataset.day] = readSlot(r));
   const ticked = [...document.querySelectorAll("#fDays input:checked")].map(c => c.value);
-  let last = null;
-  $("fSlots").innerHTML = ticked.map(d => {
-    let v = slotMemory[d];
-    if (!v || (!v.time && !v.country)) {
-      const home = findCountry($("fCountry").value);
-      v = last ? { ...last } : { time: "", country: home || "", city: home ? $("fCity").value.trim() : "" };
-    }
-    last = v; return slotRow(d, v);
-  }).join("") + (ticked.length > 1 ? `<button type="button" class="linkbtn slot-copy" id="slotCopy">Use ${DAY_NAMES[ticked[0]]}'s time and city for all days</button>` : "");
+  $("fSlots").innerHTML = ticked.map(d => slotRow(d, slotMemory[d] || {})).join("") +
+    (ticked.length > 1 ? `<button type="button" class="linkbtn slot-copy" id="slotCopy">Copy ${DAY_NAMES[ticked[0]]}'s choices to the other days</button>` : "");
   $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
 }
 $("fDays").addEventListener("change", () => renderSlots());
+$("fSlots").addEventListener("change", e => {
+  const r = e.target.closest(".slot"); if (!r) return;
+  if (e.target.classList.contains("s-country")) { r.querySelector(".s-city").innerHTML = cityOptions(e.target.value, ""); r.querySelector(".s-city-other").classList.add("hidden"); }
+  if (e.target.classList.contains("s-city")) { const o = r.querySelector(".s-city-other"); o.classList.toggle("hidden", e.target.value !== "__other"); if (e.target.value === "__other") o.focus(); }
+  refreshSlot(r);
+});
 $("fSlots").addEventListener("input", e => { const r = e.target.closest(".slot"); if (r) refreshSlot(r); });
 $("fSlots").addEventListener("click", e => {
   if (e.target.id !== "slotCopy") return;
   const rows = [...$("fSlots").querySelectorAll(".slot")], v = readSlot(rows[0]);
-  rows.slice(1).forEach(r => { r.querySelector(".s-time").value = v.time; r.querySelector(".s-country").value = v.country; r.querySelector(".s-city").value = v.city; refreshSlot(r); });
+  rows.slice(1).forEach(r => { r.outerHTML = slotRow(r.dataset.day, v); });
+  $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
 });
 
 function openModal(s) {
@@ -541,8 +581,8 @@ function openModal(s) {
   $("statusField").classList.toggle("hidden", !s);
   document.querySelectorAll("#fDays input").forEach(c => c.checked = !!s?.lessonDays?.includes(c.value));
   renderSlots(s ? slotsOf(s) : {});
-  if (s && !s.lessonSlots) $("fSlotsHint").textContent = "Lesson times now go per day. Check each day's time and add the city it's in, then save.";
-  else $("fSlotsHint").textContent = "Tick a day, then set the lesson time and the city it's in. The timetable converts it to your own time.";
+  if (s && !s.lessonSlots) $("fSlotsHint").textContent = "Lesson times now go per day. Choose each day's time, country, city and Single or Double, then save.";
+  else $("fSlotsHint").textContent = "Tick a day, then choose the time, country, city and Single or Double lesson.";
   $("resendBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER || !!s?.portalBlocked);
   $("accessBtn").classList.toggle("hidden", !s?.authUid || !!TEACHER);
   delete $("accessBtn").dataset.armed;
@@ -615,12 +655,12 @@ $("studentForm").addEventListener("submit", async e => {
   data.lessonSlots = {};
   for (const r of $("fSlots").querySelectorAll(".slot")) {
     const v = readSlot(r), d = r.dataset.day;
-    if (v.country && !findCountry(v.country)) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the country from the list.`; r.querySelector(".s-country").focus(); return; }
-    data.lessonSlots[d] = { time: v.time, country: v.country, city: v.city, tz: v.country ? resolveTz(v.country, v.city) : null };
+    if (v.country && !v.city) { $("formErr").textContent = `${DAY_NAMES[d]}: choose the city.`; r.querySelector(".s-city").focus(); return; }
+    data.lessonSlots[d] = { time: v.time, country: v.country, city: v.city, tz: v.country ? resolveTz(v.country, v.city) : null, lessons: v.lessons };
   }
   // Short summary kept for the student page and the student card, e.g. "Mon 19:00, Wed 18:00 (İzmir)"
   const places = [...new Set(Object.values(data.lessonSlots).map(slotPlace).filter(Boolean))];
-  data.lessonTime = Object.entries(data.lessonSlots).filter(([, v]) => v.time).map(([d, v]) => `${d} ${v.time}` + (places.length > 1 && slotPlace(v) ? ` ${slotPlace(v)}` : "")).join(", ") + (places.length === 1 && Object.values(data.lessonSlots).some(v => v.time) ? ` (${places[0]})` : "");
+  data.lessonTime = Object.entries(data.lessonSlots).filter(([, v]) => v.time).map(([d, v]) => `${d} ${v.time}${v.lessons == 2 ? " double" : ""}` + (places.length > 1 && slotPlace(v) ? ` ${slotPlace(v)}` : "")).join(", ") + (places.length === 1 && Object.values(data.lessonSlots).some(v => v.time) ? ` (${places[0]})` : "");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) { $("formErr").textContent = "Please enter a valid email address."; return; }
   $("saveBtn").disabled = true; $("formErr").textContent = "";
   try {
@@ -971,16 +1011,21 @@ async function renderAttendance() {
   const active = students.filter(s => (s.status || "active") === "active");
   const list = $("attScope").value === "all" ? active : active.filter(s => (s.lessonDays || []).includes(dk));
   const token = ++attToken;
-  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="5" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
-  $("attBody").innerHTML = `<tr><td colspan="5" class="empty">Loading&hellip;</td></tr>`;
-  const marks = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", date)).then(d => d.exists() ? d.data().status : null)));
+  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="6" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
+  $("attBody").innerHTML = `<tr><td colspan="6" class="empty">Loading&hellip;</td></tr>`;
+  const docs = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", date)).then(d => d.exists() ? d.data() : null)));
   if (token !== attToken) return;
+  const marks = docs.map(d => d ? d.status : null);
+  const lens = docs.map((d, i) => d?.lessons || slotsOf(list[i])[dk]?.lessons || 1);
   $("attBody").innerHTML = list.map((s, i) => `
     <tr data-uid="${s.uid}">
       <td class="col-no">${i + 1}</td>
       <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
       <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${timeCell(s, date, dk)}</td>
+      <td><div class="len-toggle" role="group" aria-label="Single or double lesson">
+        <button type="button" class="len-btn ${lens[i] == 1 ? "on" : ""}" data-len="1">Single</button><button type="button" class="len-btn ${lens[i] == 2 ? "on" : ""}" data-len="2">Double</button>
+      </div></td>
       <td><div class="att-actions">
         <button class="att-btn p ${marks[i] === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
         <button class="att-btn a ${marks[i] === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
@@ -988,7 +1033,18 @@ async function renderAttendance() {
     </tr>`).join("");
 }
 
+const rowLen = tr => +(tr.querySelector(".len-btn.on")?.dataset.len || 1);
 $("attBody").addEventListener("click", async e => {
+  const lb = e.target.closest("[data-len]");
+  if (lb) {
+    const tr = lb.closest("tr"), uid = tr.dataset.uid, date = $("attDate").value, prevLen = rowLen(tr), len = +lb.dataset.len;
+    if (len === prevLen) return;
+    tr.querySelectorAll(".len-btn").forEach(x => x.classList.toggle("on", x === lb));
+    if (!tr.querySelector(".att-btn.on")) return;          // not marked yet: saved together with the mark
+    try { await setDoc(doc(db, "students", uid, "attendance", date), { lessons: len }, { merge: true }); if (attDocs[uid]?.[date]) attDocs[uid][date].lessons = len; }
+    catch (ex) { tr.querySelectorAll(".len-btn").forEach(x => x.classList.toggle("on", +x.dataset.len === prevLen)); toast(friendlyError(ex), "bad"); }
+    return;
+  }
   const b = e.target.closest("[data-mark]"); if (!b) return;
   const tr = b.closest("tr"); const uid = tr.dataset.uid; const date = $("attDate").value;
   const ref = doc(db, "students", uid, "attendance", date);
@@ -996,8 +1052,10 @@ $("attBody").addEventListener("click", async e => {
   const next = prev === b.dataset.mark ? null : b.dataset.mark;
   tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === next));
   try {
-    if (next) await setDoc(ref, { status: next, markedAt: serverTimestamp(), markedBy: me.email });
+    if (next) await setDoc(ref, { status: next, lessons: rowLen(tr), markedAt: serverTimestamp(), markedBy: me.email });
     else await deleteDoc(ref);
+    const cache = attDocs[uid] || (attDocs[uid] = {});
+    if (next) cache[date] = { status: next, lessons: rowLen(tr) }; else delete cache[date];
     const st = attStats[uid] || (attStats[uid] = { p: 0, a: 0 });
     if (prev === "present") st.p--; if (prev === "absent") st.a--;
     if (next === "present") st.p++; if (next === "absent") st.a++;
@@ -1071,9 +1129,9 @@ async function renderWeek() {
     lessons.push({ s, d, date, x, slot: v ? v.time : "Time not set", local: v && (v.time !== x.time || v.shift) ? `${x.time} ${slotPlace(x)}` : "" });
   }); });
   const slots = [...new Set(lessons.map(l => l.slot))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
-  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.date)).then(x => x.exists() ? x.data().status : null).catch(() => null)));
+  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.date)).then(x => x.exists() ? x.data() : null).catch(() => null)));
   if (token !== wkToken) return;
-  lessons.forEach((l, i) => l.mark = marks[i]);
+  lessons.forEach((l, i) => { l.mark = marks[i]?.status || null; l.len = marks[i]?.lessons || l.x.lessons || 1; });
   const n = { p: 0, a: 0, u: 0 }; lessons.forEach(l => l.mark === "present" ? n.p++ : l.mark === "absent" ? n.a++ : l.date <= today ? n.u++ : 0);
   $("wkSum").innerHTML = `<b>${lessons.length}</b> lesson${lessons.length === 1 ? "" : "s"} &middot; <span class="ok">${n.p} present</span> &middot; <span class="no">${n.a} absent</span>${n.u ? ` &middot; ${n.u} not marked yet` : ""}`;
   const head = `<thead><tr><th class="wk-corner"></th>${slots.map((t, i) => `<th><span class="wk-n">${i + 1}</span>${esc(t)}</th>`).join("")}</tr></thead>`;
@@ -1085,7 +1143,7 @@ async function renderWeek() {
         const st = l.mark === "present" ? "p" : l.mark === "absent" ? "a" : (l.date <= today ? "u" : "f");
         const label = st === "p" ? "Present" : st === "a" ? "Absent" : st === "u" ? "Not marked" : "";
         return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)}">
-          <span class="wk-name">${esc(l.s.name)}</span>
+          <span class="wk-name">${esc(l.s.name)}${l.len == 2 ? ` <span class="wk-dbl">Double</span>` : ""}</span>
           <span class="wk-meta">${esc(l.s.level || "")}${l.local ? " · " + esc(l.local) : ""}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
           ${label ? `<span class="wk-st">${label}</span>` : ""}</button>`;
       }).join("")}</td>`;
@@ -1095,6 +1153,57 @@ async function renderWeek() {
   $("wkGrid").innerHTML = head + `<tbody>${body}</tbody>`;
 }
 $("weekBtn").addEventListener("click", () => openWeek());
+
+// ---------- Monthly lesson count ----------
+let moMonth = isoDate().slice(0, 7);   // "2026-10"
+const monthLabel = ym => { const [y, m] = ym.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" }); };
+const shiftMonth = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+function openMonth() {
+  moMonth = ($("attDate").value || isoDate()).slice(0, 7);
+  if (ADMIN) {
+    const cur = $("moTeacher").value, names = wkTeacherNames();
+    $("moTeacher").innerHTML = `<option value="__all">All teachers</option>` + names.map(n => `<option>${esc(n)}</option>`).join("");
+    $("moTeacher").value = names.includes(cur) ? cur : "__all";
+  }
+  $("tab-attendance").classList.add("hidden"); $("tab-week").classList.add("hidden");
+  $("tab-month").classList.remove("hidden");
+  renderMonth();
+}
+function renderMonth() {
+  const who = TEACHER ? TEACHER.name : $("moTeacher").value, all = who === "__all";
+  $("moTitle").textContent = monthLabel(moMonth);
+  const rows = students.filter(s => all || TEACHER || normT(s.teacher) === normT(who)).map(s => {
+    const c = { s, single: 0, double: 0, absent: 0 };
+    Object.entries(attDocs[s.uid] || {}).forEach(([date, x]) => {
+      if (!date.startsWith(moMonth)) return;
+      const len = x.lessons || slotsOf(s)[dayKey(date)]?.lessons || 1;
+      if (x.status === "present") len == 2 ? c.double++ : c.single++;
+      else if (x.status === "absent") c.absent += len;
+    });
+    c.taught = c.single + c.double * 2;
+    return c;
+  }).filter(c => c.taught || c.absent || (c.s.status || "active") === "active")
+    .sort((a, b) => b.taught - a.taught || String(a.s.name).localeCompare(String(b.s.name)));
+  const t = rows.reduce((t, c) => ({ taught: t.taught + c.taught, single: t.single + c.single, double: t.double + c.double, absent: t.absent + c.absent }), { taught: 0, single: 0, double: 0, absent: 0 });
+  $("moSum").innerHTML = `<b>${t.taught}</b> lesson${t.taught === 1 ? "" : "s"} taught &middot; ${rows.filter(c => c.taught).length} student${rows.filter(c => c.taught).length === 1 ? "" : "s"}`;
+  $("moBody").innerHTML = rows.length ? rows.map((c, i) => `<tr class="clickable" data-mo-uid="${c.s.uid}">
+      <td class="col-no">${i + 1}</td>
+      <td><b>${esc(c.s.name)}</b><div class="hint" style="margin:0">${esc(c.s.studentNumber)}</div></td>
+      <td class="hide-sm">${esc(c.s.teacher || "—")}</td>
+      <td class="num"><b class="mo-big">${c.taught}</b></td>
+      <td class="num hide-sm">${c.single || "—"}</td>
+      <td class="num hide-sm">${c.double || "—"}</td>
+      <td class="num">${c.absent ? `<span class="mo-abs">${c.absent}</span>` : "—"}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">No students for this teacher.</td></tr>`;
+  $("moFoot").innerHTML = rows.length ? `<tr><td></td><td><b>Total</b></td><td class="hide-sm"></td><td class="num"><b class="mo-big">${t.taught}</b></td><td class="num hide-sm">${t.single}</td><td class="num hide-sm">${t.double}</td><td class="num">${t.absent}</td></tr>` : "";
+}
+$("monthBtn").addEventListener("click", openMonth);
+$("moBack").addEventListener("click", () => { $("tab-month").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance(); });
+$("moPrev").addEventListener("click", () => { moMonth = shiftMonth(moMonth, -1); renderMonth(); });
+$("moNext").addEventListener("click", () => { moMonth = shiftMonth(moMonth, 1); renderMonth(); });
+$("moNow").addEventListener("click", () => { moMonth = isoDate().slice(0, 7); renderMonth(); });
+$("moTeacher").addEventListener("change", renderMonth);
+$("moBody").addEventListener("click", e => { const tr = e.target.closest("[data-mo-uid]"); if (tr) openModal(students.find(s => s.uid === tr.dataset.moUid)); });
 $("wkBack").addEventListener("click", () => { $("tab-week").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance(); });
 $("wkPrev").addEventListener("click", () => { wkStart = addDays(wkStart, -7); renderWeek(); });
 $("wkNext").addEventListener("click", () => { wkStart = addDays(wkStart, 7); renderWeek(); });

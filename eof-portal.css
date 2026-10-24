@@ -239,11 +239,25 @@ tr.wk-today td{background:#FFF8EC;}
 /* Lesson time per day */
 .slots{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
 .slots:empty{display:none;}
-.slot{display:grid;grid-template-columns:92px 110px 1fr 1fr;gap:6px 8px;align-items:center;background:#F7F8FB;border:1px solid var(--line);border-radius:10px;padding:8px 10px;}
-.slot .input{padding:8px 10px;font-size:14px;min-width:0;}
-.slot-day{font-size:13.5px;color:var(--accent);}
-.slot-tz{grid-column:2 / -1;font-size:12px;color:var(--muted);}
+.slot{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;align-items:start;background:#F7F8FB;border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+.slot .input{padding:8px 10px;font-size:14px;min-width:0;width:100%;}
+.slot-day{font-size:14px;color:var(--accent);grid-column:1 / -1;}
+.slot-f{display:flex;flex-direction:column;gap:4px;margin:0;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;min-width:0;}
+.slot-f .s-city-other{margin-top:6px;}
+.slot-time{display:flex;align-items:center;gap:6px;}
+.slot-time select{flex:1;}
+.slot-time b{color:var(--muted);}
+.slot-tz{grid-column:1 / -1;font-size:12px;color:var(--muted);}
 .slot-tz:empty{display:none;}
-.slot-tz.bad{color:var(--red);}
 .slot-copy{align-self:flex-start;font-size:13px;}
-@media (max-width:640px){ .slot{grid-template-columns:1fr 1fr;} .slot-day{grid-column:1 / -1;} .slot-tz{grid-column:1 / -1;} }
+/* Single / double */
+.len-toggle{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;}
+.len-btn{border:none;background:#fff;padding:6px 12px;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;}
+.len-btn+.len-btn{border-left:1.5px solid var(--line);}
+.len-btn.on{background:var(--accent);color:#fff;}
+.wk-dbl{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--accent);color:#fff;border-radius:4px;padding:1px 5px;vertical-align:2px;margin-left:4px;}
+/* Monthly count */
+th.num,td.num{text-align:center;}
+.mo-big{font-size:17px;color:var(--accent);}
+.mo-abs{color:var(--red);font-weight:600;}
+#moFoot td{border-top:2px solid var(--line);background:#F7F8FB;}
