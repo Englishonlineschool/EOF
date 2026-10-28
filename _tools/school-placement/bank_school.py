@@ -122,7 +122,7 @@ None of this means that individual habits are irrelevant. But it does suggest th
 ]
 
 TEENS_LISTENING = [
- dict(id='tlA1', level='A1', title="A voice message from a friend", speed=0.7, pause=1.05, lines=[
+ dict(id='tlA1', level='A1', title="A voice message from a friend", speed=0.8, pause=1.15, lines=[
   ('am_puck', "Hi Sofia, it's Daniel. Do you want to come to the cinema with me and Leo on Saturday? "
               "The film starts at four o'clock. Let's meet outside the cinema at half past three. "
               "It's on Park Street, next to the big bookshop. The tickets are six pounds. "
@@ -134,15 +134,15 @@ TEENS_LISTENING = [
   ("What should Sofia bring?", ["Her student card", "Some snacks", "A book", "Her camera"]),
   ("What does Daniel want Sofia to do tonight?", ["Call him", "Buy the tickets", "Meet Leo", "Send him a message"]),
  ]),
- dict(id='tlA2', level='A2', title="Choosing an after-school club", speed=0.79, pause=0.35, lines=[
+ dict(id='tlA2', level='A2', title="Choosing an after-school club", speed=0.86, pause=0.7, lines=[
   ('bf_emma', "Hey Max, have you chosen an after-school club yet? We have to decide by Friday."),
-  ('bm_fable', "Not yet. I wanted to do football, but it's on Tuesdays, and I have piano lessons then."),
+  ('am_puck', "Not yet. I wanted to do football, but it's on Tuesdays, and I have piano lessons then."),
   ('bf_emma', "What about the drama club? It's on Thursdays, and they're doing a musical this year."),
-  ('bm_fable', "Hmm. I'm not very good at acting. What are you doing?"),
+  ('am_puck', "Hmm. I'm not very good at acting. What are you doing?"),
   ('bf_emma', "I'm going to join the photography club. It's on Wednesdays, from four to five. And you don't need a camera. The school lends you one."),
-  ('bm_fable', "Really? That sounds good. My phone camera is terrible anyway."),
+  ('am_puck', "Really? That sounds good. My phone camera is terrible anyway."),
   ('bf_emma', "And at the end of the year, there's an exhibition in the school hall."),
-  ('bm_fable', "OK, I'll come with you. Who's the teacher?"),
+  ('am_puck', "OK, I'll come with you. Who's the teacher?"),
   ('bf_emma', "Mr Patel. He's really nice."),
  ], qs=[
   ("Why can't Max join the football club?", ["He has piano lessons on Tuesdays", "He isn't good at football", "The club is full", "It's on Fridays"]),
@@ -150,8 +150,8 @@ TEENS_LISTENING = [
   ("What does the girl say about cameras?", ["The school lends them to students", "Students must bring their own camera", "Students can only use their phones", "Cameras are very expensive"]),
   ("What happens at the end of the year?", ["There is an exhibition", "There is a musical", "There is a football match", "There is a trip with Mr Patel"]),
  ]),
- dict(id='tlB1', level='B1', title="An announcement about the school trip", speed=1.05, pause=0.22, lines=[
-  ('af_nicole', "Good morning, Grade 9. This is Ms Turner with some important news about next Friday's trip to the Natural History Museum. "
+ dict(id='tlB1', level='B1', title="An announcement about the school trip", speed=0.86, pause=0.75, lines=[
+  ('bf_isabella', "Good morning, Grade 9. This is Ms Turner with some important news about next Friday's trip to the Natural History Museum. "
                 "First of all, there's been a change of plan. The coach will now leave at eight fifteen, not eight thirty, because of roadworks on the motorway, "
                 "so please be in the school car park by eight o'clock at the latest. We'll be back at school at about four. "
                 "You don't need to bring money for the entrance, as the school has already paid, but you will need a packed lunch, "
@@ -165,17 +165,17 @@ TEENS_LISTENING = [
   ("Why do students need a packed lunch?", ["The museum café will be closed", "Food at the museum is expensive", "The school has not paid for lunch", "They will eat on the coach"]),
   ("What will happen if a student doesn't return the form by Wednesday?", ["They won't be able to go on the trip", "They will have to pay for the entrance", "Their parents will get a phone call", "They will have to wear their uniform"]),
  ]),
- dict(id='tlB2', level='B2', title="A podcast interview: the teenage app designer", speed=0.92, pause=0.12, lines=[
+ dict(id='tlB2', level='B2', title="A podcast interview: the teenage app designer", speed=1.0, pause=0.14, lines=[
   ('am_michael', "Today on Young Minds I'm talking to Ella Morgan, who's seventeen and has just won a national award for an app she designed. Ella, congratulations. What does the app actually do?"),
-  ('af_bella', "Thanks! It's called StudyBuddy, and basically it helps students plan their revision. You put in your exam dates and the topics you find difficult, and it builds a timetable for you. "
+  ('af_heart', "Thanks! It's called StudyBuddy, and basically it helps students plan their revision. You put in your exam dates and the topics you find difficult, and it builds a timetable for you. "
                "But the main thing is that it changes the plan if you fall behind, so you don't just give up after a bad week."),
   ('am_michael', "Where did the idea come from?"),
-  ('af_bella', "Honestly, from my own mistakes. Before my exams last year, I made a beautiful revision timetable, with different colours and everything, and then I completely ignored it. "
+  ('af_heart', "Honestly, from my own mistakes. Before my exams last year, I made a beautiful revision timetable, with different colours and everything, and then I completely ignored it. "
                "I realised the problem wasn't making a plan. It was sticking to it when things went wrong."),
   ('am_michael', "And you taught yourself to code?"),
-  ('af_bella', "Mostly, yes. I did a free online course, and my computer science teacher helped me whenever I got stuck. That was really important, actually. I nearly gave up twice."),
+  ('af_heart', "Mostly, yes. I did a free online course, and my computer science teacher helped me whenever I got stuck. That was really important, actually. I nearly gave up twice."),
   ('am_michael', "So what's next for you?"),
-  ('af_bella', "I'm going to study computer science at university. But first, I want to make the app work better for students with dyslexia, because a few users have told me the screens are hard to read. "
+  ('af_heart', "I'm going to study computer science at university. But first, I want to make the app work better for students with dyslexia, because a few users have told me the screens are hard to read. "
                "I think that's more important than adding new features."),
  ], qs=[
   ("What makes Ella's app different from a normal revision timetable?", ["It changes the plan when students fall behind", "It uses lots of different colours", "It chooses exam dates for students", "It teaches students how to code"]),
@@ -183,8 +183,8 @@ TEENS_LISTENING = [
   ("What does Ella say about her computer science teacher?", ["The teacher helped whenever she had a problem", "The teacher taught her everything she knows", "The teacher told her to give up the app", "The teacher gave her the idea for the app"]),
   ("What is Ella's next priority for the app?", ["Making it easier to read for students with dyslexia", "Adding new features for users", "Selling it to universities", "Translating it into other languages"]),
  ]),
- dict(id='tlC1', level='C1', title="A talk: why cramming doesn't work", speed=1.0, pause=0.12, lines=[
-  ('af_heart', "Let me start with a confession. The night before my own final exams, I stayed up until three in the morning, reading my notes over and over again. "
+ dict(id='tlC1', level='C1', title="A talk: why cramming doesn't work", speed=1.02, pause=0.14, lines=[
+  ('af_bella', "Let me start with a confession. The night before my own final exams, I stayed up until three in the morning, reading my notes over and over again. "
                "I felt incredibly productive, and I passed. But if you'd asked me a month later what I'd learned, I'd have struggled to tell you very much at all. "
                "That experience is surprisingly typical, and psychologists have a good explanation for it. "
                "When we reread the same material many times in one session, it starts to feel familiar, and we mistake that sense of familiarity for genuine understanding. "
@@ -248,25 +248,25 @@ There is also some evidence that students who take a gap year arrive at universi
  ]),
 ]
 TEENS_DEMO_LISTENING = [
- dict(id='dtlB1', level='B1', title="Planning a birthday surprise", speed=0.91, pause=0.25, lines=[
-  ('af_bella', "Jack, it's Lily's birthday next Saturday. Shall we do something special for her?"),
-  ('bm_fable', "Definitely. What about a surprise party at my house?"),
-  ('af_bella', "That's a nice idea, but your parents will be away that weekend, won't they?"),
-  ('bm_fable', "Oh, you're right. I forgot. OK, what about a picnic in the park instead?"),
-  ('af_bella', "The forecast says it might rain. Why don't we take her to that new climbing centre? She's always saying she wants to try it."),
-  ('bm_fable', "Good idea. How much is it?"),
-  ('af_bella', "Twelve pounds each, but it's cheaper if you book online. Only nine."),
-  ('bm_fable', "Great, I'll book it tonight. Should we invite anyone else?"),
-  ('af_bella', "Let's ask Sam and Ruby. And we can go for pizza afterwards."),
-  ('bm_fable', "Perfect. Let's keep it a secret!"),
+ dict(id='dtlB1', level='B1', title="Planning a birthday surprise", speed=0.9, pause=0.5, lines=[
+  ('af_heart', "Jack, it's Lily's birthday next Saturday. Shall we do something special for her?"),
+  ('am_puck', "Definitely. What about a surprise party at my house?"),
+  ('af_heart', "That's a nice idea, but your parents will be away that weekend, won't they?"),
+  ('am_puck', "Oh, you're right. I forgot. OK, what about a picnic in the park instead?"),
+  ('af_heart', "The forecast says it might rain. Why don't we take her to that new climbing centre? She's always saying she wants to try it."),
+  ('am_puck', "Good idea. How much is it?"),
+  ('af_heart', "Twelve pounds each, but it's cheaper if you book online. Only nine."),
+  ('am_puck', "Great, I'll book it tonight. Should we invite anyone else?"),
+  ('af_heart', "Let's ask Sam and Ruby. And we can go for pizza afterwards."),
+  ('am_puck', "Perfect. Let's keep it a secret!"),
  ], qs=[
   ("Why can't they have a party at Jack's house?", ["Jack's parents will be away", "The house is too small", "It might rain", "Lily doesn't like parties"]),
   ("Why don't they choose the picnic?", ["The weather may be bad", "Lily doesn't like the park", "It is too expensive", "Jack forgot about it"]),
   ("How much is each ticket if Jack books online?", ["£9", "£12", "£21", "£15"]),
   ("What will they do after climbing?", ["Have pizza", "Have a picnic", "Go to Jack's house", "Go to the cinema"]),
  ]),
- dict(id='dtlC1', level='C1', title="A talk about failure", speed=1.01, pause=0.12, lines=[
-  ('am_fenrir', "We tend to tell young people that failure is a valuable teacher, and in a sense it is. But I'd like to complicate that idea a little. "
+ dict(id='dtlC1', level='C1', title="A talk about failure", speed=1.0, pause=0.14, lines=[
+  ('am_michael', "We tend to tell young people that failure is a valuable teacher, and in a sense it is. But I'd like to complicate that idea a little. "
                 "Failure on its own teaches very little. Plenty of people fail at the same thing again and again without learning anything, because they never stop to ask why it happened. "
                 "What makes failure useful is reflection: the willingness to look honestly at what went wrong, without either blaming everyone else or concluding that you're simply no good. "
                 "That second reaction is particularly common among high-achieving students, for whom a single poor grade can feel like a judgement on their whole identity. "
@@ -369,8 +369,8 @@ They also wrote letters to the hotels near the beach, asking them to turn off th
 ]
 
 JUNIOR_LISTENING = [
- dict(id='jlP', level='Pre-A1', title="Sara and her family", speed=0.74, pause=0.95, lines=[
-  ('af_bella', "Hello! I'm Sara. I'm eleven years old. This is my family. "
+ dict(id='jlP', level='Pre-A1', title="Sara and her family", speed=0.86, pause=0.8, lines=[
+  ('bf_emma', "Hello! I'm Sara. I'm eleven years old. This is my family. "
                "I have one brother. His name is Ben. He is seven. "
                "I have a dog, too. His name is Rocky. He is big and brown. "
                "My favourite colour is green. I like playing tennis with my dad. Goodbye!"),
@@ -380,23 +380,23 @@ JUNIOR_LISTENING = [
   ("What colour is Rocky?", ["Brown", "Green", "Black", "White"]),
   ("What does Sara like doing with her dad?", ["Playing tennis", "Walking the dog", "Playing football", "Swimming"]),
  ]),
- dict(id='jlA1', level='A1', title="A phone call from Mum", speed=0.82, pause=0.5, lines=[
-  ('af_nicole', "Hi, Leo. I'm at the supermarket. What do we need for your party tomorrow?"),
+ dict(id='jlA1', level='A1', title="A phone call from Mum", speed=0.88, pause=0.5, lines=[
+  ('bf_isabella', "Hi, Leo. I'm at the supermarket. What do we need for your party tomorrow?"),
   ('am_puck', "Hi, Mum. We need a big cake, please. A chocolate cake!"),
-  ('af_nicole', "OK. And drinks?"),
+  ('bf_isabella', "OK. And drinks?"),
   ('am_puck', "Yes, orange juice. Not apple juice. My friends don't like apple juice."),
-  ('af_nicole', "How many friends are coming?"),
+  ('bf_isabella', "How many friends are coming?"),
   ('am_puck', "Eight friends. And Grandma and Grandpa."),
-  ('af_nicole', "OK. The party starts at three o'clock, right?"),
+  ('bf_isabella', "OK. The party starts at three o'clock, right?"),
   ('am_puck', "No, Mum. At four o'clock."),
-  ('af_nicole', "Oh, yes. Four o'clock. See you soon!"),
+  ('bf_isabella', "Oh, yes. Four o'clock. See you soon!"),
  ], qs=[
   ("Where is Leo's mum?", ["At the supermarket", "At home", "At school", "At Grandma's house"]),
   ("What kind of cake does Leo want?", ["Chocolate", "Orange", "Apple", "Strawberry"]),
   ("How many friends are coming to the party?", ["8", "3", "4", "10"]),
   ("What time does the party start?", ["4:00", "3:00", "8:00", "2:00"]),
  ]),
- dict(id='jlA2', level='A2', title="A trip to the farm", speed=0.74, pause=0.55, lines=[
+ dict(id='jlA2', level='A2', title="A trip to the farm", speed=0.86, pause=0.75, lines=[
   ('bm_george', "OK, everyone, listen carefully, please. Tomorrow is our trip to Green Hill Farm. "
                 "The bus leaves at nine o'clock, so please be at school by quarter to nine. Don't be late, because the bus can't wait! "
                 "At the farm, we're going to feed the animals and see how cheese is made. "
@@ -409,17 +409,17 @@ JUNIOR_LISTENING = [
   ("Why should students wear old clothes?", ["It can be muddy", "They will work in a shop", "It is going to rain", "The animals are dangerous"]),
   ("Why don't students need any money?", ["There isn't a shop at the farm", "The teacher will pay", "The trip is very short", "Lunch is free at the farm"]),
  ]),
- dict(id='jlB1', level='B1', title="A science project", speed=0.89, pause=0.3, lines=[
+ dict(id='jlB1', level='B1', title="A science project", speed=0.88, pause=0.5, lines=[
   ('bf_emma', "Sam, have you started the science project yet? It's due next Monday."),
-  ('bm_fable', "Not really. I wanted to make a volcano, but my brother said everyone does that."),
+  ('am_puck', "Not really. I wanted to make a volcano, but my brother said everyone does that."),
   ('bf_emma', "He's right. Mrs Clark said she wants something original this year."),
-  ('bm_fable', "What are you doing?"),
+  ('am_puck', "What are you doing, Holly?"),
   ('bf_emma', "I'm testing which kind of paper bag is the strongest. I put heavier and heavier books in each bag until it breaks."),
-  ('bm_fable', "That's clever! Maybe I could do something with plants. Like, do plants grow faster with music?"),
+  ('am_puck', "That's clever! Maybe I could do something with plants. Like, do plants grow faster with music?"),
   ('bf_emma', "Ooh, that's interesting. But plants grow really slowly. You'd need at least three weeks to see any difference."),
-  ('bm_fable', "Oh no, you're right. I've only got a week. Hmm. What about testing which drinks make your teeth dirty? I could use eggshells, because they're a bit like teeth."),
+  ('am_puck', "Oh no, you're right. I've only got a week. Hmm. What about testing which drinks make your teeth dirty? I could use eggshells, because they're a bit like teeth."),
   ('bf_emma', "Gross, but cool! I think Mrs Clark would love that."),
-  ('bm_fable', "OK. I'll ask my mum for some eggs tonight."),
+  ('am_puck', "OK. I'll ask my mum for some eggs tonight."),
  ], qs=[
   ("Why doesn't Sam make a volcano?", ["His brother says it isn't original", "Mrs Clark doesn't like volcanoes", "It is too difficult to make", "He doesn't have the materials"]),
   ("What is Holly's project about?", ["How strong different paper bags are", "How heavy different books are", "How plants grow with music", "How drinks affect teeth"]),
@@ -469,13 +469,13 @@ The librarian, Mrs Ortiz, says Max can't do everything. "He can't fix the comput
  ]),
 ]
 JUNIOR_DEMO_LISTENING = [
- dict(id='djlA1', level='A1', title="Where is my bag?", speed=0.72, pause=0.55, lines=[
+ dict(id='djlA1', level='A1', title="Where is my bag?", speed=0.86, pause=0.7, lines=[
   ('am_puck', "Mum, where is my school bag? I can't find it."),
-  ('af_nicole', "Is it in your bedroom?"),
+  ('bf_isabella', "Is it in your bedroom?"),
   ('am_puck', "No, it isn't. I looked under my bed, too."),
-  ('af_nicole', "What about the kitchen? You had breakfast there."),
+  ('bf_isabella', "What about the kitchen? You had breakfast there."),
   ('am_puck', "No. Oh, wait! It's in the car! I left it there yesterday."),
-  ('af_nicole', "OK. Here are the car keys. Be quick. The bus comes at eight o'clock!"),
+  ('bf_isabella', "OK. Here are the car keys. Be quick. The bus comes at eight o'clock!"),
   ('am_puck', "Thanks, Mum!"),
  ], qs=[
   ("What is the boy looking for?", ["His school bag", "The car keys", "His breakfast", "His bed"]),
@@ -483,17 +483,17 @@ JUNIOR_DEMO_LISTENING = [
   ("When did he leave it there?", ["Yesterday", "This morning", "Last week", "At breakfast"]),
   ("What time does the bus come?", ["8:00", "7:00", "8:30", "9:00"]),
  ]),
- dict(id='djlB1', level='B1', title="Saving for a skateboard", speed=0.85, pause=0.3, lines=[
-  ('af_bella', "Owen, did you buy that skateboard you wanted?"),
-  ('bm_fable', "Not yet. It costs sixty pounds, and I've only saved forty."),
-  ('af_bella', "Can't your parents help?"),
-  ('bm_fable', "They said I should earn the money myself. So I'm washing our neighbours' cars on Saturdays. They pay me five pounds a car."),
-  ('af_bella', "Nice. So how long will it take?"),
-  ('bm_fable', "If I wash two cars every week, I'll have enough in two weeks."),
-  ('af_bella', "Hey, my cousin is selling her old skateboard. It's in really good condition, and she only wants thirty pounds."),
-  ('bm_fable', "Really? Then I could buy it now! But I really wanted a new one."),
-  ('af_bella', "Well, you could buy hers and spend the rest on a helmet."),
-  ('bm_fable', "That's actually a really good idea. Can you send me her number?"),
+ dict(id='djlB1', level='B1', title="Saving for a skateboard", speed=0.86, pause=0.7, lines=[
+  ('af_heart', "Owen, did you buy that skateboard you wanted?"),
+  ('am_puck', "Not yet. It costs sixty pounds, and I've only saved forty."),
+  ('af_heart', "Can't your parents help?"),
+  ('am_puck', "They said I should earn the money myself. So I'm washing our neighbours' cars on Saturdays. They pay me five pounds a car."),
+  ('af_heart', "Nice. So how long will it take?"),
+  ('am_puck', "If I wash two cars every week, I'll have enough in two weeks."),
+  ('af_heart', "Hey, my cousin is selling her old skateboard. It's in really good condition, and she only wants thirty pounds."),
+  ('am_puck', "Really? Then I could buy it now! But I really wanted a new one."),
+  ('af_heart', "Well, you could buy hers and spend the rest on a helmet."),
+  ('am_puck', "That's actually a really good idea. Can you send me her number?"),
  ], qs=[
   ("How much money has Owen saved?", ["£40", "£60", "£30", "£20"]),
   ("How is Owen earning money?", ["By washing cars", "By selling skateboards", "By helping his parents", "By working in a shop"]),

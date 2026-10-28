@@ -123,7 +123,8 @@ UI = {
  'name': {'en': "Student’s name", 'ru': 'Имя ученика', 'tr': 'Öğrencinin adı'},
  'grade': {'en': 'Grade', 'ru': 'Класс', 'tr': 'Sınıf'},
  'parent': {'en': "Parent’s name (optional)", 'ru': 'Имя родителя (необязательно)', 'tr': 'Velinin adı (isteğe bağlı)'},
- 'contact': {'en': "Parent’s WhatsApp number or email (optional)", 'ru': 'WhatsApp или e-mail родителя (необязательно)', 'tr': 'Velinin WhatsApp numarası veya e-postası (isteğe bağlı)'},
+ 'contact': {'en': "Parent’s WhatsApp number or email", 'ru': 'WhatsApp или e-mail родителя', 'tr': 'Velinin WhatsApp numarası veya e-postası'},
+ 'contactHint': {'en': 'Please enter a WhatsApp number (with country code) or an email address.', 'ru': 'Укажите номер WhatsApp (с кодом страны) или e-mail.', 'tr': 'Lütfen bir WhatsApp numarası (ülke koduyla) veya e-posta adresi girin.'},
 }
 
 
@@ -233,8 +234,9 @@ def build(page):
           <input type="text" id="examParent" placeholder="So we know who to reply to" autocomplete="name">
         </div>
         <div class="exam-form-field">
-          <label for="examContact" data-ui="contact">Parent&rsquo;s WhatsApp number or email (optional)</label>
-          <input type="text" id="examContact" placeholder="So we can follow up with the result" autocomplete="tel">
+          <label for="examContact" data-ui="contact">Parent&rsquo;s WhatsApp number or email</label>
+          <input type="text" id="examContact" placeholder="e.g. +996 555 123 456 or name@email.com" autocomplete="tel" required>
+          <div id="examContactHint" data-ui="contactHint" style="color:#E0392C;font-size:13px;margin-top:6px;line-height:1.4" hidden>Please enter a WhatsApp number (with country code) or an email address.</div>
         </div>
         <button type="button" class="exam-start-btn"''') + t[m.end():]
     rep('<i class="fa-solid fa-clock"></i> Time limit: 60 minutes &middot; 70 questions &middot; Each recording can be played twice',
@@ -255,13 +257,18 @@ def build(page):
 ''') + t[m.end():]
     rep("""    html += '<li><i class="fa-solid fa-circle-check"></i> '+(EXAM.isDemo ? 'Indicative CEFR level (demo result)' : 'Official CEFR result (A1&ndash;C1) with a full skills report')+'</li>';""",
         """    html += '<li><i class="fa-solid fa-circle-check"></i> '+(EXAM.isDemo ? 'Indicative CEFR level (demo result)' : 'Official CEFR result ('+LEVELS[0]+'&ndash;'+LEVELS[LEVELS.length-1]+') with a report for parents')+'</li>';""")
-    rep("""  nameInput.addEventListener('input', function(){ startBtn.disabled = nameInput.value.trim().length===0; });
+    rep("""  function validContact(v){ v=String(v||'').trim(); if(/^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/i.test(v)) return true; return /^\\+?[\\d\\s().-]{7,22}$/.test(v) && v.replace(/\\D/g,'').length>=7; }
+  function canStart(){ var ok = validContact(contactInput.value); startBtn.disabled = !(nameInput.value.trim() && ok); if(ok) $('examContactHint').hidden = true; }
+  nameInput.addEventListener('input', canStart); contactInput.addEventListener('input', canStart);
+  contactInput.addEventListener('blur', function(){ $('examContactHint').hidden = !contactInput.value.trim() || validContact(contactInput.value); });
   startBtn.addEventListener('click', function(){
-    if(!nameInput.value.trim()) return;""",
+    if(!nameInput.value.trim() || !validContact(contactInput.value)){ $('examContactHint').hidden = false; return; }""",
         """  var gradeInput=$('examGrade'), parentInput=$('examParent'), LANG='en';
-  function canStart(){ startBtn.disabled = !(nameInput.value.trim() && gradeInput.value); }
-  nameInput.addEventListener('input', canStart); gradeInput.addEventListener('change', canStart);
-  var UI_LABELS = """ + json.dumps({k: UI[k] for k in ('name', 'grade', 'parent', 'contact')}, ensure_ascii=False) + """;
+  function validContact(v){ v=String(v||'').trim(); if(/^[^\\s@]+@[^\\s@]+\\.[a-z]{2,}$/i.test(v)) return true; return /^\\+?[\\d\\s().-]{7,22}$/.test(v) && v.replace(/\\D/g,'').length>=7; }
+  function canStart(){ var ok = validContact(contactInput.value); startBtn.disabled = !(nameInput.value.trim() && gradeInput.value && ok); if(ok) $('examContactHint').hidden = true; }
+  nameInput.addEventListener('input', canStart); gradeInput.addEventListener('change', canStart); contactInput.addEventListener('input', canStart);
+  contactInput.addEventListener('blur', function(){ $('examContactHint').hidden = !contactInput.value.trim() || validContact(contactInput.value); });
+  var UI_LABELS = """ + json.dumps({k: UI[k] for k in ('name', 'grade', 'parent', 'contact', 'contactHint')}, ensure_ascii=False) + """;
   var INTRO = """ + json.dumps(P['intro'], ensure_ascii=False) + """;
   function setLang(l){
     LANG = l;
@@ -273,7 +280,7 @@ def build(page):
   (function(){ var l=null; try{ l=localStorage.getItem('eof_lang'); }catch(e){} if(l==='ru'||l==='tr') setLang(l); })();
   function instr(key){ var s = SCHOOL.ui[key]; return s.en + (LANG!=='en' ? '<span class="pt-tr">'+esc(s[LANG])+'</span>' : ''); }
   startBtn.addEventListener('click', function(){
-    if(!nameInput.value.trim() || !gradeInput.value) return;""")
+    if(!nameInput.value.trim() || !gradeInput.value || !validContact(contactInput.value)){ if(!validContact(contactInput.value)) $('examContactHint').hidden = false; return; }""")
     rep("""      html += '<p class="pt-instructions">Choose the word or phrase that best completes each sentence.</p>';""",
         """      html += '<p class="pt-instructions">'+instr('grammar')+'</p>';""")
     rep("""      html += '<p class="pt-instructions">Read the text and answer the questions.</p>';""",
