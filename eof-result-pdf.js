@@ -466,6 +466,7 @@
       var u = await m.currentUser();
       if(u && await m.isAdmin(u)) return;                      // the school testing its own test
       var pdf = clean(r), sid = null, date = m.isoDate();
+      if(!u){ var th = document.getElementById('eofPdfHint'); if(th){ th.insertAdjacentHTML('beforeend', '<br><i class="fa-solid fa-circle-info"></i> Already an EOF student? <a href="eof-login.html">Log in</a> before your next test and your result PDF is kept in your account.'); } }
       if(u){
         var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.where('portalBlocked', '==', false), m.limit(1))).catch(function(){ return { empty:true }; });
         if(!q.empty){

@@ -330,13 +330,14 @@ function renderResults() {
     const skills = SKILLS.filter(([k]) => r.skills && r.skills[k] != null && r.skills[k] !== "");
     const b = r.preset === "ut" ? unitTestBand(r.overall, r.max || 50) : null, pts = resultPoints(r);
     const tag = [r.preset === "pc" ? "A progress check — not a grade" : "", b ? `Band ${b.band} · ${b.label}` : "", pts ? `+${pts} Freedom Points` : ""].filter(Boolean).join(" · ");
-    return `<div class="result-card">
+    return `<div class="result-card" data-rid="${esc(r.id)}">
       <div class="rc-top">
         <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}${tag ? " · " + esc(tag) : ""}</div></div>
         <div class="rc-score">${esc(fmtScore(r))}${r.level ? ` <span class="level-pill">${esc(r.level)}</span>` : ""}${r.outcome ? ` <span class="badge ${r.outcome === "Pass" ? "present" : "absent"}">${esc(r.outcome)}</span>` : ""}</div>
       </div>
       ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
       ${r.comment ? `<p class="rc-comment">“${esc(r.comment)}” <span class="hint" style="display:inline;font-style:normal">— your teacher</span></p>` : ""}
+      ${r.source === "online-test" ? `<div class="rc-actions" style="text-align:left"><button class="btn btn-ghost btn-sm" type="button" data-pdf-result>Download my result PDF</button></div>` : ""}
     </div>`;
   }).join("") : `<p class="hint">No results yet. Your test and exam scores will appear here.</p>`;
 
@@ -355,6 +356,26 @@ function renderResults() {
   const lastV = pctOf(pts[pts.length - 1]);
   $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="My scores over time">${grid}<path d="${area}" fill="#3A57AB" opacity=".08"/><path d="${line}" fill="none" stroke="#16264D" stroke-width="2.5" stroke-linejoin="round"/>${dots}${labels}<text x="${x(pts.length - 1)}" y="${y(lastV) - 10}" text-anchor="middle" font-size="12" font-weight="600" fill="#E0392C">${lastV}%</text></svg>`;
 }
+
+// ---------- Placement test result PDF (same PDF as on the test page) ----------
+let pdfTool = null;
+function loadPdfTool() {
+  return pdfTool ||= new Promise((resolve, reject) => {
+    if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=3";
+    sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
+    sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
+    document.head.appendChild(sc);
+  });
+}
+$("resultList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-pdf-result]"); if (!b) return;
+  const res = results.find(r => r.id === b.closest("[data-rid]").dataset.rid); if (!res) return;
+  const label = b.textContent; b.disabled = true; b.textContent = "Preparing your PDF…";
+  try { const P = await loadPdfTool(); await P.downloadSaved(P.fromSaved(res, me?.name)); toast("Your result PDF has been downloaded."); }
+  catch (ex) { console.warn(ex); toast("Couldn't create the PDF. Please check your connection and try again.", "bad"); }
+  b.disabled = false; b.textContent = label;
+});
 
 $("cardBtn").addEventListener("click", async () => {
   if (!me) return;

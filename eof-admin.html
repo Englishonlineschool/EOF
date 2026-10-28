@@ -1429,7 +1429,7 @@ let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=2";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=3";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);
@@ -1483,12 +1483,41 @@ function renderTests() {
       <td class="hide-sm">${esc(label)}${demo ? ` <span class="login-badge none">demo</span>` : ""}</td>
       <td style="white-space:nowrap">${level ? `<span class="level-pill">${esc(level)}</span>` : ""} ${pct != null ? esc(pct) + "/100" : ""}</td>
       <td class="hide-sm">${st ? `<button type="button" class="linkbtn" data-test-open="${st.uid}">${esc(st.name)}</button>${t.studentId ? "" : ` <span class="hint" style="display:inline;margin:0">(same name)</span>`}` : `<span class="hint" style="display:inline;margin:0">Not logged in</span>`}</td>
-      <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-test-pdf>Download PDF</button></td></tr>`;
+      <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-test-pdf>Download PDF</button>${!t.studentId && t.r ? `<div style="margin-top:6px"><button type="button" class="linkbtn" data-test-link style="font-size:12.5px">Add to a student's account</button></div>` : ""}</td></tr>`;
   }).join("") : `<tr><td colspan="7" class="empty">${testRows.length ? "No tests match." : "No placement tests saved yet. New tests appear here as soon as someone finishes one on the website."}</td></tr>`;
 }
 $("testSearch").addEventListener("input", renderTests);
 $("testReload").addEventListener("click", loadTests);
+// A test taken without logging in → put it in the student's account (she can then download the PDF herself)
+async function linkTest(t, sid, btn) {
+  const s = students.find(x => x.uid === sid); if (!s) return;
+  const r = t.r, skills = {}; (r.skills || []).forEach(k => { if (k.key) skills[k.key] = k.pct; });
+  const title = r.isDemo ? "Demo test (indicative)" : (r.testLabel || "Online placement test");
+  const date = t.date || String(r.issuedOn || "").slice(0, 10) || isoDate();
+  btn.disabled = true;
+  try {
+    await setDoc(doc(collection(db, "students", sid, "results")), { type: "Placement test", title, date, scale: "percent", max: null, overall: r.pct, skills,
+      level: r.level, outcome: "", comment: "", source: "online-test", details: { answered: r.answered ?? null, total: r.total ?? null, correct: r.correct ?? null, minutes: r.minutes ?? null, isDemo: !!r.isDemo },
+      pdf: r, createdAt: serverTimestamp(), createdBy: me.email, linkedFrom: t.id });
+    await updateDoc(doc(db, "placementTests", t.id), { studentId: sid });
+    if (!s.lastResult || String(s.lastResult.date || "") <= date) {
+      const lastResult = { type: "Placement test", title, date, overall: r.pct, scale: "percent", max: null, level: r.level };
+      await updateDoc(doc(db, "students", sid), { lastResult }); s.lastResult = lastResult; renderStudents();
+    }
+    t.studentId = sid; renderTests(); toast(`Added to ${s.name}'s account — she can download the PDF in her portal.`);
+  } catch (ex) { btn.disabled = false; toast(friendlyError(ex), "bad"); }
+}
+$("testBody").addEventListener("change", e => { if (e.target.matches("[data-link-pick]")) e.target.nextElementSibling.disabled = !e.target.value; });
 $("testBody").addEventListener("click", e => {
+  const lk = e.target.closest("[data-test-link]");
+  if (lk) {
+    const t = testRows.find(x => x.id === lk.closest("[data-test]").dataset.test), guess = students.find(s => fold(s.name) === fold(testName(t)));
+    const opts = [...students].sort((a, b) => String(a.name).localeCompare(String(b.name))).map(s => `<option value="${s.uid}"${guess === s ? " selected" : ""}>${esc(s.name)}</option>`).join("");
+    lk.parentElement.innerHTML = `<select class="input" data-link-pick style="padding:6px 8px;font-size:13px;max-width:200px"><option value="">Choose student…</option>${opts}</select><button type="button" class="btn btn-primary btn-sm" data-link-save style="margin-top:6px"${guess ? "" : " disabled"}>Add</button>`;
+    return;
+  }
+  const ls = e.target.closest("[data-link-save]");
+  if (ls) { const t = testRows.find(x => x.id === ls.closest("[data-test]").dataset.test), sid = ls.previousElementSibling.value; if (t && sid) linkTest(t, sid, ls); return; }
   const o = e.target.closest("[data-test-open]"); if (o) { openModal(students.find(s => s.uid === o.dataset.testOpen)); setMTab("results"); return; }
   const b = e.target.closest("[data-test-pdf]"); if (!b) return;
   const t = testRows.find(x => x.id === b.closest("[data-test]").dataset.test); if (!t) return;
