@@ -10,13 +10,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=7">
+<link rel="stylesheet" href="eof-portal.css?v=17">
 </head>
 <body>
 <header class="portal-top">
   <div class="portal-top-inner">
     <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span>Student Portal</span></div></a>
     <div class="portal-top-actions">
+      <div id="studentBell"></div>
       <a class="portal-link hide-sm" href="/">Website</a>
       <button class="btn btn-light btn-sm" id="logoutBtn" type="button">Log out</button>
     </div>
@@ -36,11 +37,37 @@
         <div class="eyebrow" style="color:var(--gold)">My Account</div>
         <h1>Hello, <span class="hl" id="firstName"></span></h1>
         <p id="courseLine"></p>
+        <div id="heroPts"></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch">
         <div class="idcard"><img class="id-photo hidden" id="idPhoto" alt=""><small>Student number</small><strong id="studentNo"></strong></div>
         <button class="btn btn-primary" id="cardBtn" type="button">Download my student card (PDF)</button>
       </div>
+    </section>
+
+    <section class="card" id="progressCard">
+      <div class="sec-head"><h2 style="margin:0">My progress</h2><span class="hint" id="progSub" style="margin:0"></span></div>
+      <div id="progressBody"><p class="hint">Loading&hellip;</p></div>
+    </section>
+
+    <section class="card" id="pointsCard">
+      <h2>My points &amp; badges</h2>
+      <div id="pointsBody"><p class="hint">Loading&hellip;</p></div>
+    </section>
+
+    <section class="card" id="messages">
+      <div class="sec-head"><h2 style="margin:0">Messages from my teacher</h2><span class="hint" style="margin:0">You can reply to any comment, badge or result.</span></div>
+      <div class="feed" id="feedBody"><p class="hint">Loading&hellip;</p></div>
+    </section>
+
+    <section class="card" id="timetableCard">
+      <h2>My timetable</h2>
+      <div id="ttBody"></div>
+    </section>
+
+    <section class="card" id="teacherCard">
+      <h2>My teacher</h2>
+      <div id="teacherBody"><p class="hint">Loading&hellip;</p></div>
     </section>
 
     <section class="card">
@@ -91,26 +118,33 @@
 
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
-  esc, prettyDate, dayKey, DAY_NAMES, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
-  levelHistory, monthYear, doc, getDoc } from "./eof-portal.js?v=5";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=8";
-let me = null, attRows = [], results = [];
+  esc, prettyDate, dayKey, DAY_NAMES, DAYS, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
+  levelHistory, monthYear, doc, getDoc, isoDate } from "./eof-portal.js?v=6";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=9";
+import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
+  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=1";
+import { canDo } from "./eof-curriculum.js?v=1";
+let me = null, sid = null, attRows = [], results = [], progress = null, feed = [], progressOff = false, feedOff = false, bell = null;
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);
+const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } };
+const SOON = `<div class="soon"><b>Coming very soon.</b> Your badges, stamps and points are being switched on — they'll appear here shortly.</div>`;
 
-$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace("eof-login.html"); });
+$("logoutBtn").addEventListener("click", async () => { forget(); await signOut(auth); location.replace("eof-login.html"); });
 
 const user = await currentUser();
-if (!user) { location.replace("eof-login.html"); }
+if (!user) { forget(); location.replace("eof-login.html"); }
 else if (await isAdmin(user) || (await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active !== false).catch(() => false))) { location.replace("eof-admin.html"); }
 else {
   try {
     const found = await getDocs(query(collection(db, "students"), where("authUid", "==", user.uid), where("portalBlocked", "==", false), limit(1))).catch(() => ({ empty: true, docs: [] }));
     $("loading").classList.add("hidden");
-    if (found.empty) { $("noRecord").classList.remove("hidden"); }
+    if (found.empty) { forget(); $("noRecord").classList.remove("hidden"); }
     else {
       const snap = found.docs[0];
       const s = snap.data();
+      sid = snap.id; s.uid = snap.id;
+      try { localStorage.setItem("eofPortal", "student"); } catch (e) { }   // lets the website header show the bell
       // phone numbers are kept in a separate private record
       const c = await getDoc(doc(db, "students", snap.id, "private", "contact")).catch(() => null);
       if (c && c.exists()) { s.phone = c.data().phone || s.phone || ""; s.parentPhone = c.data().parentPhone || s.parentPhone || ""; }
@@ -139,10 +173,13 @@ else {
       $("levelTrack").innerHTML = hist.length ? `<span class="hint" style="display:inline;margin-right:6px">My level progress</span>` + hist.map((x, i) =>
         `<span class="lt-step${i === hist.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
 
-      const [att, res] = await Promise.all([
+      loadTeacher(s);
+      const [att, res, pr] = await Promise.all([
         getDocs(collection(db, "students", snap.id, "attendance")),
-        getDocs(collection(db, "students", snap.id, "results")).catch(() => ({ docs: [] }))
+        getDocs(collection(db, "students", snap.id, "results")).catch(() => ({ docs: [] })),
+        getDoc(doc(db, "students", snap.id, "progress", "main")).then(d => d.exists() ? d.data() : {}).catch(e => { progressOff = isDenied(e); return {}; })
       ]);
+      progress = pr;
       results = res.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
       renderResults();
       const rows = att.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
@@ -154,18 +191,148 @@ else {
       $("attBody").innerHTML = rows.length
         ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status === "present" ? "present" : "absent"}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
         : `<tr><td colspan="3" class="empty">No lessons recorded yet.</td></tr>`;
+      renderTimetable();
+      // The bell loads the feed (and refreshes it every 90 s); everything else redraws from it.
+      bell = mountBell($("studentBell"), {
+        title: "Notifications", empty: "Nothing new yet. Badges, stamps and messages from your teacher appear here.",
+        unread: x => x.byRole !== "student" && x.readByStudent === false,
+        footer: `<a href="#messages">See all messages</a>`,
+        load: async () => {
+          try { feed = await loadFeed(sid); feedOff = false; }
+          catch (e) { feed = []; feedOff = isDenied(e); renderAll(); throw e; }
+          renderAll();
+          return feed.filter(x => x.byRole !== "student");
+        },
+        onOpen: async unread => { await markRead(sid, unread, "readByStudent"); renderFeed(); },
+        onItemClick: it => { const el = document.querySelector(`#feedBody [data-fid="${it?.id}"]`) || $("messages"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+      });
     }
   } catch (e) {
     $("loading").textContent = friendlyError(e);
   }
 }
 
+function renderAll() { renderProgress(); renderPoints(); renderFeed(); }
+
+// ---------- Points & badges ----------
+function events() { return pointsEvents({ s: me, progress, feed, results, attendance: Object.fromEntries(attRows.map(r => [r.date, r])) }); }
+function renderPoints() {
+  if (progressOff && feedOff) { $("pointsBody").innerHTML = SOON; $("heroPts").innerHTML = ""; return; }
+  const ev = events(), total = ev.reduce((t, e) => t + e.pts, 0), rk = rankOf(total);
+  $("heroPts").innerHTML = `<span class="pts-chip">${rk.icon} ${total} Freedom Points · ${esc(rk.name)}</span>`;
+  const counts = {}; feed.filter(x => x.type === "award").forEach(x => counts[x.badge] = (counts[x.badge] || 0) + 1);
+  const shelf = BADGES.filter(b => !b.groups || counts[b.id]).map(b => `<div class="${counts[b.id] ? "" : "none"}"><i>${b.icon}</i><span>${esc(b.name)}<small>${counts[b.id] ? "× " + counts[b.id] : "Not yet"}</small></span></div>`).join("");
+  $("pointsBody").innerHTML = `
+    <div class="pts-box"><div class="pts-num">${total}<small>Freedom Points</small></div>
+      <div class="pts-rank"><b>${rk.icon} ${esc(rk.name)}</b><div class="rk-bar"><i style="width:${rk.pct}%"></i></div><small>${rk.next ? `${rk.toNext} more to become a ${esc(rk.next.name)} ${rk.next.icon}` : "You've reached the top rank!"}</small></div></div>
+    <h3 style="font-size:18px;margin:4px 0 10px">My badges</h3>
+    <div class="bshelf">${shelf}</div>
+    <h3 style="font-size:18px;margin:18px 0 6px">Recent activity</h3>
+    ${ev.length ? `<ul class="acts">${ev.slice(0, 8).map(e => `<li><div>${esc(e.label)}<br><span>${esc(e.date ? prettyDate(e.date) : "")}</span></div><b>+${e.pts}</b></li>`).join("")}</ul>` : `<p class="hint">No points yet — they come from badges, stamps, tests and full months of lessons.</p>`}
+    <p class="hint" style="margin-top:12px">Ranks: Explorer → Navigator (100) → Voyager (250) → Globetrotter (500) → Ambassador (1000).</p>`;
+}
+
+// ---------- My progress ----------
+const stampPill = k => STAMPS[k] ? `<span class="stamp-pill ${STAMPS[k].cls}">${esc(STAMPS[k].label)}</span>` : `<span class="mini">Not stamped yet</span>`;
+function renderProgress() {
+  const prog = programmeOf(me, progress), p = progress || {}, st = p.stamps || {};
+  $("progSub").textContent = prog === "passport" ? PASSPORT_LEVEL_LABELS[passportLevelOf(me, p)] : prog === "school" ? "English Ahead 1" : PROGRAMMES[prog].label;
+  if (progressOff && feedOff) { $("progressBody").innerHTML = SOON; return; }
+  if (prog === "school") {
+    const units = unitsOf(p), c = completion({ s: me, progress: p, results });
+    $("progressBody").innerHTML = `<div class="sp-units">${units.map(u => {
+      const e = st[u.id] || {}, pc = results.find(r => r.preset === "pc" && r.unit === u.id), ut = results.find(r => r.preset === "ut" && r.unit === u.id), b = ut ? unitTestBand(ut.overall, ut.max || 50) : null;
+      return `<div class="sp-unit"><h4>${esc(u.name)}</h4>
+        <div class="row"><span>Unit stamp</span>${stampPill(e.stamp)}</div>
+        <div class="row"><span>Vocabulary Pack</span><b>${e.vocab ? "Done ✓" : "—"}</b></div>
+        <div class="row"><span>Progress Check</span><b>${pc ? esc(pc.overall) + "/30" : "—"}</b></div>
+        <div class="row"><span>Unit Test</span><b>${ut ? esc(ut.overall) + "/50" + (b ? ` · ${esc(b.label)}` : "") : "—"}</b></div>
+        ${e.note ? `<p class="hint" style="margin:6px 0 0">“${esc(e.note)}”</p>` : ""}</div>`;
+    }).join("")}</div>
+    <p class="hint" style="margin-top:12px">The Progress Check shows how you're getting on — it isn't a grade. ${units.filter(c.school.unitDone).length} of ${units.length} units complete.</p>`;
+    return;
+  }
+  if (prog === "passport") {
+    const L = PASSPORT_LEVELS[passportLevelOf(me, p)], c = completion({ s: me, progress: p, results });
+    const mid = results.find(r => r.preset === "mid"), fin = results.find(r => r.preset === "final");
+    $("progressBody").innerHTML = `<div class="sp-units">${L.stops.map(x => {
+      const e = st[x.n] || {};
+      return `<div class="sp-unit"${x.n === "SS" ? ' style="background:#FBF6EC"' : ""}><div class="hint" style="margin:0;font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:11px">${x.n === "SS" ? "Speaking Studio" : "Stop " + x.n}</div><h4>${esc(x.name)}</h4>
+        <p style="font-size:13.5px;font-style:italic;margin-bottom:6px">“${esc(canDo(x))}”</p>
+        <div class="row"><span>Stamp</span>${stampPill(e.stamp)}</div>
+        ${x.n !== "SS" ? `<div class="row"><span>Freedom Phrase</span><b style="text-align:right">${e.phrase ? esc(e.phrase) : "—"}</b></div>` : ""}</div>`;
+    }).join("")}</div>
+    <p class="hint" style="margin-top:12px">Mid-Course Test: <b>${mid ? esc(mid.overall) + "/" + (mid.max || L.mid) : "—"}</b> · Final Exam: <b>${fin ? esc(fin.overall) + "/" + (fin.max || L.final) : "—"}</b> · ${c.passport.stampsOk} of 12 Stops stamped</p>
+    ${c.passport.done ? `<div class="cert">🎓 Your Passport is complete — certificate unlocked! Ask your teacher for your certificate.</div>` : ""}`;
+    return;
+  }
+  // Speaking (1:1) and Full course: badge shelf is in the next card; here the feedback history
+  const notes = feed.filter(x => x.byRole !== "student" && (x.type === "comment" || x.type === "award" && x.body || x.type === "result" && x.body)).slice(0, 5);
+  $("progressBody").innerHTML = (prog === "full" ? `<p class="hint" style="margin-top:0">Your full-course plan is being prepared. Your badges, feedback and results are all saved here.</p>` : "") +
+    (notes.length ? `<h3 style="font-size:18px;margin:0 0 10px">Latest feedback</h3><div class="feed">${notes.map(n => feedItemHtml(n)).join("")}</div>` : `<p class="hint">After your lessons your teacher can send you badges and feedback. They'll appear here.</p>`);
+}
+
+// ---------- Messages (with replies) ----------
+let replyOpen = null;
+function renderFeed() {
+  if (feedOff) { $("feedBody").innerHTML = SOON; return; }
+  const prev = document.querySelector(".reply-form textarea"), draft = prev && prev.closest(".reply-form").dataset.for === replyOpen ? prev.value : "", hadFocus = prev && document.activeElement === prev;
+  const list = threads(feed);
+  $("feedBody").innerHTML = list.length ? list.map(t => feedItemHtml(t.item, { canReply: t.item.byRole !== "student", replies: t.replies }) +
+    (replyOpen === t.item.id ? `<div class="reply-form" data-for="${esc(t.item.id)}"><textarea class="input" maxlength="500" placeholder="Write a short reply to your teacher…" aria-label="Your reply"></textarea><div class="rf-foot"><span class="rf-count">0 / 500</span><span><button class="btn btn-ghost btn-sm" type="button" data-rf-cancel>Cancel</button> <button class="btn btn-primary btn-sm" type="button" data-rf-send>Send reply</button></span></div></div>` : "")).join("")
+    : `<p class="hint">No messages yet. When your teacher sends you a badge, a stamp or a comment, it appears here — and you can reply.</p>`;
+  const ta = document.querySelector(".reply-form textarea");
+  if (ta) { ta.value = draft; ta.closest(".reply-form").querySelector(".rf-count").textContent = `${draft.length} / 500`; if (!prev || hadFocus) ta.focus(); }
+}
+$("feedBody").addEventListener("click", async e => {
+  const r = e.target.closest("[data-reply]");
+  if (r) { replyOpen = r.dataset.reply; renderFeed(); return; }
+  if (e.target.closest("[data-rf-cancel]")) { replyOpen = null; renderFeed(); return; }
+  const send = e.target.closest("[data-rf-send]");
+  if (send) {
+    const box = send.closest(".reply-form"), body = box.querySelector("textarea").value.trim();
+    if (!body) { box.querySelector("textarea").focus(); return; }
+    send.disabled = true;
+    try {
+      const parent = feed.find(x => x.id === box.dataset.for);
+      const it = await postReply(me, parent, body, user);
+      feed.unshift(it); replyOpen = null; renderFeed();
+      toast("Reply sent to your teacher");
+    } catch (ex) { toast(isDenied(ex) ? "Replies are being switched on — please try again a little later." : friendlyError(ex), "bad"); send.disabled = false; }
+  }
+});
+$("feedBody").addEventListener("input", e => { const f = e.target.closest(".reply-form"); if (f) f.querySelector(".rf-count").textContent = `${e.target.value.length} / 500`; });
+
+// ---------- Timetable (in the student's own city) ----------
+function renderTimetable() {
+  const s = me, slots = weekSlots(s), nx = nextLesson(s), place = s.city || s.country || "";
+  const today = new Intl.DateTimeFormat("en-GB", { timeZone: s.tz || undefined, weekday: "short" }).format(new Date()).slice(0, 3);
+  const ym = isoDate().slice(0, 7), month = attRows.filter(r => r.date.startsWith(ym) && r.status === "present");
+  const taught = month.reduce((t, r) => t + (r.lessons || slots.find(x => x.day === dayKey(r.date))?.lessons || 1), 0);
+  if (!slots.length) { $("ttBody").innerHTML = `<p class="hint">Your lesson days haven't been set yet. Your teacher will add them soon.</p>`; return; }
+  $("ttBody").innerHTML = (nx ? `<div class="next-lesson"><span style="font-size:24px">⏰</span><div>Next lesson: <b>${esc(nx.label)}${nx.label === nx.name ? "" : " (" + esc(nx.name) + ")"} ${esc(nx.time)}</b>${nx.lessons == 2 ? " · double lesson" : ""}${place ? `<div class="hint" style="margin:0">${esc(place)} time</div>` : ""}</div></div>` : "") +
+    `<div class="tt">${DAYS.map(d => { const x = slots.find(y => y.day === d); return `<div class="tt-day${x ? " on" : ""}${d === today ? " today" : ""}"><b>${d}</b>${x ? `<div class="tt-t">${esc(x.time || "—")}</div><div class="tt-l">${x.lessons == 2 ? "Double" : "Single"}</div>` : `<div class="tt-l" style="opacity:.6">—</div>`}</div>`; }).join("")}</div>
+    <p class="hint" style="margin:0">Times are in ${esc(place || "your city")}${s.timeZone ? ` (${esc(String(s.timeZone).split(" ")[0])})` : ""}. This month you've attended <b>${taught}</b> lesson${taught === 1 ? "" : "s"}.</p>`;
+}
+
+// ---------- My teacher ----------
+async function loadTeacher(s) {
+  if (!s.teacher) { $("teacherBody").innerHTML = `<p class="hint">Your teacher will be shown here soon.</p>`; return; }
+  let t = null;
+  try { t = await findPublicTeacher(s.teacher); } catch (e) { }
+  if (!t) { $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box"><span class="ph-initials">${esc(s.teacher.split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span></div><div><h3>${esc(s.teacher)}</h3><p class="hint">Your teacher's full profile will appear here soon.</p></div></div>`; return; }
+  $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box">${t.photo ? `<img src="${t.photo}" alt="">` : `<span class="ph-initials">${esc(String(t.name).split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span>`}</div>
+    <div style="flex:1;min-width:200px"><h3>${esc(titled(t))}</h3>${t.teaches ? `<div class="tc-sub">Teaches ${esc(t.teaches)}</div>` : `<div class="tc-sub">English Online Forum teacher</div>`}${t.bio ? `<p>${esc(t.bio)}</p>` : ""}</div></div>`;
+}
+
 function renderResults() {
   $("resultList").innerHTML = results.length ? results.map(r => {
     const skills = SKILLS.filter(([k]) => r.skills && r.skills[k] != null && r.skills[k] !== "");
+    const b = r.preset === "ut" ? unitTestBand(r.overall, r.max || 50) : null, pts = resultPoints(r);
+    const tag = [r.preset === "pc" ? "A progress check — not a grade" : "", b ? `Band ${b.band} · ${b.label}` : "", pts ? `+${pts} Freedom Points` : ""].filter(Boolean).join(" · ");
     return `<div class="result-card">
       <div class="rc-top">
-        <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}</div></div>
+        <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}${tag ? " · " + esc(tag) : ""}</div></div>
         <div class="rc-score">${esc(fmtScore(r))}${r.level ? ` <span class="level-pill">${esc(r.level)}</span>` : ""}${r.outcome ? ` <span class="badge ${r.outcome === "Pass" ? "present" : "absent"}">${esc(r.outcome)}</span>` : ""}</div>
       </div>
       ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
@@ -173,8 +340,8 @@ function renderResults() {
     </div>`;
   }).join("") : `<p class="hint">No results yet. Your test and exam scores will appear here.</p>`;
 
-  // Progress chart: overall score (as %) over time, oldest to newest.
-  const pts = results.filter(r => pctOf(r) != null).slice().reverse();
+  // Progress chart: overall score (as %) over time, oldest to newest (progress checks aren't grades, so they're left out).
+  const pts = results.filter(r => pctOf(r) != null && r.preset !== "pc").slice().reverse();
   if (pts.length < 2) { $("chart").innerHTML = ""; return; }
   const W = Math.max(320, Math.min(900, $("chart").clientWidth || 640)), H = W < 500 ? 200 : 190, L = 40, R = 16, T = 14, B = 34, iw = W - L - R, ih = H - T - B;
   const x = i => L + (pts.length === 1 ? iw / 2 : i * iw / (pts.length - 1));

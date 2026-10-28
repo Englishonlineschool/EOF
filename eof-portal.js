@@ -119,7 +119,7 @@ export async function nextStudentNumber(regIso) {
 }
 
 // ---------- Results (tests and exams) ----------
-export const RESULT_TYPES = ["Placement test", "Progress test", "Mid-term exam", "Final exam", "Mock IELTS", "Speaking assessment", "Other"];
+export const RESULT_TYPES = ["Placement test", "Progress test", "Progress Check", "Unit Test", "Mid-Course Test", "Mid-term exam", "Final exam", "Mock IELTS", "Speaking assessment", "Other"];
 export const SKILLS = [
   ["reading", "Reading"], ["listening", "Listening"], ["writing", "Writing"],
   ["speaking", "Speaking"], ["uoe", "Grammar & Vocabulary"]

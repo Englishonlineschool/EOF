@@ -10,13 +10,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=16">
+<link rel="stylesheet" href="eof-portal.css?v=17">
 </head>
 <body>
 <header class="portal-top">
   <div class="portal-top-inner">
     <a class="portal-brand" href="/"><img src="favicon-192.png" alt="English Online Forum logo"><div><b>English Online Forum</b><span id="roleLabel">Admin &middot; Student records</span></div></a>
     <div class="portal-top-actions">
+      <div id="staffBell"></div>
       <span class="portal-link hide-sm" id="adminEmail"></span>
       <button class="btn btn-light btn-sm" id="logoutBtn" type="button">Log out</button>
     </div>
@@ -79,7 +80,7 @@
           <tbody id="attBody"></tbody>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it.</p>
+      <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it. Use <b style="color:var(--gold)">&#9733;</b> to give a badge right after the lesson.</p>
       </div>
     </section>
 
@@ -96,12 +97,12 @@
       <div class="wk-head"><h2 id="moTitle"></h2><div class="wk-sum" id="moSum"></div></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Teacher</th><th class="num">Lessons taught</th><th class="num hide-sm">Single</th><th class="num hide-sm">Double</th><th class="num">Absent</th></tr></thead>
+          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Teacher</th><th class="num">Lessons taught</th><th class="num hide-sm">Single</th><th class="num hide-sm">Double</th><th class="num">Absent</th><th class="num">Points</th></tr></thead>
           <tbody id="moBody"></tbody>
           <tfoot id="moFoot"></tfoot>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Counts come from the attendance marks. A double lesson counts as 2 lessons. Absences are counted separately and aren't included in “Lessons taught”.</p>
+      <p class="hint" style="margin-top:10px">Counts come from the attendance marks. A double lesson counts as 2 lessons. Absences are counted separately and aren't included in “Lessons taught”. <b>Points</b> are the Freedom Points each student earned in this month.</p>
     </section>
 
     <!-- Week overview (per teacher) -->
@@ -158,6 +159,13 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <button class="modal-x" type="button" data-close aria-label="Close">&times;</button>
     <h2 id="modalTitle">Register student</h2>
+    <div class="mtabs hidden" id="mTabs" role="tablist">
+      <button class="mtab active" type="button" data-mt="details">Details</button>
+      <button class="mtab" type="button" data-mt="progress">Progress &amp; awards<span class="dot hidden" id="mtDot"></span></button>
+      <button class="mtab" type="button" data-mt="results">Results</button>
+      <button class="mtab" type="button" data-mt="attendance">Attendance</button>
+    </div>
+    <div id="mt-details">
     <div class="photo-row hidden" id="sPhotoRow">
       <div class="photo-box" id="sPhotoBox"><span>No photo</span></div>
       <div class="photo-actions">
@@ -194,6 +202,7 @@
           <input class="input" id="fTeacher" list="teachers" placeholder="e.g. Mashel Auma">
           <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Lorraine Osiany Auma</option><option>Mr. Kareem</option></datalist></div>
         <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
+        <div class="field admin-only"><label for="fRef">Referred by</label><input class="input" id="fRef" list="refList" autocomplete="off" placeholder="Pick a student or type a name"><datalist id="refList"></datalist><div class="hint" id="fRefHint">Who told this student about EOF? Optional.</div></div>
       </div>
       <div class="field"><label>Lesson days</label><div class="days" id="fDays"></div>
         <div class="slots" id="fSlots"></div>
@@ -220,6 +229,43 @@
         <button class="btn btn-primary" id="saveBtn" type="submit">Register student</button>
       </div>
     </form>
+    </div>
+    <div id="progressBox" class="hidden">
+      <div class="soon hidden" id="pgSoon"><b>Awards and feedback are being switched on.</b> They'll work here as soon as the school publishes the new database rules — nothing to do on your side.</div>
+      <div class="pts-box" id="pgPoints"></div>
+      <div class="prog-row">
+        <div class="field"><label for="pgProgramme">Programme</label><select class="input" id="pgProgramme"></select><div class="hint" id="pgProgHint"></div></div>
+        <div class="field hidden" id="pgLevelField"><label for="pgLevel">Passport level</label><select class="input" id="pgLevel"></select></div>
+      </div>
+      <div class="prog-actions">
+        <button class="btn btn-navy btn-sm" type="button" id="pgAwardBtn">&#9733; Give award</button>
+        <button class="btn btn-ghost btn-sm" type="button" id="pgFeedbackBtn">Send feedback</button>
+        <button class="btn btn-ghost btn-sm hidden" type="button" id="pgExitBtn">+ Exit Ticket</button>
+      </div>
+      <div class="ppanel hidden" id="pgAwardForm"></div>
+      <div class="ppanel hidden" id="pgFeedbackForm">
+        <h4 id="pgFbTitle">Send feedback</h4>
+        <div class="field" style="margin-top:8px"><label for="pgFbAbout">About</label><select class="input" id="pgFbAbout"></select></div>
+        <div class="field"><label for="pgFbText">Comment <span class="hint" style="display:inline">(the student is notified and can reply)</span></label><textarea class="input" id="pgFbText" rows="3" maxlength="1500" placeholder="e.g. Great use of the past tense today. Next time, try linking your ideas with “because” and “so”."></textarea></div>
+        <div class="err" id="pgFbErr"></div>
+        <div class="modal-actions"><button class="btn btn-ghost btn-sm" type="button" data-pg-cancel>Cancel</button><button class="btn btn-primary btn-sm" type="button" id="pgFbSend">Send feedback</button></div>
+      </div>
+      <div class="ppanel hidden" id="pgExitForm">
+        <h4>Exit Ticket</h4>
+        <p class="hint" style="margin:0 0 10px">Optional quick entry after a lesson: correct items (out of 3) and the student's confidence (1–5). 1 point per correct item.</p>
+        <div class="inline-form">
+          <div class="field"><label for="pgExDate">Date</label><input class="input" id="pgExDate" type="date"></div>
+          <div class="field"><label for="pgExCorrect">Correct</label><select class="input" id="pgExCorrect"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></div>
+          <div class="field"><label for="pgExConf">Confidence</label><select class="input" id="pgExConf"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></div>
+          <div class="field"><label for="pgExRef">Unit / Stop</label><select class="input" id="pgExRef"></select></div>
+        </div>
+        <div class="err" id="pgExErr"></div>
+        <div class="modal-actions"><button class="btn btn-ghost btn-sm" type="button" data-pg-cancel>Cancel</button><button class="btn btn-primary btn-sm" type="button" id="pgExSave">Save Exit Ticket</button></div>
+      </div>
+      <div id="pgGrid"></div>
+      <div class="sec-head" style="margin-top:6px"><h3 style="font-size:19px">Feedback &amp; messages</h3></div>
+      <div class="feed" id="pgFeed"></div>
+    </div>
     <div id="resultsBox" class="hidden" style="margin-top:22px">
       <div class="sec-head">
         <h3 style="font-size:19px">Test and exam results</h3>
@@ -230,6 +276,11 @@
       </div>
       <div class="level-track" id="levelTrack"></div>
       <form id="resultForm" class="result-form hidden" novalidate>
+        <div class="grid-2" id="rPresetRow">
+          <div class="field" id="rPresetField"><label for="rPreset">Preset</label><select class="input" id="rPreset"></select></div>
+          <div class="field hidden" id="rUnitField"><label for="rUnit">Unit</label><select class="input" id="rUnit"></select></div>
+        </div>
+        <div class="hidden" id="rPartsBox"><label style="margin-top:2px" id="rPartsLabel">Marks by part</label><div class="skill-inputs" id="rParts"></div><p class="hint" id="rPartsHint" style="margin:2px 0 12px"></p></div>
         <div class="grid-2">
           <div class="field"><label for="rType">Type</label><select class="input" id="rType"></select></div>
           <div class="field"><label for="rTitle">Name of test <span class="hint" style="display:inline">(optional)</span></label><input class="input" id="rTitle" placeholder="e.g. Unit 4 test, Term 1 final"></div>
@@ -239,8 +290,8 @@
           <div class="field hidden" id="rMaxField"><label for="rMax">Maximum points</label><input class="input" id="rMax" type="number" min="1" step="any" value="50"></div>
           <div class="field"><label for="rOverall">Overall score</label><input class="input" id="rOverall" type="number" min="0" step="any" placeholder="e.g. 78"></div>
         </div>
-        <label style="margin-top:2px">Scores by skill <span class="hint" style="display:inline;font-weight:400">— fill in only the skills you tested</span></label>
-        <div class="skill-inputs" id="rSkills"></div>
+        <div id="rSkillsBox"><label style="margin-top:2px">Scores by skill <span class="hint" style="display:inline;font-weight:400">— fill in only the skills you tested</span></label>
+        <div class="skill-inputs" id="rSkills"></div></div>
         <div class="grid-2" style="margin-top:14px">
           <div class="field"><label for="rLevel">Level shown</label>
             <select class="input" id="rLevel"><option value="">—</option><option>Pre-A1</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
@@ -318,12 +369,15 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear, query, where } from "./eof-portal.js?v=5";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=8";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=6";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=9";
 import { CITIES } from "./eof-cities.js?v=1";
+import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
+  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=1";
+import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
 const $ = id => document.getElementById(id);
 
-$("logoutBtn").addEventListener("click", async () => { await signOut(auth); location.replace(typeof TEACHER !== "undefined" && TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
+$("logoutBtn").addEventListener("click", async () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } await signOut(auth); location.replace(typeof TEACHER !== "undefined" && TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
 
 const me = await currentUser();
 if (!me) { location.replace("eof-admin-login.html"); throw new Error("not signed in"); }
@@ -341,10 +395,12 @@ if (!ADMIN) {
   $("search").placeholder = "Search my students";
   $("listHint").textContent = "Click a student to see their details, add test results, mark attendance or download their student card.";
   $("myProfileTabBtn").classList.remove("hidden");
+  syncPublicTeacher(me.uid, TEACHER);   // keeps her card (photo, name, subjects, bio) up to date for her students
 } else {
   $("teachersTabBtn").classList.remove("hidden");
 }
 $("adminEmail").textContent = me.email;
+try { localStorage.setItem("eofPortal", "staff"); } catch (e) { }   // lets the website header show the bell
 $("loading").classList.add("hidden");
 $("app").classList.remove("hidden");
 
@@ -402,6 +458,13 @@ function rate(uid) {
   return s.p + s.a ? `${Math.round(s.p * 100 / (s.p + s.a))}% <span class="hint" style="display:inline">(${s.p}/${s.p + s.a})</span>` : "—";
 }
 
+// ---------- Referred by ----------
+const referredCount = s => students.filter(x => x.uid !== s.uid && x.referredBy && (x.referredBy.sid ? x.referredBy.sid === s.uid : fold(x.referredBy.name) === fold(s.name))).length;
+function refText(s) {
+  const n = referredCount(s);
+  return [s.referredBy?.name ? `referred by ${s.referredBy.name}` : "", n ? `referred ${n} ${n === 1 ? "person" : "people"}` : ""].filter(Boolean).join(" · ");
+}
+const refLine = s => { const t = refText(s); return t ? `<div class="ref-line">${esc(t)}</div>` : ""; };
 function renderStudents() {
   const q = $("search").value.trim().toLowerCase();
   const f = $("statusFilter").value;
@@ -411,7 +474,7 @@ function renderStudents() {
     <tr class="clickable" data-uid="${s.uid}">
       <td class="col-no">${i + 1}</td>
       <td class="hide-sm"><b>${esc(s.studentNumber)}</b></td>
-      <td><span class="show-sm hint" style="margin:0">${esc(s.studentNumber)}</span>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div><div style="margin-top:3px">${loginBadge(s)}</div></td>
+      <td><span class="show-sm hint" style="margin:0">${esc(s.studentNumber)}</span>${esc(s.name)}${s.dob ? ` <span class="hint" style="display:inline">(${age(s.dob)})</span>` : ""}<div class="hint" style="margin:0">${esc([s.course, s.occupation, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · "))}</div>${ADMIN ? refLine(s) : ""}<div style="margin-top:3px">${loginBadge(s)}</div></td>
       <td><span class="level-pill">${esc(s.level)}</span></td>
       <td class="hide-sm">${s.lastResult ? `${esc(resultSummary(s.lastResult))}<div class="hint" style="margin:0">${esc(prettyDate(s.lastResult.date))}</div>` : '<span class="hint" style="display:inline">—</span>'}</td>
       <td class="hide-sm">${esc(schedule(s))}</td>
@@ -616,7 +679,10 @@ function openModal(s) {
   $("modalTitle").textContent = s ? s.name : "Register student";
   $("saveBtn").textContent = s ? "Save changes" : "Register student";
   $("numberNotice").classList.toggle("hidden", !s);
-  if (s) $("numberNotice").innerHTML = `Student number <b>${esc(s.studentNumber)}</b> &middot; registered ${esc(prettyDate(s.registeredOn))}<br>Login: ${!s.authUid ? "not set up yet (add an email to create one)" : lastLoginText(s) ? "last active " + esc(lastLoginText(s)) : "invited, but hasn't logged in yet"}`;
+  if (s) $("numberNotice").innerHTML = `Student number <b>${esc(s.studentNumber)}</b> &middot; registered ${esc(prettyDate(s.registeredOn))}${ADMIN && refText(s) ? `<br>${esc(s.name.split(" ")[0])} — ${esc(refText(s))}` : ""}<br>Login: ${!s.authUid ? "not set up yet (add an email to create one)" : lastLoginText(s) ? "last active " + esc(lastLoginText(s)) : "invited, but hasn't logged in yet"}`;
+  $("fRef").value = s?.referredBy?.name || "";
+  $("refList").innerHTML = students.filter(x => x !== s).map(x => `<option value="${esc(x.name)}">`).join("");
+  { const n = s ? referredCount(s) : 0; $("fRefHint").textContent = n ? `${s.name.split(" ")[0]} has referred ${n} ${n === 1 ? "person" : "people"}: ${students.filter(x => x.uid !== s.uid && x.referredBy && (x.referredBy.sid ? x.referredBy.sid === s.uid : fold(x.referredBy.name) === fold(s.name))).map(x => x.name).join(", ")}.` : "Who told this student about EOF? Pick a student or type any name. Optional."; }
   $("fName").value = s?.name || "";
   $("fEmail").value = s?.email || "";
   $("fEmail").disabled = !!s?.authUid;
@@ -652,12 +718,12 @@ function openModal(s) {
   $("accessBtn").textContent = s?.portalBlocked ? "Restore portal access" : "Remove portal access";
   $("accessBtn").style.color = s?.portalBlocked ? "" : "var(--red-dark)";
   $("deleteBtn").classList.toggle("hidden", !s || !!TEACHER);
-  $("historyBox").classList.toggle("hidden", !s);
-  $("resultsBox").classList.toggle("hidden", !s);
+  $("mTabs").classList.toggle("hidden", !s);
   $("resultForm").classList.add("hidden");
+  setMTab(s && TEACHER ? "progress" : "details");
   $("sPhotoRow").classList.toggle("hidden", !s);
   showPhoto("sPhotoBox", null, s?.name);
-  if (s) { loadHistory(s); loadResults(s); loadStudentPhoto(s); warmUp(); }
+  if (s) { loadHistory(s); loadResults(s).then(() => loadProgressTab(s)); loadStudentPhoto(s); warmUp(); }
   $("studentModal").classList.remove("hidden");
   if (!TEACHER) setTimeout(() => $("fName").focus(), 50);
 }
@@ -671,7 +737,17 @@ async function loadContact(s) {
     $("fPhone").value = contact.phone; $("fParentPhone").value = contact.parentPhone;
   } catch (e) { console.warn("contact", e); }
 }
-function closeModal() { $("studentModal").classList.add("hidden"); editing = null; }
+function closeModal() { $("studentModal").classList.add("hidden"); editing = null; closePop(); }
+// Tabs inside a student's record
+function setMTab(name) {
+  document.querySelectorAll("#mTabs .mtab").forEach(b => b.classList.toggle("active", b.dataset.mt === name));
+  $("mt-details").classList.toggle("hidden", name !== "details");
+  $("progressBox").classList.toggle("hidden", name !== "progress");
+  $("resultsBox").classList.toggle("hidden", name !== "results");
+  $("historyBox").classList.toggle("hidden", name !== "attendance");
+  if (name === "progress" && editing) markRepliesRead(editing);
+}
+$("mTabs").addEventListener("click", e => { const b = e.target.closest("[data-mt]"); if (b) setMTab(b.dataset.mt); });
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeModal));
 $("studentModal").addEventListener("click", e => { if (e.target.id === "studentModal") closeModal(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
@@ -711,6 +787,10 @@ $("studentForm").addEventListener("submit", async e => {
     occupation: $("fJob").value.trim(),
     parentName: $("fParentName").value.trim()
   };
+  if (ADMIN) {
+    const refName = $("fRef").value.trim(), hit = refName ? students.find(x => x !== editing && fold(x.name) === fold(refName)) : null;
+    data.referredBy = refName ? { name: hit ? hit.name : refName, sid: hit ? hit.uid : null } : null;
+  }
   const phones = { phone: $("fPhone").value.trim(), parentPhone: $("fParentPhone").value.trim() };
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
@@ -765,7 +845,9 @@ $("deleteBtn").addEventListener("click", async () => {
   try {
     const att = await getDocs(collection(db, "students", editing.uid, "attendance"));
     const res = await getDocs(collection(db, "students", editing.uid, "results")).catch(() => ({ docs: [] }));
-    await Promise.all([...att.docs, ...res.docs].map(d => deleteDoc(d.ref)));
+    const fd = await getDocs(feedCol(editing.uid)).catch(() => ({ docs: [] }));
+    await Promise.all([...att.docs, ...res.docs, ...fd.docs].map(d => deleteDoc(d.ref)));
+    await deleteDoc(doc(db, "students", editing.uid, "progress", "main")).catch(() => {});
     await deleteDoc(doc(db, "students", editing.uid, "private", "contact")).catch(() => {});
     await deleteDoc(doc(db, "students", editing.uid, "media", "photo")).catch(() => {});
     await deleteDoc(doc(db, "students", editing.uid));
@@ -793,7 +875,7 @@ let resultRows = [];
 
 function scaleHints() {
   const sc = $("rScale").value;
-  $("rMaxField").classList.toggle("hidden", sc !== "points");
+  $("rMaxField").classList.toggle("hidden", sc !== "points" || !!$("rPreset").value);
   const ph = sc === "band" ? "e.g. 6.5" : sc === "points" ? `out of ${$("rMax").value || "…"}` : "e.g. 78";
   ["rOverall", ...SKILLS.map(([k]) => "rs_" + k)].forEach(id => $(id).placeholder = ph);
 }
@@ -801,20 +883,74 @@ $("rScale").addEventListener("change", scaleHints);
 $("rMax").addEventListener("input", scaleHints);
 $("rType").addEventListener("change", () => { if ($("rType").value === "Mock IELTS") { $("rScale").value = "band"; scaleHints(); } });
 
+// Presets: School — Progress Check /30, Unit Test /50; Passport — Mid-Course Test /54, Final Exam (level total)
+const presetKeys = s => { const prog = programmeOf(s, progressOf(s)); return Object.keys(PRESETS).filter(k => PRESETS[k].programme === prog); };
+const presetMax = (key, s) => key === "final" ? (PASSPORT_LEVELS[passportLevelOf(s, progressOf(s))]?.final || 85) : PRESETS[key].max;
+const presetParts = (key, s) => key === "pc" ? PROGRESS_CHECK_PARTS : key === "ut" ? UNIT_TEST_PARTS : key === "final" ? finalParts(passportLevelOf(s, progressOf(s))) : [];
+const unitName = (s, id) => unitsOf(progressOf(s)).find(u => u.id === id)?.name || "";
+function setupPresets(s, preset = "", unit = "") {
+  const keys = presetKeys(s);
+  $("rPresetRow").classList.toggle("hidden", !keys.length);
+  $("rPreset").innerHTML = `<option value="">— Free entry (any test) —</option>` + keys.map(k => `<option value="${k}">${esc(k === "final" ? `Final Exam /${presetMax(k, s)}` : PRESETS[k].label)}</option>`).join("");
+  $("rPreset").value = keys.includes(preset) ? preset : "";
+  $("rUnit").innerHTML = unitsOf(progressOf(s)).map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join("");
+  if (unit) $("rUnit").value = unit;
+  applyPreset();
+}
+function presetTitle(s, key) {
+  if (key === "pc" || key === "ut") return unitName(s, $("rUnit").value);
+  return PASSPORT_LEVEL_LABELS[passportLevelOf(s, progressOf(s))] || "";
+}
+function applyPreset() {
+  const s = editing, key = $("rPreset").value, p = PRESETS[key];
+  $("rUnitField").classList.toggle("hidden", !(key === "pc" || key === "ut"));
+  $("rSkillsBox").classList.toggle("hidden", !!p);
+  $("rType").disabled = !!p; $("rScale").disabled = !!p;
+  if (!p) { $("rPartsBox").classList.add("hidden"); $("rParts").innerHTML = ""; scaleHints(); return; }
+  const max = presetMax(key, s), parts = presetParts(key, s);
+  $("rType").value = p.type; $("rScale").value = "points"; $("rMax").value = max;
+  $("rTitle").value = presetTitle(s, key);
+  $("rPartsBox").classList.toggle("hidden", !parts.length);
+  $("rPartsLabel").textContent = key === "final" ? "Marks by part (Speaking /15 · Writing /10)" : key === "ut" ? "Marks by part (incl. Writing rubric /15)" : "Marks by section";
+  $("rParts").innerHTML = parts.map(([k, l, m]) => `<div class="field"><label for="rp_${k}">${esc(l)} /${m}</label><input class="input" id="rp_${k}" data-part="${k}" data-max="${m}" type="number" min="0" max="${m}" step="any" placeholder="/${m}"></div>`).join("");
+  $("rPartsHint").textContent = key === "pc" ? "Formative check: the student sees it as progress, not a grade. Completing it earns 10 Freedom Points."
+    : key === "ut" ? "Bands: 85%+ Excellent · 70%+ Very good · 50%+ Good. 1 Freedom Point per mark."
+    : `Freedom Points: score ÷ ${max} × 100. The total fills in from the parts.`;
+  if (key === "mid") $("rPartsHint").textContent = "";
+  $("rOverall").placeholder = `out of ${max}`;
+  $("rMaxField").classList.add("hidden");
+}
+$("rPreset").addEventListener("change", applyPreset);
+$("rUnit").addEventListener("change", () => { if ($("rPreset").value) $("rTitle").value = presetTitle(editing, $("rPreset").value); });
+$("rParts").addEventListener("input", () => {
+  const vals = [...$("rParts").querySelectorAll("[data-part]")].map(i => i.value.trim()).filter(v => v !== "");
+  if (vals.length) $("rOverall").value = Math.round(vals.reduce((t, v) => t + Number(v), 0) * 10) / 10;
+});
+
 function renderLevelTrack(s) {
   const h = levelHistory(s);
   $("levelTrack").innerHTML = h.length ? `<span class="hint" style="display:inline;margin-right:6px">Level progress</span>` + h.map((x, i) =>
     `<span class="lt-step${i === h.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
 }
 
+function resultExtra(r) {
+  const bits = [];
+  if (r.preset === "ut") { const b = unitTestBand(r.overall, r.max || 50); if (b) bits.push(`Band ${b.band} · ${b.label}`); }
+  if (r.preset === "pc") bits.push("Progress check — not a grade");
+  const pts = resultPoints(r); if (pts) bits.push(`+${pts} Freedom Points`);
+  return bits;
+}
 function resultCard(r) {
   const skills = SKILLS.filter(([k]) => r.skills && r.skills[k] != null && r.skills[k] !== "");
+  const parts = r.parts && r.preset ? presetParts(r.preset, editing).filter(([k]) => r.parts[k] != null) : [];
+  const extra = resultExtra(r);
   return `<div class="result-card" data-rid="${r.id}">
     <div class="rc-top">
-      <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}${r.source === "online-test" ? " · taken online by the student" : ""}</div></div>
+      <div><b>${esc(resultTitle(r))}</b><div class="hint" style="margin:0">${esc(prettyDate(r.date))}${r.source === "online-test" ? " · taken online by the student" : ""}${extra.length ? " · " + esc(extra.join(" · ")) : ""}</div></div>
       <div class="rc-score">${esc(fmtScore(r))}${r.level ? ` <span class="level-pill">${esc(r.level)}</span>` : ""}${r.outcome ? ` <span class="badge ${r.outcome === "Pass" ? "present" : "absent"}">${esc(r.outcome)}</span>` : ""}</div>
     </div>
     ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
+    ${parts.length ? `<div class="rc-skills">${parts.map(([k, l, m]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, Math.round(r.parts[k] / m * 100))}%"></i></div><b>${esc(r.parts[k])}/${m}</b></div>`).join("")}</div>` : ""}
     ${r.comment ? `<p class="rc-comment">“${esc(r.comment)}”</p>` : ""}
     <div class="rc-actions"><button class="linkbtn" type="button" data-del-result>Delete result</button></div>
   </div>`;
@@ -825,7 +961,7 @@ async function loadResults(s) {
   $("resultList").innerHTML = `<p class="hint">Loading results…</p>`;
   let snap;
   try { snap = await getDocs(collection(db, "students", s.uid, "results")); }
-  catch (ex) { if (editing === s) $("resultList").innerHTML = `<p class="err">${esc(friendlyError(ex))}</p>`; return; }
+  catch (ex) { if (editing === s) { resultRows = []; $("resultList").innerHTML = `<p class="err">${esc(friendlyError(ex))}</p>`; } return; }
   if (editing !== s) return;
   resultRows = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
   $("resultList").innerHTML = resultRows.length ? resultRows.map(resultCard).join("") : `<p class="hint" style="margin:6px 0 0">No results yet. Click “Add result” after a test or exam.</p>`;
@@ -838,26 +974,32 @@ async function syncLastResult(s) {
   s.lastResult = lastResult; renderStudents();
 }
 
-$("addResultBtn").addEventListener("click", () => {
+function openResultForm(preset = "", unit = "") {
   $("resultForm").reset(); $("resultErr").textContent = "";
   $("rDate").value = isoDate(); $("rLevel").value = editing?.level || "";
+  setupPresets(editing, preset, unit);
   scaleHints();
   $("resultForm").classList.remove("hidden");
-  $("rType").focus();
-});
+  setTimeout(() => ($("rPreset").value ? $("rParts").querySelector("input") || $("rOverall") : $("rType")).focus(), 30);
+}
+$("addResultBtn").addEventListener("click", () => openResultForm());
 $("cancelResultBtn").addEventListener("click", () => $("resultForm").classList.add("hidden"));
 
 $("resultForm").addEventListener("submit", async e => {
   e.preventDefault();
   const s = editing; if (!s) return;
+  const preset = $("rPreset").value || "";
   const sc = $("rScale").value, max = sc === "points" ? Number($("rMax").value) : null;
   const num = id => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
   const top = sc === "band" ? 9 : sc === "points" ? max : 100;
   const overall = num("rOverall");
-  const skills = {}; SKILLS.forEach(([k]) => { const v = num("rs_" + k); if (v !== null) skills[k] = v; });
+  const skills = {}; if (!preset) SKILLS.forEach(([k]) => { const v = num("rs_" + k); if (v !== null) skills[k] = v; });
+  const parts = {}; let partErr = "";
+  if (preset) $("rParts").querySelectorAll("[data-part]").forEach(i => { const v = i.value.trim(); if (v === "") return; const n = Number(v); if (isNaN(n) || n < 0 || n > +i.dataset.max) partErr = `Each part must be between 0 and its maximum (${i.previousElementSibling.textContent}).`; parts[i.dataset.part] = n; });
+  if (partErr) { $("resultErr").textContent = partErr; return; }
   const all = [overall, ...Object.values(skills)].filter(v => v !== null);
   if (sc === "points" && !(max > 0)) { $("resultErr").textContent = "Enter the maximum number of points."; return; }
-  if (!all.length) { $("resultErr").textContent = "Enter an overall score or at least one skill score."; return; }
+  if (!all.length) { $("resultErr").textContent = preset ? "Enter the marks for each part, or the total score." : "Enter an overall score or at least one skill score."; return; }
   if (all.some(v => isNaN(v) || v < 0 || v > top)) { $("resultErr").textContent = `Scores must be between 0 and ${top}.`; return; }
   if (!$("rDate").value) { $("resultErr").textContent = "Choose the date of the test."; return; }
   const data = {
@@ -866,6 +1008,7 @@ $("resultForm").addEventListener("submit", async e => {
     skills, level: $("rLevel").value, outcome: $("rOutcome").value, comment: $("rComment").value.trim(),
     source: "teacher", createdAt: serverTimestamp(), createdBy: me.email
   };
+  if (preset) { data.preset = preset; data.parts = parts; if (preset === "pc" || preset === "ut") data.unit = $("rUnit").value; }
   $("saveResultBtn").disabled = true; $("resultErr").textContent = "";
   try {
     const ref = doc(collection(db, "students", s.uid, "results"));
@@ -880,7 +1023,11 @@ $("resultForm").addEventListener("submit", async e => {
     }
     $("resultForm").classList.add("hidden");
     loadResults(s);
-    toast("Result saved");
+    // Tell the student (+ points for preset results)
+    const pts = resultPoints(data), extra = resultExtra(data).filter(x => !x.startsWith("+"));
+    await notify(s, { type: "result", title: `${resultTitle(data)}: ${fmtScore(data)}`, body: [extra.join(" · "), data.comment].filter(Boolean).join("\n"), points: pts, ref: ref.id, unit: data.unit || null, date: data.date });
+    touched(s); renderProgress(s);
+    toast(pts ? `Result saved · +${pts} Freedom Points` : "Result saved");
   } catch (ex) { $("resultErr").textContent = friendlyError(ex); }
   $("saveResultBtn").disabled = false;
 });
@@ -893,9 +1040,366 @@ $("resultList").addEventListener("click", async e => {
     await deleteDoc(doc(db, "students", s.uid, "results", rid));
     resultRows = resultRows.filter(r => r.id !== rid);
     await syncLastResult(s);
-    loadResults(s); toast("Result deleted");
+    // remove its notification too
+    const linked = (feedCache[s.uid] || []).filter(x => x.ref === rid && x.type === "result");
+    await Promise.all(linked.map(x => deleteDoc(doc(db, "students", s.uid, "feed", x.id)).catch(() => {})));
+    if (feedCache[s.uid]) feedCache[s.uid] = feedCache[s.uid].filter(x => !linked.includes(x));
+    touched(s); loadResults(s).then(() => renderProgress(s)); toast("Result deleted");
   } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
+
+// ---------- Progress, awards & feedback ----------
+const progressCache = {}, feedCache = {};
+let featureOff = false;           // true until the owner publishes the new Firestore rules
+let pgSel = null;                 // selected Unit / Stop in the grid
+const progressOf = s => (s ? progressCache[s.uid] || null : null);
+const SOON = "Awards and feedback are being switched on — please try again a little later.";
+function author() {
+  if (TEACHER) return { email: me.email, name: teacherDisplayName(TEACHER), role: "teacher" };
+  const a = teachers.find(t => t.role === "admin");
+  return { email: me.email, name: a ? teacherDisplayName(a) : "Mr. Mashel Auma", role: "admin" };
+}
+const pointsData = {};            // uid -> {progress, feed, results} for the monthly count
+const touched = s => { delete pointsData[s.uid]; };
+// Post a notification to the student. Returns false if the new rules aren't published yet.
+async function notify(s, item) {
+  try {
+    const it = await postFeed(s, item, author());
+    (feedCache[s.uid] = feedCache[s.uid] || []).unshift(it);
+    touched(s);
+    return true;
+  } catch (e) { if (isDenied(e)) { featureOff = true; return false; } throw e; }
+}
+async function saveProgress(s, patch) {
+  await setDoc(doc(db, "students", s.uid, "progress", "main"), { ...patch, updatedAt: serverTimestamp(), updatedBy: me.email }, { merge: true });
+  const cur = progressCache[s.uid] || (progressCache[s.uid] = {});
+  const merge = (a, b) => { Object.entries(b).forEach(([k, v]) => { a[k] = v && typeof v === "object" && !Array.isArray(v) && a[k] && typeof a[k] === "object" && !Array.isArray(a[k]) ? merge({ ...a[k] }, v) : v; }); return a; };
+  merge(cur, patch); touched(s);
+}
+const failMsg = ex => isDenied(ex) ? SOON : friendlyError(ex);
+
+async function loadProgressTab(s) {
+  $("pgGrid").innerHTML = ""; $("pgFeed").innerHTML = `<p class="hint">Loading…</p>`;
+  let denied = false;
+  try { const p = await getDoc(doc(db, "students", s.uid, "progress", "main")); progressCache[s.uid] = p.exists() ? p.data() : {}; }
+  catch (e) { progressCache[s.uid] = progressCache[s.uid] || {}; if (isDenied(e)) denied = true; }
+  try { feedCache[s.uid] = await loadFeed(s.uid); }
+  catch (e) { feedCache[s.uid] = []; if (isDenied(e)) denied = true; }
+  if (editing !== s) return;
+  featureOff = denied; pgSel = null;
+  renderProgress(s);
+  if (!$("progressBox").classList.contains("hidden")) markRepliesRead(s);
+}
+
+function renderProgress(s) {
+  if (!s || editing !== s) return;
+  const p = progressOf(s) || {}, prog = programmeOf(s, p), feed = feedCache[s.uid] || [];
+  $("pgSoon").classList.toggle("hidden", !featureOff);
+  const total = pointsEvents({ s, progress: p, feed, results: resultRows, attendance: attDocs[s.uid] || {} }).reduce((t, e) => t + e.pts, 0), rk = rankOf(total);
+  $("pgPoints").innerHTML = `<div class="pts-num">${total}<small>Freedom Points</small></div><div class="pts-rank"><b>${rk.icon} ${esc(rk.name)}</b><div class="rk-bar"><i style="width:${rk.pct}%"></i></div><small>${rk.next ? `${rk.toNext} points to ${esc(rk.next.name)}` : "Top rank reached"}</small></div>`;
+  $("pgProgramme").innerHTML = Object.entries(PROGRAMMES).map(([k, v]) => `<option value="${k}"${k === prog ? " selected" : ""}>${esc(v.label)}</option>`).join("");
+  $("pgProgHint").innerHTML = esc(PROGRAMMES[prog].desc) + (p.programme ? "" : ` <br><b>Suggested — not saved yet.</b> <button type="button" class="linkbtn" id="pgConfirm">Confirm this programme</button>`);
+  $("pgLevelField").classList.toggle("hidden", prog !== "passport");
+  $("pgLevel").innerHTML = Object.keys(PASSPORT_LEVELS).map(k => `<option value="${k}"${k === passportLevelOf(s, p) ? " selected" : ""}>${esc(PASSPORT_LEVEL_LABELS[k])}</option>`).join("");
+  $("pgExitBtn").classList.toggle("hidden", !(prog === "school" || prog === "passport"));
+  ["pgProgramme", "pgLevel", "pgAwardBtn", "pgFeedbackBtn", "pgExitBtn"].forEach(id => $(id).disabled = featureOff);
+  renderGrid(s);
+  renderFeedList(s);
+  const unread = feed.filter(x => x.type === "reply" && x.readByTeacher === false).length;
+  $("mtDot").textContent = unread; $("mtDot").classList.toggle("hidden", !unread);
+}
+
+const stampPill = k => STAMPS[k] ? `<span class="stamp-pill ${STAMPS[k].cls}">${esc(STAMPS[k].label)}</span>` : "";
+const latestResult = (preset, unit) => resultRows.filter(r => r.preset === preset && (!unit || r.unit === unit)).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null;
+const shortUnit = n => String(n).replace(/^Unit\s*\d+\s*[—–-]\s*/i, "");
+function renderGrid(s) {
+  const p = progressOf(s) || {}, prog = programmeOf(s, p), st = p.stamps || {};
+  if (prog === "speaking" || prog === "full") {
+    $("pgGrid").innerHTML = `<p class="hint" style="margin:0 0 16px">${prog === "speaking" ? "Speaking students have no Stop or Unit grid: give a badge or feedback after a lesson, and add results when there's a test." : "Zeynep's full-course design is still to be decided. For now, give badges and feedback, and add results — switch the programme when the design is ready."}</p>`;
+    return;
+  }
+  let cells = "", panel = "", head = "", foot = "";
+  if (prog === "school") {
+    const units = unitsOf(p);
+    head = `<div class="sec-head"><h3 style="font-size:19px">English Ahead 1 · Units</h3><span class="hint" style="margin:0">Click a unit to stamp it</span></div>`;
+    cells = units.map((u, i) => {
+      const e = st[u.id] || {}, pc = latestResult("pc", u.id), ut = latestResult("ut", u.id);
+      return `<button type="button" class="pcell st-${e.stamp || "none"}${pgSel === u.id ? " sel" : ""}" data-pk="${esc(u.id)}"><span class="pc-n">Unit ${i + 1}</span><span class="pc-name">${esc(shortUnit(u.name))}</span><span class="pc-meta">${stampPill(e.stamp)}${e.vocab ? `<span class="mini ok">Vocab ✓</span>` : ""}${pc ? `<span class="mini">Check ${esc(pc.overall)}/30</span>` : ""}${ut ? `<span class="mini">Test ${esc(ut.overall)}/50</span>` : ""}</span></button>`;
+    }).join("") + `<button type="button" class="pcell" data-add-unit style="align-items:center;justify-content:center;color:var(--accent-light);font-weight:600">+ Add unit</button>`;
+    if (pgSel === "__add") panel = `<div class="ppanel"><h4>Add a unit</h4><div class="inline-form" style="margin-top:8px"><div class="field"><label for="pgUnitName">Unit name</label><input class="input" id="pgUnitName" placeholder="e.g. Unit 6 — Let's celebrate!" value="Unit ${units.length + 1} — "></div><button class="btn btn-primary btn-sm" type="button" id="pgUnitAdd">Add unit</button></div></div>`;
+    else if (pgSel && units.some(u => u.id === pgSel)) panel = stampPanel(s, pgSel, units.find(u => u.id === pgSel).name, "school");
+    const c = completion({ s, progress: p, results: resultRows });
+    foot = `<p class="hint" style="margin:-4px 0 14px">${units.filter(c.school.unitDone).length} of ${units.length} units complete (stamp, Vocabulary Pack, Progress Check and Unit Test).${c.school.done ? " <b>All units complete · +50 points</b>" : ""}</p>`;
+  } else {
+    const level = passportLevelOf(s, p), L = PASSPORT_LEVELS[level];
+    head = `<div class="sec-head"><h3 style="font-size:19px">${esc(PASSPORT_LEVEL_LABELS[level])} · My Language Passport</h3></div>
+      <div class="ppanel" style="padding:12px 14px">
+        <label class="check-line"><input type="checkbox" id="pgDiag"${p.diagnostic?.done ? " checked" : ""}> Diagnostic done <span class="hint" style="display:inline;margin:0">(before Stop 1)</span></label>
+        <input class="input" id="pgDiagNote" placeholder="Diagnostic note (optional)" value="${esc(p.diagnostic?.note || "")}" style="margin:0 0 10px;padding:8px 10px;font-size:14px">
+        <label class="check-line"><input type="checkbox" id="pgCp"${p.checkpoint?.done ? " checked" : ""}> Progress Checkpoint 1 done <span class="hint" style="display:inline;margin:0">(after Stop 4 · +10)</span></label>
+        <input class="input" id="pgCpNote" placeholder="Checkpoint note (optional)" value="${esc(p.checkpoint?.note || "")}" style="margin:0;padding:8px 10px;font-size:14px">
+      </div>`;
+    cells = L.stops.map(x => {
+      const e = st[x.n] || {};
+      return `<button type="button" class="pcell${x.n === "SS" ? " ss" : ""} st-${e.stamp || "none"}${pgSel === x.n ? " sel" : ""}" data-pk="${esc(x.n)}"><span class="pc-n">${x.n === "SS" ? "Speaking Studio" : "Stop " + x.n}</span><span class="pc-name">${esc(x.name)}</span><span class="pc-meta">${stampPill(e.stamp)}${e.phrase ? `<span class="mini ok">Phrase ✓</span>` : ""}</span></button>`;
+    }).join("");
+    if (pgSel && L.stops.some(x => x.n === pgSel)) panel = stampPanel(s, pgSel, null, "passport");
+    const mid = latestResult("mid"), fin = latestResult("final"), c = completion({ s, progress: p, results: resultRows });
+    foot = `<div class="prog-actions" style="align-items:center"><span class="hint" style="margin:0">Mid-Course Test: <b>${mid ? esc(mid.overall) + "/" + (mid.max || L.mid) : "—"}</b> · Final Exam: <b>${fin ? esc(fin.overall) + "/" + (fin.max || L.final) : "—"}</b> · ${c.passport.stampsOk}/12 Stops stamped</span>
+      <button class="btn btn-ghost btn-sm" type="button" data-preset="mid">+ Mid-Course Test /${L.mid}</button><button class="btn btn-ghost btn-sm" type="button" data-preset="final">+ Final Exam /${L.final}</button></div>
+      ${c.passport.done ? `<div class="cert">🎓 Passport complete — certificate unlocked</div>` : ""}`;
+  }
+  $("pgGrid").innerHTML = head + `<div class="pgrid">${cells}</div>` + panel + foot;
+}
+function stampPanel(s, key, unitTitle, kind) {
+  const p = progressOf(s) || {}, e = (p.stamps || {})[key] || {};
+  let title, sub = "", cd = "";
+  if (kind === "school") { title = unitTitle; sub = "Unit stamp — can-do check for this unit"; }
+  else {
+    const x = PASSPORT_LEVELS[passportLevelOf(s, p)].stops.find(y => y.n === key);
+    title = key === "SS" ? `Speaking Studio · ${x.name}` : `Stop ${key} · ${x.name}`; sub = x.theme; cd = canDo(x);
+  }
+  const pc = kind === "school" ? latestResult("pc", key) : null, ut = kind === "school" ? latestResult("ut", key) : null;
+  return `<div class="ppanel" id="pgPanel" data-key="${esc(key)}">
+    <h4>${esc(title)}</h4><div class="hint" style="margin:0">${esc(sub)}</div>
+    ${cd ? `<p class="cando">“${esc(cd)}”</p>` : `<div style="height:10px"></div>`}
+    <div class="stamp-btns" role="group" aria-label="Stamp">${Object.entries(STAMPS).map(([k, v]) => `<button type="button" class="stamp-btn ${v.cls}${e.stamp === k ? " on" : ""}" data-stamp="${k}">${esc(v.label)}${key === "SS" ? "" : ` · ${v.pts}`}</button>`).join("")}</div>
+    ${key === "SS" ? `<p class="hint" style="margin:-6px 0 10px">Speaking Studio earns 10 points when it's done; the stamp shows how it went.</p>` : ""}
+    ${kind === "school" ? `<label class="check-line"><input type="checkbox" id="pgVocab"${e.vocab ? " checked" : ""}> Vocabulary Pack done <span class="hint" style="display:inline;margin:0">(+2)</span></label>` : ""}
+    ${kind === "passport" && key !== "SS" ? `<div class="field"><label for="pgPhrase">Freedom Phrase <span class="hint" style="display:inline">(+2)</span></label><input class="input" id="pgPhrase" maxlength="200" value="${esc(e.phrase || "")}" placeholder="The phrase the student chose for this Stop"></div>` : ""}
+    <div class="field"><label for="pgNote">Note for the student <span class="hint" style="display:inline">(optional)</span></label><textarea class="input" id="pgNote" rows="2" maxlength="500">${esc(e.note || "")}</textarea></div>
+    ${kind === "school" ? `<p class="hint" style="margin:-6px 0 10px">Progress Check: <b>${pc ? esc(pc.overall) + "/30" : "—"}</b> · Unit Test: <b>${ut ? esc(ut.overall) + "/50" + (unitTestBand(ut.overall) ? " (Band " + unitTestBand(ut.overall).band + ")" : "") : "—"}</b></p>` : ""}
+    <div class="err" id="pgStampErr"></div>
+    <div class="modal-actions">
+      ${kind === "school" ? `<button class="btn btn-ghost btn-sm" type="button" data-preset="pc" data-unit="${esc(key)}">+ Progress Check /30</button><button class="btn btn-ghost btn-sm" type="button" data-preset="ut" data-unit="${esc(key)}">+ Unit Test /50</button>` : ""}
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost btn-sm" type="button" data-pg-close>Close</button>
+      <button class="btn btn-primary btn-sm" type="button" id="pgStampSave"${featureOff ? " disabled" : ""}>Save</button>
+    </div></div>`;
+}
+
+$("pgGrid").addEventListener("click", async e => {
+  const s = editing; if (!s) return;
+  const cell = e.target.closest("[data-pk]");
+  if (cell) { pgSel = pgSel === cell.dataset.pk ? null : cell.dataset.pk; renderGrid(s); $("pgPanel")?.scrollIntoView({ block: "nearest", behavior: "smooth" }); return; }
+  if (e.target.closest("[data-add-unit]")) { pgSel = pgSel === "__add" ? null : "__add"; renderGrid(s); $("pgUnitName")?.focus(); return; }
+  if (e.target.closest("[data-pg-close]")) { pgSel = null; renderGrid(s); return; }
+  const sb = e.target.closest("[data-stamp]");
+  if (sb) { const on = sb.classList.contains("on"); sb.parentElement.querySelectorAll(".stamp-btn").forEach(b => b.classList.remove("on")); if (!on) sb.classList.add("on"); return; }
+  const pr = e.target.closest("[data-preset]");
+  if (pr) { setMTab("results"); openResultForm(pr.dataset.preset, pr.dataset.unit || ""); return; }
+  if (e.target.id === "pgUnitAdd") {
+    const name = $("pgUnitName").value.trim().replace(/[—–-]\s*$/, "").trim();
+    if (!name) return;
+    try { await saveProgress(s, { units: [...unitsOf(progressOf(s)), { id: "u" + Date.now().toString(36), name }] }); pgSel = null; renderProgress(s); toast("Unit added"); }
+    catch (ex) { toast(failMsg(ex), "bad"); }
+    return;
+  }
+  if (e.target.id === "pgStampSave") saveStamp(s, $("pgPanel").dataset.key, e.target);
+});
+$("pgGrid").addEventListener("change", async e => {
+  const s = editing; if (!s) return;
+  const id = e.target.id;
+  if (!["pgDiag", "pgDiagNote", "pgCp", "pgCpNote"].includes(id)) return;
+  const p = progressOf(s) || {};
+  try {
+    if (id === "pgDiag" || id === "pgDiagNote") await saveProgress(s, { diagnostic: { done: $("pgDiag").checked, note: $("pgDiagNote").value.trim(), date: p.diagnostic?.date || isoDate() } });
+    else {
+      const was = !!p.checkpoint?.done, now = $("pgCp").checked;
+      await saveProgress(s, { checkpoint: { done: now, note: $("pgCpNote").value.trim(), date: now && !was ? isoDate() : (p.checkpoint?.date || isoDate()) } });
+      if (now && !was) await notify(s, { type: "milestone", title: "Progress Checkpoint 1 done", body: $("pgCpNote").value.trim(), points: POINTS.checkpoint });
+    }
+    renderProgress(s); toast("Saved");
+  } catch (ex) { toast(failMsg(ex), "bad"); renderProgress(s); }
+});
+async function saveStamp(s, key, btn) {
+  const p = progressOf(s) || {}, prog = programmeOf(s, p), old = (p.stamps || {})[key] || {};
+  const stamp = $("pgPanel").querySelector(".stamp-btn.on")?.dataset.stamp || null;
+  const today = isoDate(), note = $("pgNote").value.trim();
+  const entry = { stamp, date: stamp && stamp !== old.stamp ? today : (old.date || (stamp ? today : null)), note };
+  if (prog === "school") { const v = $("pgVocab").checked; entry.vocab = v; entry.vocabDate = v ? (old.vocab ? old.vocabDate || today : today) : null; }
+  if (prog === "passport" && key !== "SS") { const ph = $("pgPhrase").value.trim(); entry.phrase = ph; entry.phraseDate = ph ? (old.phrase ? old.phraseDate || today : today) : null; }
+  btn.disabled = true; $("pgStampErr").textContent = "";
+  try {
+    await saveProgress(s, { stamps: { [key]: entry }, ...(p.programme ? {} : { programme: prog }) });
+    let name;
+    if (prog === "school") name = unitName(s, key);
+    else { const x = PASSPORT_LEVELS[passportLevelOf(s, p)].stops.find(y => y.n === key); name = key === "SS" ? `Speaking Studio · ${x.name}` : `Stop ${key} · ${x.name}`; }
+    const msgs = [];
+    if (stamp && stamp !== old.stamp) {
+      const x = prog === "passport" ? PASSPORT_LEVELS[passportLevelOf(s, p)].stops.find(y => y.n === key) : null;
+      const pts = key === "SS" ? (old.stamp ? 0 : POINTS.studio) : Math.max(0, STAMPS[stamp].pts - (old.stamp ? STAMPS[old.stamp].pts : 0));
+      await notify(s, { type: "stamp", title: `${key === "SS" ? "Speaking Studio" : prog === "school" ? "Unit stamp" : "Passport Stamp"} · ${name.replace(/^Speaking Studio · /, "")}: ${STAMPS[stamp].label}`,
+        body: [note, stamp === "notyet" ? "Keep going — you're on your way." : x && key !== "SS" ? `“${canDo(x)}”` : ""].filter(Boolean).join("\n"), points: pts, unit: prog === "school" ? key : null, stop: prog === "passport" ? key : null });
+      msgs.push(`${STAMPS[stamp].label} stamp`);
+    }
+    if (entry.phrase && !old.phrase) { await notify(s, { type: "milestone", title: `Freedom Phrase · ${name}`, body: entry.phrase, points: POINTS.phrase, stop: key }); msgs.push("Freedom Phrase"); }
+    if (entry.vocab && !old.vocab) { await notify(s, { type: "milestone", title: `Vocabulary Pack done · ${name}`, points: POINTS.vocab, unit: key }); msgs.push("Vocabulary Pack"); }
+    pgSel = null; renderProgress(s);
+    toast(msgs.length ? `Saved: ${msgs.join(", ")}` : "Saved");
+  } catch (ex) { $("pgStampErr").textContent = failMsg(ex); }
+  btn.disabled = false;
+}
+
+$("pgProgHint").addEventListener("click", async e => {
+  if (e.target.id !== "pgConfirm" || !editing) return;
+  try { await saveProgress(editing, { programme: programmeOf(editing, progressOf(editing)) }); renderProgress(editing); toast("Programme saved"); } catch (ex) { toast(failMsg(ex), "bad"); }
+});
+$("pgProgramme").addEventListener("change", async () => {
+  const s = editing; if (!s) return;
+  try { await saveProgress(s, { programme: $("pgProgramme").value }); pgSel = null; renderProgress(s); toast(`Programme: ${PROGRAMMES[$("pgProgramme").value].label}`); }
+  catch (ex) { toast(failMsg(ex), "bad"); renderProgress(s); }
+});
+$("pgLevel").addEventListener("change", async () => {
+  const s = editing; if (!s) return;
+  try { await saveProgress(s, { passportLevel: $("pgLevel").value }); pgSel = null; renderProgress(s); toast(`Passport level: ${PASSPORT_LEVEL_LABELS[$("pgLevel").value]}`); }
+  catch (ex) { toast(failMsg(ex), "bad"); renderProgress(s); }
+});
+
+// Feedback list (newest first, replies under the item they answer)
+function renderFeedList(s) {
+  const feed = feedCache[s.uid] || [];
+  if (featureOff) { $("pgFeed").innerHTML = `<p class="hint">Badges, stamps and comments you send will appear here, with the student's replies.</p>`; return; }
+  $("pgFeed").innerHTML = feed.length ? threads(feed).map(t => feedItemHtml(t.item, { staff: true, staffReply: true, replies: t.replies,
+    actions: t.item.type !== "reply" ? `<div class="fd-acts"><button type="button" class="linkbtn fd-reply-btn" data-answer="${esc(t.item.id)}">${t.replies.some(r => r.byRole === "student") ? "Answer" : "Add a comment"}</button> · <button type="button" class="linkbtn fd-reply-btn" data-del-feed="${esc(t.item.id)}" style="color:var(--red-dark)">Delete</button></div>` : "" })).join("")
+    : `<p class="hint">Nothing sent yet. Give a badge or send feedback after the next lesson — ${esc(s.name.split(" ")[0])} is notified and can reply.</p>`;
+}
+async function markRepliesRead(s) {
+  const unread = (feedCache[s.uid] || []).filter(x => x.type === "reply" && x.readByTeacher === false);
+  if (!unread.length) return;
+  try { await markRead(s.uid, unread, "readByTeacher"); } catch (e) { }
+  $("mtDot").classList.add("hidden");
+  if (bell) bell.setItems(bell.items.map(x => unread.some(u => u.id === x.id) ? { ...x, readByTeacher: true } : x));
+}
+$("pgFeed").addEventListener("click", async e => {
+  const s = editing; if (!s) return;
+  const a = e.target.closest("[data-answer]");
+  if (a) { const it = (feedCache[s.uid] || []).find(x => x.id === a.dataset.answer); openFeedback(s, it); return; }
+  const d = e.target.closest("[data-del-feed]");
+  if (d) {
+    if (!d.dataset.armed) { d.dataset.armed = "1"; d.textContent = "Click again to delete"; return; }
+    try {
+      const id = d.dataset.delFeed, kids = (feedCache[s.uid] || []).filter(x => x.replyTo === id);
+      await deleteDoc(doc(db, "students", s.uid, "feed", id));
+      await Promise.all(kids.filter(k => k.byRole !== "student").map(k => deleteDoc(doc(db, "students", s.uid, "feed", k.id)).catch(() => {})));
+      feedCache[s.uid] = (feedCache[s.uid] || []).filter(x => x.id !== id && !(x.replyTo === id && x.byRole !== "student"));
+      touched(s); renderProgress(s); toast("Deleted");
+    } catch (ex) { toast(failMsg(ex), "bad"); }
+  }
+});
+
+// Send feedback (general, or about a unit / stop / result). `answer` = an item to comment under.
+let fbReplyTo = null;
+function openFeedback(s, answer) {
+  const p = progressOf(s) || {}, prog = programmeOf(s, p);
+  fbReplyTo = answer ? (answer.replyTo || answer.id) : null;
+  $("pgFbTitle").textContent = answer ? (answer.type === "reply" ? `Answer ${s.name.split(" ")[0]}'s reply` : "Add a comment") : "Send feedback";
+  const opts = [["", "General feedback"]];
+  if (prog === "school") unitsOf(p).forEach(u => opts.push(["unit:" + u.id, u.name]));
+  if (prog === "passport") PASSPORT_LEVELS[passportLevelOf(s, p)].stops.forEach(x => opts.push(["stop:" + x.n, x.n === "SS" ? `Speaking Studio · ${x.name}` : `Stop ${x.n} · ${x.name}`]));
+  resultRows.slice(0, 8).forEach(r => opts.push(["result:" + r.id, `Result · ${resultTitle(r)} (${prettyDate(r.date)})`]));
+  $("pgFbAbout").innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+  $("pgFbAbout").closest(".field").classList.toggle("hidden", !!answer);
+  $("pgFbText").value = ""; $("pgFbErr").textContent = "";
+  $("pgFeedbackForm").classList.remove("hidden"); $("pgExitForm").classList.add("hidden");
+  $("pgFeedbackForm").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  setTimeout(() => $("pgFbText").focus(), 50);
+}
+$("pgFeedbackBtn").addEventListener("click", () => editing && openFeedback(editing, null));
+$("pgFbSend").addEventListener("click", async () => {
+  const s = editing; if (!s) return;
+  const body = $("pgFbText").value.trim(); if (!body) { $("pgFbErr").textContent = "Write a short comment first."; return; }
+  const about = fbReplyTo ? "" : $("pgFbAbout").value, [kind, id] = about.split(":");
+  const label = about ? $("pgFbAbout").selectedOptions[0].textContent : "";
+  $("pgFbSend").disabled = true;
+  try {
+    const ok = await notify(s, { type: "comment", title: fbReplyTo ? "Comment from your teacher" : label ? `Feedback · ${label.replace(/^Result · /, "")}` : "Feedback from your teacher", body,
+      replyTo: fbReplyTo, unit: kind === "unit" ? id : null, stop: kind === "stop" ? id : null, ref: kind === "result" ? id : null });
+    if (ok === false) { $("pgFbErr").textContent = SOON; }
+    else { $("pgFeedbackForm").classList.add("hidden"); renderProgress(s); toast(`Sent to ${s.name.split(" ")[0]}`); }
+  } catch (ex) { $("pgFbErr").textContent = failMsg(ex); }
+  $("pgFbSend").disabled = false;
+});
+document.querySelectorAll("[data-pg-cancel]").forEach(b => b.addEventListener("click", () => b.closest(".ppanel").classList.add("hidden")));
+
+// Exit Ticket (optional quick entry)
+$("pgExitBtn").addEventListener("click", () => {
+  const s = editing; if (!s) return;
+  const p = progressOf(s) || {}, prog = programmeOf(s, p);
+  const opts = [["", "—"], ...(prog === "school" ? unitsOf(p).map(u => [u.id, u.name]) : PASSPORT_LEVELS[passportLevelOf(s, p)].stops.map(x => [x.n, x.n === "SS" ? "Speaking Studio" : `Stop ${x.n} · ${x.name}`]))];
+  $("pgExRef").innerHTML = opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+  $("pgExDate").value = isoDate(); $("pgExErr").textContent = "";
+  $("pgExitForm").classList.remove("hidden"); $("pgFeedbackForm").classList.add("hidden");
+});
+$("pgExSave").addEventListener("click", async () => {
+  const s = editing; if (!s) return;
+  const x = { date: $("pgExDate").value || isoDate(), correct: +$("pgExCorrect").value, of: 3, conf: +$("pgExConf").value, ref: $("pgExRef").value || null };
+  $("pgExSave").disabled = true;
+  try { await saveProgress(s, { exits: { [x.date + "-" + Math.random().toString(36).slice(2, 7)]: x } }); $("pgExitForm").classList.add("hidden"); renderProgress(s); toast(`Exit Ticket saved · +${Math.min(3, x.correct)} points`); }
+  catch (ex) { $("pgExErr").textContent = failMsg(ex); }
+  $("pgExSave").disabled = false;
+});
+
+// Give award (from the record or the ★ in the attendance list)
+$("pgAwardBtn").addEventListener("click", () => editing && openAwardPop(editing));
+function closePop() { document.getElementById("awardPop")?.remove(); }
+function openAwardPop(s) {
+  closePop();
+  const el = document.createElement("div");
+  el.className = "pop"; el.id = "awardPop";
+  el.innerHTML = `<div class="pop-card" role="dialog" aria-modal="true" aria-labelledby="popTitle">
+    <h3 id="popTitle">Give an award</h3><p class="hint" style="margin:0 0 12px">to <b>${esc(s.name)}</b> · +${POINTS.award} Freedom Points</p>
+    ${featureOff ? `<div class="soon" style="margin-bottom:12px">${esc(SOON)}</div>` : ""}
+    <div class="badge-pick">${BADGES.map(b => `<button type="button" class="bp" data-badge="${b.id}"><i>${b.icon}</i><span>${esc(b.name)}${b.groups ? ` <small class="hint" style="display:inline">(groups)</small>` : ""}</span></button>`).join("")}</div>
+    <div class="field"><label for="popComment">Comment <span class="hint" style="display:inline">(optional)</span></label><textarea class="input" id="popComment" rows="2" maxlength="500" placeholder="e.g. You spoke for two minutes without stopping — brilliant!"></textarea></div>
+    <div class="err" id="popErr"></div>
+    <div class="modal-actions"><button class="btn btn-ghost btn-sm" type="button" data-pop-close>Cancel</button><button class="btn btn-primary btn-sm" type="button" id="popSave" disabled>Give award</button></div>
+  </div>`;
+  document.body.appendChild(el);
+  let pick = null;
+  el.addEventListener("click", async e => {
+    if (e.target === el || e.target.closest("[data-pop-close]")) { closePop(); return; }
+    const b = e.target.closest("[data-badge]");
+    if (b) { pick = b.dataset.badge; el.querySelectorAll(".bp").forEach(x => x.classList.toggle("on", x === b)); el.querySelector("#popSave").disabled = false; return; }
+    if (e.target.id === "popSave" && pick) {
+      e.target.disabled = true;
+      const bd = BADGE[pick], body = el.querySelector("#popComment").value.trim();
+      try {
+        const ok = await notify(s, { type: "award", badge: pick, title: `${bd.name} badge`, body, points: POINTS.award });
+        if (ok === false) { el.querySelector("#popErr").textContent = SOON; e.target.disabled = false; return; }
+        closePop(); toast(`${bd.icon} ${bd.name} given to ${s.name.split(" ")[0]} · +${POINTS.award} points`);
+        if (editing === s) renderProgress(s);
+      } catch (ex) { el.querySelector("#popErr").textContent = failMsg(ex); e.target.disabled = false; }
+    }
+  });
+  el.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closePop(); } });
+  setTimeout(() => el.querySelector(".bp")?.focus(), 30);
+}
+
+// ---------- Staff bell: unread replies from students ----------
+let bell = null, bellSeen = [];
+function startBell() {
+  const pool = () => students.filter(s => (s.status || "active") !== "left");
+  bell = mountBell($("staffBell"), {
+    title: "Student replies", staff: true, empty: "No new replies from students.",
+    unread: x => x.type === "reply" && x.readByTeacher === false,
+    footer: "Replies to badges, comments and results. Click one to open the student.",
+    load: async () => {
+      const lists = await Promise.all(pool().map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
+        .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid, studentName: d.data().studentName || s.name })))));
+      const fresh = lists.flat().filter(x => x.type === "reply");
+      const ids = new Set(fresh.map(x => x.id));
+      return [...fresh, ...bellSeen.filter(x => !ids.has(x.id))].sort((a, b) => (b.at?.toMillis?.() || 0) - (a.at?.toMillis?.() || 0));
+    },
+    onOpen: async unread => {
+      const bySid = {}; unread.forEach(x => (bySid[x.sid] = bySid[x.sid] || []).push(x));
+      await Promise.all(Object.entries(bySid).map(([sid, xs]) => markRead(sid, xs, "readByTeacher")));
+      bellSeen = [...unread, ...bellSeen].slice(0, 20);
+      unread.forEach(u => { const c = (feedCache[u.sid] || []).find(x => x.id === u.id); if (c) c.readByTeacher = true; });
+    },
+    onItemClick: it => { const s = it && students.find(x => x.uid === it.sid); if (s) { openModal(s); setMTab("progress"); } }
+  });
+}
 
 $("cardBtn").addEventListener("click", async () => {
   const s = editing; if (!s) return;
@@ -914,6 +1418,7 @@ async function loadTeachers() {
   if (!ADMIN) return;
   const snap = await getDocs(collection(db, "teachers"));
   teachers = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  teachers.filter(t => t.name && t.active !== false).forEach(t => syncPublicTeacher(t.uid, t));   // teacher cards students can see (no phone, email, DOB or CV)
   const names = new Set(["Mashel Auma", ...teachers.map(t => t.name), "Eda Yavuz", "Amina Ulanova", "Lorraine Osiany Auma", "Ms. Irene", "Mr. Kareem"]);
   $("teachers").innerHTML = [...names].map(n => `<option>${esc(n)}</option>`).join("");
   $("teacherBody").innerHTML = teachers.length ? teachers.map(t => {
@@ -989,12 +1494,12 @@ $("sPhotoRemove").addEventListener("click", async () => {
 });
 $("tPhotoFile").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; const t = profile; if (!f || !t) return;
-  try { const data = await resizePhoto(f); await updateDoc(doc(db, "teachers", t.uid), { photo: data }); t.photo = data; showPhoto("tPhotoBox", data, t.name); if (ADMIN) loadTeachers(); toast("Photo saved"); }
+  try { const data = await resizePhoto(f); await updateDoc(doc(db, "teachers", t.uid), { photo: data }); t.photo = data; syncPublicTeacher(t.uid, t); showPhoto("tPhotoBox", data, t.name); if (ADMIN) loadTeachers(); toast("Photo saved"); }
   catch (ex) { toast(ex.message || friendlyError(ex), "bad"); }
 });
 $("tPhotoRemove").addEventListener("click", async () => {
   const t = profile; if (!t) return;
-  try { await updateDoc(doc(db, "teachers", t.uid), { photo: null }); t.photo = null; showPhoto("tPhotoBox", null, t.name); if (ADMIN) loadTeachers(); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
+  try { await updateDoc(doc(db, "teachers", t.uid), { photo: null }); t.photo = null; syncPublicTeacher(t.uid, t); showPhoto("tPhotoBox", null, t.name); if (ADMIN) loadTeachers(); toast("Photo removed"); } catch (ex) { toast(friendlyError(ex), "bad"); }
 });
 
 // ---------- Teacher profile & CV ----------
@@ -1032,6 +1537,7 @@ $("profileForm").addEventListener("submit", async e => {
   try {
     await updateDoc(doc(db, "teachers", t.uid), data);
     Object.assign(t, data); if (TEACHER) Object.assign(TEACHER, data);
+    syncPublicTeacher(t.uid, t);
     $("tmTitle").textContent = teacherDisplayName(t);
     toast("Profile saved"); if (ADMIN) loadTeachers();
   } catch (ex) { $("profileErr").textContent = friendlyError(ex); }
@@ -1091,12 +1597,15 @@ async function renderAttendance() {
       <td><div class="att-actions">
         <button class="att-btn p ${marks[i] === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
         <button class="att-btn a ${marks[i] === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
+        <button class="star-btn" data-star type="button" title="Give ${esc(s.name.split(" ")[0])} a badge" aria-label="Give ${esc(s.name)} a badge">&#9733;</button>
       </div></td>
     </tr>`).join("");
 }
 
 const rowLen = tr => +(tr.querySelector(".len-btn.on")?.dataset.len || 1);
 $("attBody").addEventListener("click", async e => {
+  const star = e.target.closest("[data-star]");
+  if (star) { const s = students.find(x => x.uid === star.closest("tr").dataset.uid); if (s) openAwardPop(s); return; }
   const lb = e.target.closest("[data-len]");
   if (lb) {
     const tr = lb.closest("tr"), uid = tr.dataset.uid, date = $("attDate").value, prevLen = rowLen(tr), len = +lb.dataset.len;
@@ -1230,6 +1739,27 @@ function openMonth() {
   $("tab-attendance").classList.add("hidden"); $("tab-week").classList.add("hidden");
   $("tab-month").classList.remove("hidden");
   renderMonth();
+  loadPointsData(students);
+}
+async function loadPointsData(list) {
+  const todo = list.filter(s => !pointsData[s.uid] && ((s.status || "active") === "active" || Object.keys(attDocs[s.uid] || {}).some(d => d.startsWith(moMonth))));
+  if (!todo.length) return;
+  todo.forEach(s => pointsData[s.uid] = "loading");
+  await Promise.all(todo.map(async s => {
+    const [p, f, r] = await Promise.all([
+      getDoc(doc(db, "students", s.uid, "progress", "main")).then(d => d.exists() ? d.data() : {}).catch(e => isDenied(e) ? null : {}),
+      loadFeed(s.uid).catch(e => isDenied(e) ? null : []),
+      getDocs(collection(db, "students", s.uid, "results")).then(q => q.docs.map(d => ({ id: d.id, ...d.data() }))).catch(() => [])
+    ]);
+    pointsData[s.uid] = { progress: p, feed: f, results: r, off: p === null || f === null };
+  }));
+  if (!$("tab-month").classList.contains("hidden")) renderMonth();
+}
+function monthPoints(s, ym) {
+  const d = pointsData[s.uid];
+  if (!d || d === "loading") return { v: null, txt: "…" };
+  if (d.off) return { v: null, txt: "—" };
+  return { v: pointsEvents({ s, progress: d.progress, feed: d.feed, results: d.results, attendance: attDocs[s.uid] || {} }).filter(e => e.date.startsWith(ym)).reduce((t, e) => t + e.pts, 0) };
 }
 function renderMonth() {
   const who = TEACHER ? TEACHER.name : $("moTeacher").value, all = who === "__all";
@@ -1243,10 +1773,12 @@ function renderMonth() {
       else if (x.status === "absent") c.absent += len;
     });
     c.taught = c.single + c.double * 2;
+    c.pts = monthPoints(s, moMonth);
     return c;
   }).filter(c => c.taught || c.absent || (c.s.status || "active") === "active")
     .sort((a, b) => b.taught - a.taught || String(a.s.name).localeCompare(String(b.s.name)));
-  const t = rows.reduce((t, c) => ({ taught: t.taught + c.taught, single: t.single + c.single, double: t.double + c.double, absent: t.absent + c.absent }), { taught: 0, single: 0, double: 0, absent: 0 });
+  const t = rows.reduce((t, c) => ({ taught: t.taught + c.taught, single: t.single + c.single, double: t.double + c.double, absent: t.absent + c.absent, pts: t.pts + (c.pts.v || 0) }), { taught: 0, single: 0, double: 0, absent: 0, pts: 0 });
+  const ptsOff = rows.some(c => c.pts.txt === "—"), ptsCell = c => c.pts.v == null ? `<span class="hint" style="display:inline;margin:0"${c.pts.txt === "—" ? ' title="Points switch on when the new database rules are published"' : ""}>${c.pts.txt}</span>` : c.pts.v ? `<span class="pts-chip light">${c.pts.v}</span>` : "—";
   $("moSum").innerHTML = `<b>${t.taught}</b> lesson${t.taught === 1 ? "" : "s"} taught &middot; ${rows.filter(c => c.taught).length} student${rows.filter(c => c.taught).length === 1 ? "" : "s"}`;
   $("moBody").innerHTML = rows.length ? rows.map((c, i) => `<tr class="clickable" data-mo-uid="${c.s.uid}">
       <td class="col-no">${i + 1}</td>
@@ -1255,14 +1787,16 @@ function renderMonth() {
       <td class="num"><b class="mo-big">${c.taught}</b></td>
       <td class="num hide-sm">${c.single || "—"}</td>
       <td class="num hide-sm">${c.double || "—"}</td>
-      <td class="num">${c.absent ? `<span class="mo-abs">${c.absent}</span>` : "—"}</td></tr>`).join("")
-    : `<tr><td colspan="7" class="empty">No students for this teacher.</td></tr>`;
-  $("moFoot").innerHTML = rows.length ? `<tr><td></td><td><b>Total</b></td><td class="hide-sm"></td><td class="num"><b class="mo-big">${t.taught}</b></td><td class="num hide-sm">${t.single}</td><td class="num hide-sm">${t.double}</td><td class="num">${t.absent}</td></tr>` : "";
+      <td class="num">${c.absent ? `<span class="mo-abs">${c.absent}</span>` : "—"}</td>
+      <td class="num">${ptsCell(c)}</td></tr>`).join("")
+    : `<tr><td colspan="8" class="empty">No students for this teacher.</td></tr>`;
+  $("moFoot").innerHTML = rows.length ? `<tr><td></td><td><b>Total</b></td><td class="hide-sm"></td><td class="num"><b class="mo-big">${t.taught}</b></td><td class="num hide-sm">${t.single}</td><td class="num hide-sm">${t.double}</td><td class="num">${t.absent}</td><td class="num"><b>${ptsOff && !t.pts ? "—" : t.pts}</b></td></tr>` : "";
+  if (ptsOff) $("moSum").innerHTML += ` &middot; <span class="hint" style="display:inline;margin:0">Points switch on when the new database rules are published</span>`;
 }
 $("monthBtn").addEventListener("click", openMonth);
 $("moBack").addEventListener("click", () => { $("tab-month").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance(); });
-$("moPrev").addEventListener("click", () => { moMonth = shiftMonth(moMonth, -1); renderMonth(); });
-$("moNext").addEventListener("click", () => { moMonth = shiftMonth(moMonth, 1); renderMonth(); });
+$("moPrev").addEventListener("click", () => { moMonth = shiftMonth(moMonth, -1); renderMonth(); loadPointsData(students); });
+$("moNext").addEventListener("click", () => { moMonth = shiftMonth(moMonth, 1); renderMonth(); loadPointsData(students); });
 $("moNow").addEventListener("click", () => { moMonth = isoDate().slice(0, 7); renderMonth(); });
 $("moTeacher").addEventListener("change", renderMonth);
 $("moBody").addEventListener("click", e => { const tr = e.target.closest("[data-mo-uid]"); if (tr) openModal(students.find(s => s.uid === tr.dataset.moUid)); });
@@ -1282,7 +1816,7 @@ $("wkGrid").addEventListener("click", e => {
   $("tab-week").classList.add("hidden"); $("tab-attendance").classList.remove("hidden"); renderAttendance();
 });
 
-loadStudents().then(() => ADMIN && loadTeachers()).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="9" class="empty">${esc(friendlyError(e))}</td></tr>`; });
+loadStudents().then(() => { startBell(); return ADMIN && loadTeachers(); }).catch(e => { $("studentBody").innerHTML = `<tr><td colspan="9" class="empty">${esc(friendlyError(e))}</td></tr>`; });
 </script>
 </body>
 </html>
