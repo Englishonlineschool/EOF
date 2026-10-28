@@ -32,6 +32,7 @@
       <button class="tab active" data-tab="students" role="tab">Students</button>
       <button class="tab" data-tab="attendance" role="tab">Attendance</button>
       <button class="tab hidden" data-tab="teachers" role="tab" id="teachersTabBtn">Teachers</button>
+      <button class="tab hidden" data-tab="tests" role="tab" id="testsTabBtn">Placement tests</button>
       <button class="tab hidden" data-tab="myprofile" role="tab" id="myProfileTabBtn">My profile</button>
     </div>
 
@@ -124,6 +125,23 @@
       <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
       <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
       <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and times, shown in your own time. Click a lesson to open that day and mark attendance.</p>
+    </section>
+
+    <!-- Placement tests taken on the website (admin only) -->
+    <section id="tab-tests" class="hidden">
+      <div class="toolbar">
+        <input class="input" id="testSearch" type="search" placeholder="Search by name or contact">
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" id="testReload" type="button">Refresh</button>
+      </div>
+      <div class="soon hidden" id="testsSoon" style="margin-bottom:12px"><b>Tests taken by visitors who weren't logged in appear here once the new database rules are published.</b> Tests saved to a student's account are listed below already.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="col-no">No.</th><th>Date</th><th>Name</th><th class="hide-sm">Test</th><th>Result</th><th class="hide-sm">Student record</th><th></th></tr></thead>
+          <tbody id="testBody"><tr><td colspan="7" class="empty">Loading&hellip;</td></tr></tbody>
+        </table>
+      </div>
+      <p class="hint" style="margin-top:10px">Every placement test finished on the website, newest first — whether or not the student was logged in — plus tests saved to students' accounts before 28 Oct 2026. <b>Download PDF</b> gives you the same result PDF the student received (older tests are rebuilt from the saved scores).</p>
     </section>
 
     <!-- Teachers (admin only) -->
@@ -398,6 +416,7 @@ if (!ADMIN) {
   syncPublicTeacher(me.uid, TEACHER);   // keeps her card (photo, name, subjects, bio) up to date for her students
 } else {
   $("teachersTabBtn").classList.remove("hidden");
+  $("testsTabBtn").classList.remove("hidden");
 }
 $("adminEmail").textContent = me.email;
 try { localStorage.setItem("eofPortal", "staff"); } catch (e) { }   // lets the website header show the bell
@@ -416,6 +435,8 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   $("tab-week").classList.add("hidden");
   $("tab-month").classList.add("hidden");
   $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
+  $("tab-tests").classList.toggle("hidden", t.dataset.tab !== "tests");
+  if (t.dataset.tab === "tests") loadTests();
   if (t.dataset.tab === "attendance") renderAttendance();
   if (t.dataset.tab === "teachers") loadTeachers();
   if (t.dataset.tab === "myprofile") { document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === "students")); $("tab-students").classList.remove("hidden"); openProfile({ uid: me.uid, ...TEACHER }); }
@@ -952,7 +973,7 @@ function resultCard(r) {
     ${skills.length ? `<div class="rc-skills">${skills.map(([k, l]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, pctOf(r, r.skills[k]) || 0)}%"></i></div><b>${esc(fmtScore(r, r.skills[k]))}</b></div>`).join("")}</div>` : ""}
     ${parts.length ? `<div class="rc-skills">${parts.map(([k, l, m]) => `<div class="rc-skill"><span>${esc(l)}</span><div class="bar"><i style="width:${Math.min(100, Math.round(r.parts[k] / m * 100))}%"></i></div><b>${esc(r.parts[k])}/${m}</b></div>`).join("")}</div>` : ""}
     ${r.comment ? `<p class="rc-comment">“${esc(r.comment)}”</p>` : ""}
-    <div class="rc-actions"><button class="linkbtn" type="button" data-del-result>Delete result</button></div>
+    <div class="rc-actions">${r.source === "online-test" ? `<button class="linkbtn" type="button" data-pdf-result style="color:var(--accent-light)">Download PDF</button> &middot; ` : ""}<button class="linkbtn" type="button" data-del-result>Delete result</button></div>
   </div>`;
 }
 
@@ -1033,6 +1054,8 @@ $("resultForm").addEventListener("submit", async e => {
 });
 
 $("resultList").addEventListener("click", async e => {
+  const pb = e.target.closest("[data-pdf-result]");
+  if (pb) { const res = resultRows.find(r => r.id === pb.closest("[data-rid]").dataset.rid); if (res) downloadPlacementPdf(res, editing?.name, pb); return; }
   const b = e.target.closest("[data-del-result]"); if (!b) return;
   if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to delete"; return; }
   const s = editing, rid = b.closest("[data-rid]").dataset.rid;
@@ -1400,6 +1423,77 @@ function startBell() {
     onItemClick: it => { const s = it && students.find(x => x.uid === it.sid); if (s) { openModal(s); setMTab("progress"); } }
   });
 }
+
+// ---------- Placement test PDFs (same PDF the student got on the website) ----------
+let pdfTool = null;
+function loadPdfTool() {
+  return pdfTool ||= new Promise((resolve, reject) => {
+    if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=2";
+    sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
+    sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
+    document.head.appendChild(sc);
+  });
+}
+// `saved` is either a full saved result object (r) or a student's result doc
+async function downloadPlacementPdf(saved, studentName, btn) {
+  const label = btn ? btn.textContent : ""; if (btn) { btn.disabled = true; btn.textContent = "Preparing PDF…"; }
+  try {
+    const P = await loadPdfTool();
+    const r = saved.pct != null && saved.level && saved.testLabel ? saved : P.fromSaved(saved, studentName);
+    const file = await P.downloadSaved(r);
+    toast(r.rebuilt ? `${file} downloaded (rebuilt from the saved scores)` : `${file} downloaded`);
+  } catch (ex) { console.warn(ex); toast("Couldn't create the PDF. Please check the connection and try again.", "bad"); }
+  if (btn) { btn.disabled = false; btn.textContent = label; }
+}
+
+let testRows = [], testsToken = 0;
+async function loadTests() {
+  if (!ADMIN) return;
+  const token = ++testsToken;
+  $("testBody").innerHTML = `<tr><td colspan="7" class="empty">Loading&hellip;</td></tr>`;
+  const rows = []; let denied = false;
+  try {
+    const snap = await getDocs(collection(db, "placementTests"));
+    snap.docs.forEach(d => { const x = d.data(); if (x.r) rows.push({ id: d.id, r: x.r, date: x.date || String(x.r.issuedOn || "").slice(0, 10), at: x.r.issuedOn || x.date || "", studentId: x.studentId || null, contact: x.r.contact || "", email: x.email || "" }); });
+  } catch (e) { if (/permission|insufficient/i.test(String(e.code || e.message))) denied = true; }
+  // Tests saved to students' accounts (includes older ones without a stored PDF)
+  const seen = new Set(rows.map(x => x.id));
+  await Promise.all(students.map(s => getDocs(collection(db, "students", s.uid, "results")).then(q => q.docs.forEach(d => {
+    const x = d.data(); if (x.source !== "online-test") return;
+    const rid = x.pdf?.resultId; if (rid && seen.has(rid)) { const row = rows.find(y => y.id === rid); if (row && !row.studentId) row.studentId = s.uid; return; }
+    rows.push({ id: "res-" + d.id, saved: { id: d.id, ...x }, r: x.pdf || null, date: x.date || "", at: x.pdf?.issuedOn || x.date || "", studentId: s.uid, contact: x.pdf?.contact || "", email: x.createdBy || "" });
+  })).catch(() => {})));
+  if (token !== testsToken) return;
+  testRows = rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  $("testsSoon").classList.toggle("hidden", !denied);
+  renderTests();
+}
+function testName(t) { return t.r?.name || students.find(s => s.uid === t.studentId)?.name || "Student"; }
+function renderTests() {
+  const q = fold($("testSearch").value);
+  const list = testRows.filter(t => !q || fold([testName(t), t.contact, t.email].join(" ")).includes(q));
+  $("testBody").innerHTML = list.length ? list.map((t, i) => {
+    const r = t.r || {}, sv = t.saved || {}, st = students.find(s => s.uid === t.studentId) || (t.studentId ? null : students.find(s => fold(s.name) === fold(testName(t))));
+    const level = r.level || sv.level || "", pct = r.pct ?? sv.overall, label = r.testLabel || sv.title || "Placement test", demo = r.isDemo || sv.details?.isDemo;
+    return `<tr data-test="${esc(t.id)}">
+      <td class="col-no">${i + 1}</td>
+      <td style="white-space:nowrap">${esc(prettyDate(t.date))}</td>
+      <td><b>${esc(testName(t))}</b>${t.contact ? `<div class="hint" style="margin:0">${esc(t.contact)}</div>` : ""}<div class="show-sm hint" style="margin:0">${esc(label)}</div></td>
+      <td class="hide-sm">${esc(label)}${demo ? ` <span class="login-badge none">demo</span>` : ""}</td>
+      <td style="white-space:nowrap">${level ? `<span class="level-pill">${esc(level)}</span>` : ""} ${pct != null ? esc(pct) + "/100" : ""}</td>
+      <td class="hide-sm">${st ? `<button type="button" class="linkbtn" data-test-open="${st.uid}">${esc(st.name)}</button>${t.studentId ? "" : ` <span class="hint" style="display:inline;margin:0">(same name)</span>`}` : `<span class="hint" style="display:inline;margin:0">Not logged in</span>`}</td>
+      <td style="white-space:nowrap"><button type="button" class="btn btn-ghost btn-sm" data-test-pdf>Download PDF</button></td></tr>`;
+  }).join("") : `<tr><td colspan="7" class="empty">${testRows.length ? "No tests match." : "No placement tests saved yet. New tests appear here as soon as someone finishes one on the website."}</td></tr>`;
+}
+$("testSearch").addEventListener("input", renderTests);
+$("testReload").addEventListener("click", loadTests);
+$("testBody").addEventListener("click", e => {
+  const o = e.target.closest("[data-test-open]"); if (o) { openModal(students.find(s => s.uid === o.dataset.testOpen)); setMTab("results"); return; }
+  const b = e.target.closest("[data-test-pdf]"); if (!b) return;
+  const t = testRows.find(x => x.id === b.closest("[data-test]").dataset.test); if (!t) return;
+  downloadPlacementPdf(t.r || t.saved, testName(t), b);
+});
 
 $("cardBtn").addEventListener("click", async () => {
   const s = editing; if (!s) return;

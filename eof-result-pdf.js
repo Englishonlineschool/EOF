@@ -132,7 +132,7 @@
       MAP = { 'Poppins|normal':['helvetica','normal'], 'Poppins|bold':['helvetica','bold'], 'PoppinsMed|normal':['helvetica','normal'], 'Fraunces|normal':['times','bold'] };
     }
 
-    var W = 210, H = 297, CX = W/2, now = new Date(), id = resultId(r, now);
+    var W = 210, H = 297, CX = W/2, now = r.issuedOn ? new Date(r.issuedOn) : new Date(), id = r.resultId || resultId(r, now);
     var LV = r.levels || LEVELS, LN = r.levelNames || LEVEL_FULL, S = r.school || null;
     // Names the embedded font can't draw (e.g. Cyrillic) are drawn as an image on the certificate line;
     // in running text we use a Latin transliteration, or "this student" for other scripts.
@@ -312,7 +312,7 @@
         fill(s.overall ? BRAND.red : BRAND.navy); doc.roundedRect(cols[1]+3, y+1.8, 13, 5.4, 1.3, 1.3, 'F');
         ink([255,255,255]); font('Poppins','bold',8); doc.text(s.level, cols[1]+9.5, y+5.6, {align:'center'});
         ink(BRAND.navy); font('Poppins','bold',9.4); doc.text(s.pct + ' / 100', cols[2]+3, y+6);
-        ink(BRAND.text); font('Poppins','normal',9.4); doc.text((s.correct!=null ? s.correct : '') + ' of ' + (s.total!=null ? s.total : ''), cols[3]+3, y+6);
+        ink(BRAND.text); font('Poppins','normal',9.4); doc.text(s.correct!=null ? s.correct + ' of ' + (s.total!=null ? s.total : '') : '\u2014', cols[3]+3, y+6);
         pen(BRAND.line); doc.setLineWidth(0.3); doc.line(X, y+9, X+TW, y+9);
         y += 9;
       });
@@ -451,33 +451,88 @@
     sendBtn.href = 'https://wa.me/' + BRAND.whatsapp + '?text=' + encodeURIComponent(waText(r, false));
   }
 
-  /* ---------- Student portal: if a student is logged in on this device, save the result to their account ---------- */
+  /* ---------- Save every result so the school can open the PDF later ----------
+     - placementTests/{id}: every finished test (logged in or not) — the admin's "Placement tests" tab.
+     - students/{sid}/results: if a student is logged in on this device, also saved to her account.
+     The full result object is stored, so the admin rebuilds exactly the same PDF (same date and Result ID). */
+  function clean(r){
+    var keep = ['name','contact','testType','testLabel','isDemo','level','pct','theta','desc','pdfDesc','skills','answered','total','correct','minutes','timedOut','school','levels','levelNames','idPrefix','resultId','issuedOn'];
+    var o = {}; keep.forEach(function(k){ if(r[k] !== undefined && r[k] !== null) o[k] = r[k]; });
+    o.name = String(o.name || 'Student').slice(0, 120); if(o.contact) o.contact = String(o.contact).slice(0, 200);
+    return JSON.parse(JSON.stringify(o));
+  }
   function saveToPortal(r){
-    import('/eof-portal.js').then(async function(m){
+    import('/eof-portal.js?v=6').then(async function(m){
       var u = await m.currentUser();
-      if(!u || await m.isAdmin(u)) return;
-      var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.where('portalBlocked', '==', false), m.limit(1)));
-      if(q.empty) return;
-      var ref = q.docs[0].ref, skills = {};
-      (r.skills||[]).forEach(function(s){ if(s.key){ skills[s.key] = s.pct; } });
-      var date = m.isoDate();
-      var title = r.isDemo ? 'Demo test (indicative)' : (r.testLabel || 'Online placement test');
-      await m.setDoc(m.doc(m.collection(m.db, 'students', ref.id, 'results')), {
-        type:'Placement test', title:title, date:date, scale:'percent', max:null, overall:r.pct, skills:skills,
-        level:r.level, outcome:'', comment:'', source:'online-test',
-        details:{ answered:r.answered, total:r.total, correct:r.correct, minutes:r.minutes, isDemo:!!r.isDemo },
-        createdAt:m.serverTimestamp(), createdBy:u.email || ''
-      });
-      await m.updateDoc(ref, { lastResult:{ type:'Placement test', title:title, date:date, overall:r.pct, scale:'percent', max:null, level:r.level } });
-      var h = document.getElementById('eofPdfHint');
-      if(h){ h.insertAdjacentHTML('beforeend', '<br><i class="fa-solid fa-circle-check"></i> Saved to your <a href="eof-account.html">student account</a>.'); }
+      if(u && await m.isAdmin(u)) return;                      // the school testing its own test
+      var pdf = clean(r), sid = null, date = m.isoDate();
+      if(u){
+        var q = await m.getDocs(m.query(m.collection(m.db, 'students'), m.where('authUid', '==', u.uid), m.where('portalBlocked', '==', false), m.limit(1))).catch(function(){ return { empty:true }; });
+        if(!q.empty){
+          var ref = q.docs[0].ref, skills = {}; sid = ref.id;
+          (r.skills||[]).forEach(function(s){ if(s.key){ skills[s.key] = s.pct; } });
+          var title = r.isDemo ? 'Demo test (indicative)' : (r.testLabel || 'Online placement test');
+          await m.setDoc(m.doc(m.collection(m.db, 'students', ref.id, 'results')), {
+            type:'Placement test', title:title, date:date, scale:'percent', max:null, overall:r.pct, skills:skills,
+            level:r.level, outcome:'', comment:'', source:'online-test',
+            details:{ answered:r.answered, total:r.total, correct:r.correct, minutes:r.minutes, isDemo:!!r.isDemo },
+            pdf:pdf, createdAt:m.serverTimestamp(), createdBy:u.email || ''
+          });
+          await m.updateDoc(ref, { lastResult:{ type:'Placement test', title:title, date:date, overall:r.pct, scale:'percent', max:null, level:r.level } });
+          var h = document.getElementById('eofPdfHint');
+          if(h){ h.insertAdjacentHTML('beforeend', '<br><i class="fa-solid fa-circle-check"></i> Saved to your <a href="eof-account.html">student account</a>.'); }
+        }
+      }
+      await m.setDoc(m.doc(m.db, 'placementTests', r.resultId), {
+        r:pdf, date:date, studentId:sid, authUid:u ? u.uid : null, email:u ? (u.email || null) : null, createdAt:m.serverTimestamp()
+      }).catch(function(err){ console.warn('EOF result copy skipped', err && err.code); });
     }).catch(function(err){ console.warn('EOF portal save skipped', err); });
   }
 
+  /* ---------- Staff: rebuild a saved result's PDF ---------- */
+  var LEVEL_DESC = {
+    A1: 'You can understand and use familiar everyday expressions and very basic phrases. Our Beginner (A1) course will give you a strong foundation.',
+    A2: 'You can understand frequently used expressions and handle simple, routine exchanges. Our Elementary (A2) course will build your confidence and vocabulary.',
+    B1: 'You can deal with most everyday situations and understand the main points of clear, standard English. Our Intermediate (B1) course will sharpen your fluency and accuracy.',
+    B2: 'You can understand the main ideas of complex texts and interact with a good degree of fluency. Our Upper-Intermediate (B2) course will refine your precision and range.',
+    C1: 'You can understand demanding, longer texts, recognise implicit meaning and express yourself fluently and flexibly. Our Advanced (C1) course will polish nuance and style.'
+  };
+  var SKILL_NAMES = [['uoe','Grammar & Vocabulary'],['reading','Reading'],['listening','Listening']];
+  function pctLevel(p){ return p >= 80 ? 'C1' : p >= 60 ? 'B2' : p >= 40 ? 'B1' : p >= 20 ? 'A2' : 'A1'; }   // same cut-offs as the test (θ −1.5/−0.5/0.5/1.5)
+  // Older results saved before 28 Oct 2026 kept only the scores: rebuild the PDF from them.
+  function fromSaved(res, studentName){
+    if(res && res.pdf) return res.pdf;
+    var d = res.details || {}, skills = SKILL_NAMES.filter(function(k){ return res.skills && res.skills[k[0]] != null; })
+      .map(function(k){ var p = res.skills[k[0]]; return { key:k[0], label:k[1], level:pctLevel(p), pct:p }; });
+    return { name:studentName || 'Student', testLabel:(res.title && !/^Demo test/.test(res.title)) ? res.title : 'General English Placement Test', isDemo:!!d.isDemo,
+      level:res.level, pct:res.overall, skills:skills, answered:d.answered, total:d.total, correct:d.correct, minutes:d.minutes,
+      desc:LEVEL_DESC[res.level] || '', issuedOn:res.date ? res.date + 'T12:00:00' : null, rebuilt:true };
+  }
+  function logoFrom(src){
+    return new Promise(function(resolve){
+      if(!src){ resolve(null); return; }
+      var img = new Image();
+      img.onload = function(){ try{ var c = document.createElement('canvas'); c.width = c.height = 360; c.getContext('2d').drawImage(img, 0, 0, 360, 360); resolve(c.toDataURL('image/png')); }catch(e){ resolve(null); } };
+      img.onerror = function(){ resolve(null); };
+      img.src = src;
+    });
+  }
+  function downloadSaved(r, logoSrc){
+    return Promise.all([libReady, fontsReady, logoFrom(logoSrc || 'favicon-192.png')]).then(function(v){
+      var out = build(r, v[2], v[1]), blob = out.doc.output('blob');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = out.fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+      return out.fileName;
+    });
+  }
+
   window.EOFResultPDF = {
-    build: build, fontsReady: fontsReady, libReady: libReady,
+    build: build, fontsReady: fontsReady, libReady: libReady, fromSaved: fromSaved, downloadSaved: downloadSaved,
     // Called by the exam page as soon as results are calculated.
     onResult: function(r){
+      var issued = new Date();
+      r.issuedOn = r.issuedOn || issued.toISOString(); r.resultId = r.resultId || resultId(r, issued);   // same date + ID on every copy of this PDF
       state.result = r;
       mountUI(r);
       saveToPortal(r);
