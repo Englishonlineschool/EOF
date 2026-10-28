@@ -729,8 +729,9 @@
           <input type="text" id="examName" placeholder="e.g. Alex Student" autocomplete="name">
         </div>
         <div class="exam-form-field">
-          <label for="examContact">WhatsApp number or email (optional)</label>
-          <input type="text" id="examContact" placeholder="So we can follow up with your result" autocomplete="tel">
+          <label for="examContact">WhatsApp number or email</label>
+          <input type="text" id="examContact" placeholder="e.g. +996 555 123 456 or name@email.com" autocomplete="tel" required>
+          <div id="examContactHint" style="color:#E0392C;font-size:13px;margin-top:6px;line-height:1.4" hidden>Please enter a WhatsApp number (with country code) or an email address.</div>
         </div>
         <button type="button" class="exam-start-btn" id="examStartBtn" disabled>Begin Test</button>
         <p class="exam-form-note"><i class="fa-solid fa-clock"></i> Time limit: 30 minutes &middot; 31 questions &middot; Each recording can be played twice</p>
@@ -868,9 +869,12 @@
     $('examOutline').innerHTML = html;
   })();
 
-  nameInput.addEventListener('input', function(){ startBtn.disabled = nameInput.value.trim().length===0; });
+  function validContact(v){ v=String(v||'').trim(); if(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(v)) return true; return /^\+?[\d\s().-]{7,22}$/.test(v) && v.replace(/\D/g,'').length>=7; }
+  function canStart(){ var ok = validContact(contactInput.value); startBtn.disabled = !(nameInput.value.trim() && ok); if(ok) $('examContactHint').hidden = true; }
+  nameInput.addEventListener('input', canStart); contactInput.addEventListener('input', canStart);
+  contactInput.addEventListener('blur', function(){ $('examContactHint').hidden = !contactInput.value.trim() || validContact(contactInput.value); });
   startBtn.addEventListener('click', function(){
-    if(!nameInput.value.trim()) return;
+    if(!nameInput.value.trim() || !validContact(contactInput.value)){ $('examContactHint').hidden = false; return; }
     elStart.classList.remove('active'); elRun.classList.add('active');
     startedAt = Date.now(); startTimer(); renderStep();
   });
@@ -1141,7 +1145,7 @@
 })();
 </script>
 <!-- End EOF Analytics -->
-<script src="eof-result-pdf.js?v=3" defer></script>
+<script src="eof-result-pdf.js?v=4" defer></script>
 <!-- EOF clean URLs: in-page links scroll smoothly without leaving a # in the address bar -->
 <script>
 (function(){

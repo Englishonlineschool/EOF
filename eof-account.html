@@ -362,7 +362,7 @@ let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=3";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=4";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);

@@ -490,6 +490,32 @@
     }).catch(function(err){ console.warn('EOF portal save skipped', err); });
   }
 
+  /* ---------- Email the admin: every finished test, with its PDF ----------
+     Sent to a Google Apps Script web app on englishonlineforum@gmail.com (_tools/placement-notify/Code.gs),
+     which emails the details with the PDF attached. Skipped when the admin is testing; sent once per Result ID. */
+  var NOTIFY_URL = 'https://script.google.com/macros/s/AKfycbx_0FOpjdYaT3ohduaCmy0klXW4DIefOXdj4g1yH7Yt9PnsxFk8TGGjc7o91aU_MBc84g/exec';
+  function notifyAdmin(r, blob, fileName){
+    if(!NOTIFY_URL || !blob) return;
+    var key = 'eofNotified:' + r.resultId;
+    try{ if(localStorage.getItem(key)) return; }catch(e){}
+    var who = import('/eof-portal.js?v=6').then(async function(m){
+      var u = await m.currentUser(); if(!u) return { email:null };
+      return (await m.isAdmin(u)) ? null : { email:u.email || 'student account' };
+    }).catch(function(){ return { email:null }; });
+    var b64 = new Promise(function(res, rej){ var fr = new FileReader(); fr.onload = function(){ res(String(fr.result).split(',')[1]); }; fr.onerror = rej; fr.readAsDataURL(blob); });
+    Promise.all([who, b64]).then(function(v){
+      if(!v[0]) return;                                        // the admin testing the test
+      var c = clean(r), body = JSON.stringify({
+        resultId:r.resultId, name:c.name, contact:c.contact || '', testLabel:r.testLabel, isDemo:!!r.isDemo, level:r.level, pct:r.pct,
+        skills:(r.skills||[]).map(function(s){ return { label:s.label, level:s.level, pct:s.pct, correct:s.correct, total:s.total }; }),
+        answered:r.answered, total:r.total, correct:r.correct, minutes:r.minutes, timedOut:!!r.timedOut,
+        school:r.school ? { grade:r.school.grade, parent:r.school.parent } : null, loggedIn:v[0].email, page:location.pathname,
+        fileName:fileName, pdf:v[1]
+      });
+      return fetch(NOTIFY_URL, { method:'POST', mode:'no-cors', body:body }).then(function(){ try{ localStorage.setItem(key, '1'); }catch(e){} });
+    }).catch(function(err){ console.warn('EOF admin email skipped', err); });
+  }
+
   /* ---------- Staff: rebuild a saved result's PDF ---------- */
   var LEVEL_DESC = {
     A1: 'You can understand and use familiar everyday expressions and very basic phrases. Our Beginner (A1) course will give you a strong foundation.',
@@ -545,6 +571,7 @@
         var n = document.getElementById('eofPdfName'); if(n){ n.textContent = out.fileName; }
         var sz = document.getElementById('eofPdfSize'); if(sz){ sz.textContent = Math.max(1, Math.round(state.blob.size/1024)) + ' KB'; }
         var p = document.getElementById('eofPdfPrompt'); if(p){ p.classList.add('ready'); }
+        notifyAdmin(r, state.blob, out.fileName);
         return out;
       }).catch(function(err){
         console.error('EOF PDF', err);
