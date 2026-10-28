@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=17">
+<link rel="stylesheet" href="eof-portal.css?v=18">
 </head>
 <body>
 <header class="portal-top">
@@ -31,6 +31,7 @@
     <div class="tabs" role="tablist">
       <button class="tab active" data-tab="students" role="tab">Students</button>
       <button class="tab" data-tab="attendance" role="tab">Attendance</button>
+      <button class="tab" data-tab="messages" role="tab" id="messagesTabBtn">Messages<span class="dot hidden" id="msgDot" style="display:inline-block;min-width:18px;height:18px;border-radius:999px;background:var(--red);color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 5px;margin-left:6px"></span></button>
       <button class="tab hidden" data-tab="teachers" role="tab" id="teachersTabBtn">Teachers</button>
       <button class="tab hidden" data-tab="tests" role="tab" id="testsTabBtn">Placement tests</button>
       <button class="tab hidden" data-tab="myprofile" role="tab" id="myProfileTabBtn">My profile</button>
@@ -125,6 +126,25 @@
       <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
       <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
       <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and times, shown in your own time. Click a lesson to open that day and mark attendance.</p>
+    </section>
+
+    <!-- Messages: chats with students (teacher: her students; admin: the school inbox) -->
+    <section id="tab-messages" class="hidden">
+      <div class="toolbar">
+        <select class="input admin-only" id="msgScope" style="max-width:230px" aria-label="Which conversations">
+          <option value="school">School inbox</option>
+          <option value="teacher">Students ↔ teachers</option>
+        </select>
+        <select class="input" id="msgNew" style="max-width:260px" aria-label="Start a conversation"></select>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" id="msgReload" type="button">Refresh</button>
+      </div>
+      <div class="soon hidden" id="msgSoon" style="margin-bottom:12px"><b>Chat is being switched on.</b> It starts working as soon as the new database rules are published.</div>
+      <div class="inbox" id="inbox">
+        <div class="inbox-list" id="inboxList"><div class="inbox-empty">Loading&hellip;</div></div>
+        <div class="inbox-pane" id="inboxPane"><div class="chat-placeholder">Choose a conversation on the left, or start a new one.</div></div>
+      </div>
+      <p class="hint" style="margin-top:10px" id="msgHint"></p>
     </section>
 
     <!-- Placement tests taken on the website (admin only) -->
@@ -387,11 +407,12 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, getDoc, getDocs, setDoc, updateDoc,
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
-  levelHistory, monthYear, query, where } from "./eof-portal.js?v=6";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=9";
+  levelHistory, monthYear, query, where } from "./eof-portal.js?v=7";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=10";
 import { CITIES } from "./eof-cities.js?v=1";
 import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
-  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=1";
+  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=2";
+import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=1";
 import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
 const $ = id => document.getElementById(id);
 
@@ -436,6 +457,8 @@ document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () =>
   $("tab-month").classList.add("hidden");
   $("tab-teachers").classList.toggle("hidden", t.dataset.tab !== "teachers");
   $("tab-tests").classList.toggle("hidden", t.dataset.tab !== "tests");
+  $("tab-messages").classList.toggle("hidden", t.dataset.tab !== "messages");
+  if (t.dataset.tab === "messages") loadInbox();
   if (t.dataset.tab === "tests") loadTests();
   if (t.dataset.tab === "attendance") renderAttendance();
   if (t.dataset.tab === "teachers") loadTeachers();
@@ -1404,32 +1427,91 @@ let bell = null, bellSeen = [];
 function startBell() {
   const pool = () => students.filter(s => (s.status || "active") !== "left");
   bell = mountBell($("staffBell"), {
-    title: "Student replies", staff: true, empty: "No new replies from students.",
-    unread: x => x.type === "reply" && x.readByTeacher === false,
-    footer: "Replies to badges, comments and results. Click one to open the student.",
+    title: "Messages & replies", staff: true, empty: "No new messages or replies from students.",
+    unread: x => (x.type === "reply" || x.type === "chat") && x.readByTeacher === false,
+    footer: "Chat messages and replies to badges, comments and results. Click one to open it.",
     load: async () => {
+      let chats = [];
+      try { inboxItems = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid: ADMIN ? "school" : "teacher" }); chats = inboxBellItems(inboxItems, "staff"); updateMsgDot(); } catch (e) { }
       const lists = await Promise.all(pool().map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
         .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid, studentName: d.data().studentName || s.name })))));
       const fresh = lists.flat().filter(x => x.type === "reply");
       const ids = new Set(fresh.map(x => x.id));
-      return [...fresh, ...bellSeen.filter(x => !ids.has(x.id))].sort((a, b) => (b.at?.toMillis?.() || 0) - (a.at?.toMillis?.() || 0));
+      return [...chats, ...fresh, ...bellSeen.filter(x => !ids.has(x.id))].sort((a, b) => (b.at?.toMillis?.() || 0) - (a.at?.toMillis?.() || 0));
     },
     onOpen: async unread => {
+      unread = unread.filter(x => !x.chat);
       const bySid = {}; unread.forEach(x => (bySid[x.sid] = bySid[x.sid] || []).push(x));
       await Promise.all(Object.entries(bySid).map(([sid, xs]) => markRead(sid, xs, "readByTeacher")));
       bellSeen = [...unread, ...bellSeen].slice(0, 20);
       unread.forEach(u => { const c = (feedCache[u.sid] || []).find(x => x.id === u.id); if (c) c.readByTeacher = true; });
     },
-    onItemClick: it => { const s = it && students.find(x => x.uid === it.sid); if (s) { openModal(s); setMTab("progress"); } }
+    onItemClick: it => {
+      if (it?.chat) { showTab("messages"); if (ADMIN) $("msgScope").value = it.tid; loadInbox().then(() => openStaffChat(it.sid, it.tid)); return; }
+      const s = it && students.find(x => x.uid === it.sid); if (s) { openModal(s); setMTab("progress"); }
+    }
   });
 }
+const showTab = name => document.querySelector(`.tab[data-tab="${name}"]`)?.click();
+
+// ---------- Messages (chat with students) ----------
+let inboxItems = [], staffChat = null, chatKey = null;
+const msgTid = () => ADMIN ? $("msgScope").value : "teacher";
+const whenShort = x => { const t = x?.toMillis ? x.toMillis() : x?.seconds ? x.seconds * 1000 : 0; if (!t) return ""; const d = new Date(t); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+function updateMsgDot() {
+  const n = inboxItems.filter(x => x.unreadStaff && x.tid === (ADMIN ? "school" : "teacher")).length;
+  $("msgDot").textContent = n; $("msgDot").classList.toggle("hidden", !n);
+}
+async function loadInbox() {
+  let off = false;
+  try { inboxItems = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid: msgTid() }); }
+  catch (e) { inboxItems = []; off = isDenied(e); }
+  $("msgSoon").classList.toggle("hidden", !off);
+  // "Start a conversation" list: a teacher's own students; the admin can write to any current student
+  const pool = students.filter(s => TEACHER || (s.status || "active") !== "left").filter(s => msgTid() === "school" || s.teacher).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  $("msgNew").innerHTML = `<option value="">✉️ New message to…</option>` + pool.map(s => `<option value="${s.uid}">${esc(s.name)}${!s.authUid ? " (no login yet)" : ""}</option>`).join("");
+  $("msgHint").textContent = TEACHER ? "Messages with your students. Students can send photos and documents (up to 5 MB); so can you. Click a photo or file to open it."
+    : msgTid() === "school" ? "Messages students send to the school. Only the admin sees these — teachers don't." : "Every student ↔ teacher conversation, for the admin's overview. You can reply too; your name is shown.";
+  renderInbox(); if (msgTid() === (ADMIN ? "school" : "teacher")) updateMsgDot();
+}
+function renderInbox() {
+  const tid = msgTid();
+  $("inboxList").innerHTML = inboxItems.length ? inboxItems.map(x => `<button type="button" class="inbox-item${x.unreadStaff ? " unread" : ""}${chatKey === x.sid + "_" + tid ? " sel" : ""}" data-chat="${esc(x.sid)}">
+      <div class="ii-main"><b>${esc(x.studentName || students.find(s => s.uid === x.sid)?.name || "Student")}</b><small>${x.lastByRole === "staff" ? "You: " : ""}${esc(x.lastText || "")}</small>${ADMIN && tid === "teacher" ? `<small>with ${esc(x.teacher || "—")}</small>` : ""}</div>
+      <span class="ii-when">${esc(whenShort(x.lastAt))}</span></button>`).join("")
+    : `<div class="inbox-empty">No conversations yet.${tid === "school" ? " When a student writes to the school, it appears here." : " When a student writes, it appears here — or start one above."}</div>`;
+}
+function openStaffChat(sid, tid = msgTid()) {
+  const s = students.find(x => x.uid === sid); if (!s) { toast("This student isn't in your list.", "bad"); return; }
+  chatKey = sid + "_" + tid; staffChat && staffChat.destroy();
+  $("inboxPane").innerHTML = `<div id="staffChatBox"></div>`;
+  const row = inboxItems.find(x => x.sid === sid);
+  staffChat = mountChat($("staffChatBox"), {
+    s, tid, me: { uid: me.uid, role: ADMIN ? "admin" : "teacher", name: ADMIN ? `${author().name} (school)` : author().name },
+    title: s.name, subtitle: [tid === "school" ? "Writing to the school" : `Teacher: ${s.teacher || "—"}`, s.level, [s.city, s.country].filter(Boolean).join(", ")].filter(Boolean).join(" · ") + (!s.authUid ? " · no portal login yet" : ""),
+    headExtra: `<button type="button" class="btn btn-ghost btn-sm chat-back" data-chat-back>&larr; Back</button><button type="button" class="btn btn-ghost btn-sm" data-chat-record="${s.uid}">Record</button>`,
+    empty: `No messages yet. Write to ${s.name.split(" ")[0]} — she sees it in her student portal.`,
+    inboxUnread: !!row?.unreadStaff,
+    onRead: () => { if (row) row.unreadStaff = false; renderInbox(); updateMsgDot(); bell && bell.refresh(); },
+    onSent: () => { setTimeout(loadInbox, 400); }
+  });
+  $("inbox").classList.add("open"); renderInbox();
+}
+$("inboxList").addEventListener("click", e => { const b = e.target.closest("[data-chat]"); if (b) openStaffChat(b.dataset.chat); });
+$("inboxPane").addEventListener("click", e => {
+  if (e.target.closest("[data-chat-back]")) { $("inbox").classList.remove("open"); return; }
+  const r = e.target.closest("[data-chat-record]"); if (r) openModal(students.find(s => s.uid === r.dataset.chatRecord));
+});
+$("msgNew").addEventListener("change", () => { const sid = $("msgNew").value; $("msgNew").value = ""; if (sid) openStaffChat(sid); });
+$("msgScope").addEventListener("change", () => { staffChat && staffChat.destroy(); staffChat = null; chatKey = null; $("inboxPane").innerHTML = `<div class="chat-placeholder">Choose a conversation on the left, or start a new one.</div>`; $("inbox").classList.remove("open"); loadInbox(); });
+$("msgReload").addEventListener("click", loadInbox);
 
 // ---------- Placement test PDFs (same PDF the student got on the website) ----------
 let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=4";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=5";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);

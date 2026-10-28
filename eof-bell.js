@@ -1,8 +1,9 @@
 // Notification bell for the main website header. index.html loads this only when someone
 // has logged in to the portal on this device (localStorage "eofPortal"), after the page has
 // finished loading, so the homepage stays fast for everyone else.
-import { auth, db, currentUser, isAdmin, getDoc, getDocs, doc, collection, query, where, limit } from "./eof-portal.js?v=6";
-import { mountBell, loadFeed, markRead, feedCol } from "./eof-awards.js?v=1";
+import { auth, db, currentUser, isAdmin, getDoc, getDocs, doc, collection, query, where, limit } from "./eof-portal.js?v=7";
+import { mountBell, loadFeed, markRead, feedCol } from "./eof-awards.js?v=2";
+import { staffInbox, studentInbox, inboxBellItems } from "./eof-chat.js?v=1";
 
 const el = document.getElementById("siteBell");
 const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } };
@@ -26,11 +27,15 @@ const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) {
     const list = snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(s => (s.status || "active") !== "left");
     el.hidden = false;
     mountBell(el, {
-      light: true, staff: true, title: "Student replies", empty: "No new replies from students.",
+      light: true, staff: true, title: "Messages & replies", empty: "No new messages or replies from students.",
       footer: `<a href="eof-admin.html">Open the staff area</a>`,
-      unread: x => x.type === "reply" && x.readByTeacher === false,
-      load: async () => (await Promise.all(list.map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
-        .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid })))))).flat().filter(x => x.type === "reply"),
+      unread: x => (x.type === "reply" || x.type === "chat") && x.readByTeacher === false,
+      load: async () => {
+        const chats = await staffInbox({ admin, teacherName: teacher?.name }).then(r => inboxBellItems(r, "staff")).catch(() => []);
+        const replies = (await Promise.all(list.map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
+          .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid })))))).flat().filter(x => x.type === "reply");
+        return [...chats, ...replies];
+      },
       onItemClick: () => { location.href = "eof-admin.html"; }
     });
     return;
@@ -43,8 +48,11 @@ const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) {
     light: true, title: "Notifications", empty: "Nothing new yet.",
     footer: `<a href="eof-account.html">Open my account</a>`,
     unread: x => x.byRole !== "student" && x.readByStudent === false,
-    load: async () => (await loadFeed(sid)).filter(x => x.byRole !== "student"),
-    onOpen: unread => markRead(sid, unread, "readByStudent"),
-    onItemClick: () => { location.href = "eof-account.html#messages"; }
+    load: async () => {
+      const chats = await studentInbox(sid).then(r => inboxBellItems(r, "student")).catch(() => []);
+      return [...chats, ...(await loadFeed(sid)).filter(x => x.byRole !== "student")];
+    },
+    onOpen: unread => markRead(sid, unread.filter(x => !x.chat), "readByStudent"),
+    onItemClick: it => { location.href = it && it.chat ? "eof-account.html#chatCard" : "eof-account.html#messages"; }
   });
 })().catch(() => { if (el) el.remove(); });

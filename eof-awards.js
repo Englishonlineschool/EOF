@@ -1,7 +1,7 @@
 // Freedom Points, Passport/Unit stamps, teacher badges, feed (notifications) and the bell.
 // Shared by eof-admin.html (staff), eof-account.html (student) and eof-bell.js (website header).
 // Everything runs in the browser against Firestore (Spark plan — no server code).
-import { db, doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, serverTimestamp, esc, prettyDate, isoDate, DAYS, DAY_NAMES } from "./eof-portal.js?v=6";
+import { db, doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, serverTimestamp, esc, prettyDate, isoDate, DAYS, DAY_NAMES } from "./eof-portal.js?v=7";
 import { PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, SCHOOL_UNITS, unitTestBand } from "./eof-curriculum.js?v=1";
 
 // ---------- Programmes ----------
@@ -163,8 +163,8 @@ export async function markRead(sid, items, field) {
   await Promise.all(items.filter(x => x[field] === false).map(x => updateDoc(doc(db, "students", sid, "feed", x.id), { [field]: true }).then(() => { x[field] = true; })));
 }
 
-export const typeLabel = it => ({ stamp: "Stamp", award: "Badge", result: "Result", comment: "Feedback", reply: "Reply", milestone: "Milestone" }[it.type] || "Update");
-const typeIcon = it => it.type === "award" ? (BADGE[it.badge]?.icon || "🏅") : ({ stamp: "🛂", result: "📝", comment: "💬", reply: "↩️", milestone: "🏆" }[it.type] || "🔔");
+export const typeLabel = it => ({ stamp: "Stamp", award: "Badge", result: "Result", comment: "Feedback", reply: "Reply", milestone: "Milestone", chat: "Chat" }[it.type] || "Update");
+const typeIcon = it => it.type === "award" ? (BADGE[it.badge]?.icon || "🏅") : ({ stamp: "🛂", result: "📝", comment: "💬", reply: "↩️", milestone: "🏆", chat: "✉️" }[it.type] || "🔔");
 export function when(it) {
   const ms = atMs(it), d = Date.now() - ms;
   if (d < 60e3) return "just now";
@@ -177,7 +177,7 @@ export function feedItemHtml(it, opts = {}) {
   const pts = it.points > 0 ? `<span class="fd-pts">+${it.points}</span>` : "";
   const who = it.byRole === "student" ? (opts.staff ? esc(it.studentName || it.byName || "Student") : "You") : esc(it.byName || "Your teacher");
   const replies = (opts.replies || []).map(r => `<div class="fd-reply${opts.staff && r.readByTeacher === false ? " unread" : ""}"><b>${r.byRole === "student" ? (opts.staff ? esc(r.studentName || "Student") : "You") : esc(r.byName || "Teacher")}</b> <span class="fd-when">${esc(when(r))}</span><p>${esc(r.body)}</p></div>`).join("");
-  const unread = opts.staff ? it.type === "reply" && it.readByTeacher === false : it.readByStudent === false;
+  const unread = opts.staff ? (it.type === "reply" || it.type === "chat") && it.readByTeacher === false : it.readByStudent === false;
   return `<div class="fd-item fd-${esc(it.type)}${unread ? " unread" : ""}" data-fid="${esc(it.id)}">
     <div class="fd-icon" aria-hidden="true">${typeIcon(it)}</div>
     <div class="fd-main">

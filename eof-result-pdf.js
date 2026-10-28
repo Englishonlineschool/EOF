@@ -462,7 +462,7 @@
     return JSON.parse(JSON.stringify(o));
   }
   function saveToPortal(r){
-    import('/eof-portal.js?v=6').then(async function(m){
+    import('/eof-portal.js?v=7').then(async function(m){
       var u = await m.currentUser();
       if(u && await m.isAdmin(u)) return;                      // the school testing its own test
       var pdf = clean(r), sid = null, date = m.isoDate();
@@ -498,7 +498,7 @@
     if(!NOTIFY_URL || !blob) return;
     var key = 'eofNotified:' + r.resultId;
     try{ if(localStorage.getItem(key)) return; }catch(e){}
-    var who = import('/eof-portal.js?v=6').then(async function(m){
+    var who = import('/eof-portal.js?v=7').then(async function(m){
       var u = await m.currentUser(); if(!u) return { email:null };
       return (await m.isAdmin(u)) ? null : { email:u.email || 'student account' };
     }).catch(function(){ return { email:null }; });

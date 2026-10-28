@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=17">
+<link rel="stylesheet" href="eof-portal.css?v=18">
 </head>
 <body>
 <header class="portal-top">
@@ -43,6 +43,12 @@
         <div class="idcard"><img class="id-photo hidden" id="idPhoto" alt=""><small>Student number</small><strong id="studentNo"></strong></div>
         <button class="btn btn-primary" id="cardBtn" type="button">Download my student card (PDF)</button>
       </div>
+    </section>
+
+    <section class="card" id="chatCard">
+      <div class="sec-head"><h2 style="margin:0">Chat</h2><span class="hint" style="margin:0">Ask a question or send a photo of your homework or a document.</span></div>
+      <div class="ctabs" id="chatTabs" role="tablist"></div>
+      <div id="chatBox"></div>
     </section>
 
     <section class="card" id="progressCard">
@@ -119,11 +125,13 @@
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, DAYS, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
-  levelHistory, monthYear, doc, getDoc, isoDate } from "./eof-portal.js?v=6";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=9";
+  levelHistory, monthYear, doc, getDoc, isoDate } from "./eof-portal.js?v=7";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=10";
 import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
-  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=1";
+  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=2";
 import { canDo } from "./eof-curriculum.js?v=1";
+import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=1";
+let teacherLabel = "", teacherPhoto = null, chatUI = null, chatTid = null, inboxRows = [];
 let me = null, sid = null, attRows = [], results = [], progress = null, feed = [], progressOff = false, feedOff = false, bell = null;
 document.getElementById("yr").textContent = new Date().getFullYear();
 const $ = id => document.getElementById(id);
@@ -173,7 +181,7 @@ else {
       $("levelTrack").innerHTML = hist.length ? `<span class="hint" style="display:inline;margin-right:6px">My level progress</span>` + hist.map((x, i) =>
         `<span class="lt-step${i === hist.length - 1 ? " now" : ""}"><b>${esc(x.level)}</b>${x.date ? `<small>${esc(monthYear(x.date))}</small>` : ""}</span>`).join('<span class="lt-arrow">→</span>') : "";
 
-      loadTeacher(s);
+      loadTeacher(s).then(startChat);
       const [att, res, pr] = await Promise.all([
         getDocs(collection(db, "students", snap.id, "attendance")),
         getDocs(collection(db, "students", snap.id, "results")).catch(() => ({ docs: [] })),
@@ -201,10 +209,12 @@ else {
           try { feed = await loadFeed(sid); feedOff = false; }
           catch (e) { feed = []; feedOff = isDenied(e); renderAll(); throw e; }
           renderAll();
-          return feed.filter(x => x.byRole !== "student");
+          let chats = [];
+          try { inboxRows = await studentInbox(sid); chats = inboxBellItems(inboxRows, "student", teacherLabel); renderChatTabs(); } catch (e) { }
+          return [...chats, ...feed.filter(x => x.byRole !== "student")];
         },
-        onOpen: async unread => { await markRead(sid, unread, "readByStudent"); renderFeed(); },
-        onItemClick: it => { const el = document.querySelector(`#feedBody [data-fid="${it?.id}"]`) || $("messages"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        onOpen: async unread => { await markRead(sid, unread.filter(x => !x.chat), "readByStudent"); renderFeed(); },
+        onItemClick: it => { if (it?.chat) { openChat(it.tid); $("chatCard").scrollIntoView({ behavior: "smooth", block: "start" }); return; } const el = document.querySelector(`#feedBody [data-fid="${it?.id}"]`) || $("messages"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
       });
     }
   } catch (e) {
@@ -315,11 +325,42 @@ function renderTimetable() {
     <p class="hint" style="margin:0">Times are in ${esc(place || "your city")}${s.timeZone ? ` (${esc(String(s.timeZone).split(" ")[0])})` : ""}. This month you've attended <b>${taught}</b> lesson${taught === 1 ? "" : "s"}.</p>`;
 }
 
+// ---------- Chat with my teacher / the school ----------
+function chatThreads() { return me.teacher ? ["teacher", "school"] : ["school"]; }
+function renderChatTabs() {
+  const un = tid => inboxRows.some(r => r.tid === tid && r.unreadStudent);
+  $("chatTabs").innerHTML = chatThreads().map(tid => `<button type="button" class="ctab${tid === chatTid ? " on" : ""}" data-ctid="${tid}" role="tab">${tid === "teacher" ? "👩‍🏫 " + esc(teacherLabel || "My teacher") : "🏫 The school"}${un(tid) && tid !== chatTid ? `<span class="dot">!</span>` : ""}</button>`).join("");
+}
+function openChat(tid) {
+  if (!chatThreads().includes(tid)) tid = chatThreads()[0];
+  if (chatTid === tid && chatUI) return;
+  chatTid = tid; chatUI && chatUI.destroy();
+  const school = tid === "school";
+  chatUI = mountChat($("chatBox"), {
+    s: me, tid, me: { uid: auth.currentUser.uid, role: "student", name: me.name },
+    title: school ? "English Online Forum" : (teacherLabel || "My teacher"),
+    subtitle: school ? "The school office — questions about lessons, payments, schedule…" : "Your teacher",
+    avatar: school ? `<img src="favicon-192.png" alt="">` : (teacherPhoto ? `<img src="${teacherPhoto}" alt="">` : ""),
+    empty: school ? "Write to the school — we usually reply within a day." : `Ask ${teacherLabel || "your teacher"} a question or send your homework.`,
+    inboxUnread: inboxRows.some(r => r.tid === tid && r.unreadStudent),
+    onRead: () => { inboxRows.forEach(r => { if (r.tid === tid) r.unreadStudent = false; }); renderChatTabs(); bell && bell.refresh(); }
+  });
+  renderChatTabs();
+}
+$("chatTabs").addEventListener("click", e => { const b = e.target.closest("[data-ctid]"); if (b) openChat(b.dataset.ctid); });
+async function startChat() {
+  try { inboxRows = await studentInbox(sid); } catch (e) { }
+  const first = inboxRows.filter(r => r.unreadStudent).sort((a, b) => (b.lastAt?.seconds || 0) - (a.lastAt?.seconds || 0))[0];
+  openChat(first ? first.tid : chatThreads()[0]);
+}
+
 // ---------- My teacher ----------
 async function loadTeacher(s) {
+  teacherLabel = s.teacher || "";
   if (!s.teacher) { $("teacherBody").innerHTML = `<p class="hint">Your teacher will be shown here soon.</p>`; return; }
   let t = null;
   try { t = await findPublicTeacher(s.teacher); } catch (e) { }
+  if (t) { teacherLabel = titled(t); teacherPhoto = t.photo || null; }
   if (!t) { $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box"><span class="ph-initials">${esc(s.teacher.split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span></div><div><h3>${esc(s.teacher)}</h3><p class="hint">Your teacher's full profile will appear here soon.</p></div></div>`; return; }
   $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box">${t.photo ? `<img src="${t.photo}" alt="">` : `<span class="ph-initials">${esc(String(t.name).split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span>`}</div>
     <div style="flex:1;min-width:200px"><h3>${esc(titled(t))}</h3>${t.teaches ? `<div class="tc-sub">Teaches ${esc(t.teaches)}</div>` : `<div class="tc-sub">English Online Forum teacher</div>`}${t.bio ? `<p>${esc(t.bio)}</p>` : ""}</div></div>`;
@@ -362,7 +403,7 @@ let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=4";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=5";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);
