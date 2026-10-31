@@ -1,0 +1,218 @@
+// English Online Forum — Firestore security rules, 31 Oct 2026 (version 3: safety fix).
+// Same as version 2 (chat, published 31 Oct) with ONE change: publicTeachers (the teacher card students see)
+// can now be written only by the admin or a real teacher for her own card, and its photo must be an image.
+// Paste ALL of this into Firebase console → Firestore Database → Rules → Publish.
+// Same as the rules published on 28 Oct 2026 at 10:44, plus CHAT:
+//   • students/{sid}/threads/{teacher|school}/messages/{id} — student ↔ her teacher, student ↔ the school (admin)
+//   • students/{sid}/files/{id} (+ /chunks/{n})               — photos and documents sent in a chat (stored in pieces)
+//   • inbox/{sid}_{tid}                                         — one small summary per conversation, for the bells
+//   Teachers can never read a student's conversation with the school.
+// Earlier additions (28 Oct, first version), unchanged:
+//   • students/{sid}/progress/{doc} — programme, stamps, units, Exit Tickets (admin + her teacher write; the student reads)
+//   • students/{sid}/feed/{id}      — stamps, badges, results, comments and the student's replies
+//   • a collection-group read rule for feed (teacher sees items for her own students)
+//   • publicTeachers/{uid}          — teacher card for students (photo, title, name, subjects, short bio)
+//   • referredBy on the student record stays admin-only (teachers may still change only lastResult)
+//   • placementTests/{resultId}      — a copy of every placement test finished on the website (logged in or not),
+//                                      so the admin can download the same result PDF the student received
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function teacherDoc() { return get(/databases/$(database)/documents/teachers/$(request.auth.uid)); }
+    function isTeacher() {
+      return signedIn() && exists(/databases/$(database)/documents/teachers/$(request.auth.uid)) && teacherDoc().data.active == true;
+    }
+
+    // Admin list: managed only from the Firebase console.
+    match /admins/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // Teacher profiles: created by admins. A teacher can read her own profile and update only her CV and "lastLogin" time.
+    match /teachers/{uid} {
+      allow read: if isAdmin() || isSelf(uid);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isSelf(uid) && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastLogin', 'bio', 'education', 'experience', 'certificates', 'languages', 'skills']));
+    }
+
+    // NEW — Teacher card shown to students: photo, title, name, subjects, short bio only
+    // (no phone, date of birth, email or CV). Any signed-in user can read; the admin or that teacher writes.
+    match /publicTeachers/{uid} {
+      allow read: if signedIn();
+      allow delete: if isAdmin();
+      // Only the admin, or a real (active) teacher for her own card. The photo must be an image or empty.
+      allow create, update: if (isAdmin() || (isSelf(uid) && isTeacher())) &&
+        request.resource.data.keys().hasOnly(['name', 'title', 'teaches', 'bio', 'photo', 'updatedAt']) &&
+        (!('photo' in request.resource.data) || request.resource.data.photo == null ||
+         request.resource.data.photo.matches('^data:image/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$'));
+    }
+
+    // NEW — Placement test results from the website. Anyone finishing a test (even without logging in)
+    // can ADD one result; nobody but the admin can read, change or delete them.
+    match /placementTests/{tid} {
+      allow read, update, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['r', 'date', 'studentId', 'authUid', 'email', 'createdAt']) &&
+        request.resource.data.r is map &&
+        request.resource.data.r.name is string && request.resource.data.r.name.size() <= 120 &&
+        request.resource.data.r.resultId == tid &&
+        request.resource.data.createdAt == request.time &&
+        (request.resource.data.authUid == null || (signedIn() && request.resource.data.authUid == request.auth.uid));
+    }
+
+    // NEW (chat) — one summary document per conversation: inbox/{studentId}_{teacher|school}.
+    // Lets the bells find unread conversations with one query. Only the people in that conversation can read or change it.
+    match /inbox/{id} {
+      function stu(sid) { return get(/databases/$(database)/documents/students/$(sid)).data; }
+      function isStudentOf(sid) { return signedIn() && stu(sid).authUid == request.auth.uid && stu(sid).portalBlocked == false; }
+      function isTeacherOf(sid) { return isTeacher() && stu(sid).teacher == teacherDoc().data.name; }
+      function validInbox() {
+        return id == request.resource.data.sid + '_' + request.resource.data.tid &&
+          request.resource.data.tid in ['teacher', 'school'] &&
+          request.resource.data.keys().hasOnly(['sid', 'tid', 'teacher', 'studentName', 'lastAt', 'lastText', 'lastByRole', 'unreadStaff', 'unreadStudent']);
+      }
+      allow read: if isAdmin() ||
+        (isTeacher() && resource.data.tid == 'teacher' && resource.data.teacher == teacherDoc().data.name) ||
+        (signedIn() && isStudentOf(id.split('_')[0]));   // also works for a conversation that doesn't exist yet
+      allow create, update: if isAdmin() || (validInbox() && (
+        (isStudentOf(request.resource.data.sid) && request.resource.data.teacher == stu(request.resource.data.sid).teacher) ||
+        (request.resource.data.tid == 'teacher' && isTeacherOf(request.resource.data.sid) && request.resource.data.teacher == teacherDoc().data.name)));
+      allow delete: if isAdmin();
+    }
+
+    // Running number for student IDs.
+    match /counters/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // Student records.
+    // Admins manage everything (including "referredBy"). A student reads only their own record (authUid).
+    // A teacher reads only the students whose "teacher" field is her name.
+    match /students/{sid} {
+      function studentDoc() { return get(/databases/$(database)/documents/students/$(sid)); }
+      function owns() {
+        return signedIn() && studentDoc().data.authUid == request.auth.uid &&
+          studentDoc().data.portalBlocked == false;
+      }
+      function teaches() {
+        return isTeacher() && studentDoc().data.teacher == teacherDoc().data.name;
+      }
+      allow read: if isAdmin() ||
+        (signedIn() && resource.data.authUid == request.auth.uid && resource.data.portalBlocked == false) ||
+        (isTeacher() && resource.data.teacher == teacherDoc().data.name);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (signedIn() && resource.data.authUid == request.auth.uid && resource.data.portalBlocked == false &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastResult', 'lastLogin'])) ||
+        (isTeacher() && resource.data.teacher == teacherDoc().data.name &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastResult']));
+
+      // Phone numbers: admins and the student only (teachers cannot see them).
+      match /private/{docId} {
+        allow read: if isAdmin() || owns();
+        allow write: if isAdmin();
+      }
+
+      // Student photo: admins upload; the student and her teacher can see it.
+      match /media/{docId} {
+        allow read: if isAdmin() || owns() || teaches();
+        allow write: if isAdmin();
+      }
+
+      match /attendance/{date} {
+        allow read: if isAdmin() || owns() || teaches();
+        allow write: if isAdmin() || teaches();
+      }
+
+      // Test and exam results. Students can add only their own online placement test result.
+      match /results/{rid} {
+        allow read: if isAdmin() || owns() || teaches();
+        allow create: if isAdmin() || teaches() ||
+          (owns() && request.resource.data.source == 'online-test' && request.resource.data.type == 'Placement test');
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || teaches();
+      }
+
+      // NEW — Programme, Passport/Unit stamps, unit list, Exit Tickets (doc "main").
+      // Freedom Points are worked out from this, the results, badges and attendance.
+      match /progress/{docId} {
+        allow read: if isAdmin() || owns() || teaches();
+        allow write: if isAdmin() || teaches();
+      }
+
+      // NEW (chat) — Messages. "teacher" = the student and her teacher; "school" = the student and the admin.
+      match /threads/{tid}/messages/{mid} {
+        function party() { return tid in ['teacher', 'school'] && (isAdmin() || owns() || (tid == 'teacher' && teaches())); }
+        allow read: if party();
+        allow create: if party() &&
+          request.resource.data.at == request.time &&
+          request.resource.data.text is string && request.resource.data.text.size() <= 2000 &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['text', 'file', 'uid', 'byRole', 'byName', 'at', 'readByStudent', 'readByStaff']) &&
+          ((owns() && request.resource.data.byRole == 'student' && request.resource.data.readByStudent == true && request.resource.data.readByStaff == false) ||
+           ((isAdmin() || teaches()) && request.resource.data.byRole in ['teacher', 'admin'] && request.resource.data.readByStaff == true && request.resource.data.readByStudent == false));
+        allow update: if (owns() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readByStudent'])) ||
+          ((isAdmin() || (tid == 'teacher' && teaches())) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readByStaff']));
+        allow delete: if isAdmin();
+      }
+
+      // NEW (chat) — Photos and documents sent in a chat, stored in pieces (Firebase Storage needs the paid plan).
+      match /files/{fid} {
+        function fileThread() { return get(/databases/$(database)/documents/students/$(sid)/files/$(fid)).data.thread; }
+        allow read: if isAdmin() || owns() || (teaches() && resource.data.thread == 'teacher');
+        allow create: if request.resource.data.by == request.auth.uid && request.resource.data.complete == false &&
+          request.resource.data.thread in ['teacher', 'school'] && request.resource.data['size'] <= 5242880 &&
+          (isAdmin() || owns() || (teaches() && request.resource.data.thread == 'teacher'));
+        allow update: if resource.data.by == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['complete']);
+        allow delete: if isAdmin();
+        match /chunks/{n} {
+          allow read: if isAdmin() || owns() || (teaches() && fileThread() == 'teacher');
+          allow create: if get(/databases/$(database)/documents/students/$(sid)/files/$(fid)).data.by == request.auth.uid &&
+            get(/databases/$(database)/documents/students/$(sid)/files/$(fid)).data.complete == false &&
+            request.resource.data.d is string && request.resource.data.d.size() <= 750000;
+          allow delete: if isAdmin();
+        }
+      }
+
+      // NEW — Notifications feed: stamp | award | result | comment | milestone (staff) and reply (student).
+      match /feed/{fid} {
+        allow read: if isAdmin() || owns() || teaches();
+        // Staff post anything except a student reply.
+        allow create: if isAdmin() ||
+          (teaches() && request.resource.data.type in ['stamp', 'award', 'result', 'comment', 'milestone']) ||
+          // The student may create ONLY a short reply (max 500 characters), addressed to her own teacher.
+          (owns() && request.resource.data.type == 'reply' &&
+           request.resource.data.byRole == 'student' &&
+           request.resource.data.body is string &&
+           request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 500 &&
+           request.resource.data.points == 0 &&
+           request.resource.data.readByStudent == true && request.resource.data.readByTeacher == false &&
+           request.resource.data.teacher == studentDoc().data.teacher &&
+           request.resource.data.sid == sid &&
+           request.resource.data.at == request.time &&
+           request.resource.data.keys().hasOnly(['type', 'title', 'body', 'points', 'replyTo', 'date', 'teacher', 'sid',
+             'studentName', 'by', 'byName', 'byRole', 'at', 'readByStudent', 'readByTeacher']));
+        // Teachers may only mark items read; the student may only mark items read on her side.
+        allow update: if isAdmin() ||
+          (teaches() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readByTeacher'])) ||
+          (owns() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readByStudent']));
+        allow delete: if isAdmin() || (teaches() && resource.data.type != 'reply');
+      }
+    }
+
+    // NEW — Collection-group read of feed items (e.g. a teacher's bell across all her students).
+    // Only items whose "teacher" field is her own name; admins read everything.
+    match /{path=**}/feed/{fid} {
+      allow read: if isAdmin() || (isTeacher() && resource.data.teacher == teacherDoc().data.name);
+    }
+  }
+}
