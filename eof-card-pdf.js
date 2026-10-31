@@ -22,7 +22,8 @@ let libPromise = null;
 function lib() {
   if (window.jspdf) return Promise.resolve();
   return libPromise ||= loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js")
-    .catch(() => loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"));
+    .catch(() => loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"))
+    .catch(e => { libPromise = null; throw e; });   // a failed download can be retried on the next click
 }
 
 // Full Poppins (with Turkish letters ğ ş ı İ). Falls back to built-in fonts if it can't load.

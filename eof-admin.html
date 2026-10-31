@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=18">
+<link rel="stylesheet" href="eof-portal.css?v=19">
 </head>
 <body>
 <header class="portal-top">
@@ -409,15 +409,16 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=7";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=10";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=11";
 import { CITIES } from "./eof-cities.js?v=1";
 import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
-  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=3";
-import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=2";
+  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=4";
+import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=3";
 import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
 const $ = id => document.getElementById(id);
 
-$("logoutBtn").addEventListener("click", async () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } await signOut(auth); location.replace(typeof TEACHER !== "undefined" && TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
+let IS_TEACHER = false;   // set once we know; safe to read even while the page is still loading
+$("logoutBtn").addEventListener("click", async () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } await signOut(auth); location.replace(IS_TEACHER ? "eof-admin-login.html?as=teacher" : "eof-admin-login.html"); });
 
 const me = await currentUser();
 if (!me) { location.replace("eof-admin-login.html"); throw new Error("not signed in"); }
@@ -425,7 +426,7 @@ const ADMIN = await isAdmin(me);
 let TEACHER = null;   // {name, ...} when a teacher is logged in
 if (!ADMIN) {
   const t = await getDoc(doc(db, "teachers", me.uid)).catch(() => null);
-  if (t && t.exists() && t.data().active !== false) TEACHER = t.data();
+  if (t && t.exists() && t.data().active === true) { TEACHER = t.data(); IS_TEACHER = true; }
   else { location.replace("eof-account.html"); throw new Error("not staff"); }
   updateDoc(doc(db, "teachers", me.uid), { lastLogin: serverTimestamp() }).catch(() => {});
   document.body.classList.add("teacher-mode");
@@ -474,7 +475,7 @@ async function loadStudents() {
   renderStudents();
   // Attendance totals (loaded after the table is shown)
   await Promise.all(students.map(async s => {
-    const a = await getDocs(collection(db, "students", s.uid, "attendance"));
+    const a = await getDocs(collection(db, "students", s.uid, "attendance")).catch(() => ({ forEach() {} }));
     let p = 0, ab = 0; attDocs[s.uid] = {};
     a.forEach(d => { const x = d.data(); attDocs[s.uid][d.id] = { status: x.status, lessons: x.lessons || null }; x.status === "present" ? p++ : ab++; });
     attStats[s.uid] = { p, a: ab };
@@ -720,6 +721,10 @@ $("fSlots").addEventListener("click", e => {
 
 function openModal(s) {
   editing = s || null;
+  // Nothing from the previously opened student may linger (results, progress, open forms, replies)
+  resultRows = []; pgSel = null; fbReplyTo = null;
+  $("resultList").innerHTML = ""; $("pgGrid").innerHTML = ""; $("pgFeed").innerHTML = ""; $("pgPoints").innerHTML = "";
+  document.querySelectorAll("#progressBox .ppanel").forEach(x => x.classList.add("hidden"));
   $("formErr").textContent = "";
   $("modalTitle").textContent = s ? s.name : "Register student";
   $("saveBtn").textContent = s ? "Save changes" : "Register student";
@@ -889,17 +894,25 @@ $("deleteBtn").addEventListener("click", async () => {
   const b = $("deleteBtn");
   if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Click again to delete permanently"; return; }
   b.disabled = true;
+  const st = editing; if (!st) return;
   try {
-    const att = await getDocs(collection(db, "students", editing.uid, "attendance"));
-    const res = await getDocs(collection(db, "students", editing.uid, "results")).catch(() => ({ docs: [] }));
-    const fd = await getDocs(feedCol(editing.uid)).catch(() => ({ docs: [] }));
-    await Promise.all([...att.docs, ...res.docs, ...fd.docs].map(d => deleteDoc(d.ref)));
-    await deleteDoc(doc(db, "students", editing.uid, "progress", "main")).catch(() => {});
-    await deleteDoc(doc(db, "students", editing.uid, "private", "contact")).catch(() => {});
-    await deleteDoc(doc(db, "students", editing.uid, "media", "photo")).catch(() => {});
-    await deleteDoc(doc(db, "students", editing.uid));
-    const name = editing.name;
-    students = students.filter(x => x.uid !== editing.uid);
+    const none = { docs: [] }, uid = st.uid;
+    const att = await getDocs(collection(db, "students", uid, "attendance"));
+    const res = await getDocs(collection(db, "students", uid, "results")).catch(() => none);
+    const fd = await getDocs(feedCol(uid)).catch(() => none);
+    // chat: messages in both conversations, files (+ their pieces) and the two inbox summaries
+    const msgs = (await Promise.all(["teacher", "school"].map(t => getDocs(collection(db, "students", uid, "threads", t, "messages")).catch(() => none)))).flatMap(q => q.docs);
+    const files = await getDocs(collection(db, "students", uid, "files")).catch(() => none);
+    const chunks = (await Promise.all(files.docs.map(f => getDocs(collection(db, "students", uid, "files", f.id, "chunks")).catch(() => none)))).flatMap(q => q.docs);
+    await Promise.all([...att.docs, ...res.docs, ...fd.docs, ...msgs, ...chunks].map(d => deleteDoc(d.ref)));
+    await Promise.all(files.docs.map(d => deleteDoc(d.ref).catch(() => {})));
+    await Promise.all(["teacher", "school"].map(t => deleteDoc(doc(db, "inbox", `${uid}_${t}`)).catch(() => {})));
+    await deleteDoc(doc(db, "students", uid, "progress", "main")).catch(() => {});
+    await deleteDoc(doc(db, "students", uid, "private", "contact")).catch(() => {});
+    await deleteDoc(doc(db, "students", uid, "media", "photo")).catch(() => {});
+    await deleteDoc(doc(db, "students", uid));
+    const name = st.name;
+    students = students.filter(x => x.uid !== uid);
     closeModal(); renderStudents(); toast(`${name} deleted`);
   } catch (ex) { toast(friendlyError(ex), "bad"); }
   b.disabled = false;
@@ -907,7 +920,10 @@ $("deleteBtn").addEventListener("click", async () => {
 
 async function loadHistory(s) {
   $("histBody").innerHTML = `<tr><td class="empty">Loading&hellip;</td></tr>`;
-  const a = await getDocs(collection(db, "students", s.uid, "attendance"));
+  let a;
+  try { a = await getDocs(collection(db, "students", s.uid, "attendance")); }
+  catch (e) { if (editing === s) $("histBody").innerHTML = `<tr><td class="empty">${esc(friendlyError(e))}</td></tr>`; return; }
+  if (editing !== s) return;
   const rows = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
   const p = rows.filter(r => r.status === "present").length, ab = rows.length - p;
   $("histStats").innerHTML = `<div class="stat present"><b>${p}</b><span>Present</span></div><div class="stat absent"><b>${ab}</b><span>Absent</span></div><div class="stat"><b>${rows.length ? Math.round(p * 100 / rows.length) + "%" : "—"}</b><span>Rate</span></div>`;
@@ -1435,9 +1451,9 @@ function startBell() {
     footer: "Chat messages and replies to badges, comments and results. Click one to open it.",
     load: async () => {
       let chats = [];
-      try { inboxItems = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid: ADMIN ? "school" : "teacher" }); chats = inboxBellItems(inboxItems, "staff"); updateMsgDot(); } catch (e) { }
+      try { bellInbox = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid: ADMIN ? "school" : "teacher" }); chats = inboxBellItems(bellInbox, "staff"); updateMsgDot(); } catch (e) { }
       const lists = await Promise.all(pool().map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
-        .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid, studentName: d.data().studentName || s.name })))));
+        .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid, studentName: d.data().studentName || s.name }))).catch(() => [])));
       const fresh = lists.flat().filter(x => x.type === "reply");
       const ids = new Set(fresh.map(x => x.id));
       return [...chats, ...fresh, ...bellSeen.filter(x => !ids.has(x.id))].sort((a, b) => (b.at?.toMillis?.() || 0) - (a.at?.toMillis?.() || 0));
@@ -1450,7 +1466,7 @@ function startBell() {
       unread.forEach(u => { const c = (feedCache[u.sid] || []).find(x => x.id === u.id); if (c) c.readByTeacher = true; });
     },
     onItemClick: it => {
-      if (it?.chat) { showTab("messages"); if (ADMIN) $("msgScope").value = it.tid; loadInbox().then(() => openStaffChat(it.sid, it.tid)); return; }
+      if (it?.chat) { if (ADMIN) $("msgScope").value = it.tid; showTab("messages"); loadInbox().then(() => openStaffChat(it.sid, it.tid)); return; }
       const s = it && students.find(x => x.uid === it.sid); if (s) { openModal(s); setMTab("progress"); }
     }
   });
@@ -1458,17 +1474,22 @@ function startBell() {
 const showTab = name => document.querySelector(`.tab[data-tab="${name}"]`)?.click();
 
 // ---------- Messages (chat with students) ----------
-let inboxItems = [], staffChat = null, chatKey = null;
+let inboxItems = [], bellInbox = [], staffChat = null, chatKey = null, inboxToken = 0;
 const msgTid = () => ADMIN ? $("msgScope").value : "teacher";
 const whenShort = x => { const t = x?.toMillis ? x.toMillis() : x?.seconds ? x.seconds * 1000 : 0; if (!t) return ""; const d = new Date(t); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
 function updateMsgDot() {
-  const n = inboxItems.filter(x => x.unreadStaff && x.tid === (ADMIN ? "school" : "teacher")).length;
+  // the tab count always refers to the person's own inbox (admin: school; teacher: her students)
+  const own = msgTid() === (ADMIN ? "school" : "teacher") && inboxItems.length ? inboxItems : bellInbox;
+  const n = own.filter(x => x.unreadStaff && x.tid === (ADMIN ? "school" : "teacher")).length;
   $("msgDot").textContent = n; $("msgDot").classList.toggle("hidden", !n);
 }
 async function loadInbox() {
-  let off = false;
-  try { inboxItems = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid: msgTid() }); }
-  catch (e) { inboxItems = []; off = isDenied(e); }
+  let off = false, rows = [];
+  const token = ++inboxToken, tid = msgTid();
+  try { rows = await staffInbox({ admin: ADMIN, teacherName: TEACHER?.name, tid }); }
+  catch (e) { off = isDenied(e); }
+  if (token !== inboxToken || tid !== msgTid()) return;   // a newer load (or another scope) won
+  inboxItems = rows;
   $("msgSoon").classList.toggle("hidden", !off);
   // "Start a conversation" list: a teacher's own students; the admin can write to any current student
   const pool = students.filter(s => TEACHER || (s.status || "active") !== "left").filter(s => msgTid() === "school" || s.teacher).sort((a, b) => String(a.name).localeCompare(String(b.name)));
@@ -1495,6 +1516,7 @@ function openStaffChat(sid, tid = msgTid()) {
     headExtra: `<button type="button" class="btn btn-ghost btn-sm chat-back" data-chat-back>&larr; Back</button><button type="button" class="btn btn-ghost btn-sm" data-chat-record="${s.uid}">Record</button>`,
     empty: `No messages yet. Write to ${s.name.split(" ")[0]} — she sees it in her student portal.`,
     inboxUnread: !!row?.unreadStaff,
+    noMarkRead: ADMIN && tid === "teacher",   // the admin only looking: keep it unread for the teacher
     onRead: () => { if (row) row.unreadStaff = false; renderInbox(); updateMsgDot(); bell && bell.refresh(); },
     onSent: () => { setTimeout(loadInbox, 400); }
   });
@@ -1514,7 +1536,7 @@ let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=5";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=6";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);
@@ -1743,11 +1765,23 @@ $("profileForm").addEventListener("submit", async e => {
   if (!TEACHER && !data.name) { $("profileErr").textContent = "Enter the teacher's name."; return; }
   $("pSaveBtn").disabled = true; $("profileErr").textContent = "";
   try {
+    const oldName = t.name;
     await updateDoc(doc(db, "teachers", t.uid), data);
     Object.assign(t, data); if (TEACHER) Object.assign(TEACHER, data);
     syncPublicTeacher(t.uid, t);
     $("tmTitle").textContent = teacherDisplayName(t);
-    toast("Profile saved"); if (ADMIN) loadTeachers();
+    // A teacher sees students whose Teacher field equals her name exactly — so a rename moves her students with her
+    let moved = 0;
+    if (ADMIN && data.name && oldName && data.name !== oldName) {
+      const mine = students.filter(x => x.teacher === oldName);
+      await Promise.all(mine.map(async x => {
+        await updateDoc(doc(db, "students", x.uid), { teacher: data.name, updatedAt: serverTimestamp() }); x.teacher = data.name; moved++;
+        await updateDoc(doc(db, "inbox", `${x.uid}_teacher`), { teacher: data.name }).catch(() => {});
+        await updateDoc(doc(db, "inbox", `${x.uid}_school`), { teacher: data.name }).catch(() => {});
+      }));
+      renderStudents();
+    }
+    toast(moved ? `Profile saved · ${moved} student${moved === 1 ? "" : "s"} moved to the new name` : "Profile saved"); if (ADMIN) loadTeachers();
   } catch (ex) { $("profileErr").textContent = friendlyError(ex); }
   $("pSaveBtn").disabled = false;
 });
@@ -1764,11 +1798,11 @@ $("pPdfBtn").addEventListener("click", async () => {
 
 // ---------- Attendance ----------
 $("attDate").value = isoDate();
-const shiftDay = n => { const [y, m, d] = $("attDate").value.split("-").map(Number); $("attDate").value = isoDate(new Date(y, m - 1, d + n)); renderAttendance(); };
+const shiftDay = n => { const [y, m, d] = ($("attDate").value || isoDate()).split("-").map(Number); $("attDate").value = isoDate(new Date(y, m - 1, d + n)); renderAttendance(); };
 $("prevDay").addEventListener("click", () => shiftDay(-1));
 $("nextDay").addEventListener("click", () => shiftDay(1));
 $("todayBtn").addEventListener("click", () => { $("attDate").value = isoDate(); renderAttendance(); });
-$("attDate").addEventListener("change", renderAttendance);
+$("attDate").addEventListener("change", () => { if (!$("attDate").value) $("attDate").value = isoDate(); renderAttendance(); });
 $("attScope").addEventListener("change", renderAttendance);
 
 let attToken = 0;
@@ -1785,20 +1819,28 @@ async function renderAttendance() {
   const dk = dayKey(date);
   $("attHeading").textContent = `${DAY_NAMES[dk]}, ${prettyDate(date)}`;
   const active = students.filter(s => (s.status || "active") === "active");
-  const list = $("attScope").value === "all" ? active : active.filter(s => (s.lessonDays || []).includes(dk));
+  // Students whose lesson falls on this day in YOUR time (their own date may be the day before/after)
+  const sdateOf = {};
+  active.forEach(s => [-1, 0, 1].forEach(k => {
+    const sd = addDays(date, k), x = slotsOf(s)[dayKey(sd)]; if (!x || sdateOf[s.uid]) return;
+    const v = x.time ? toViewer(sd, x.time, x.tz) : { shift: 0 };
+    if (addDays(sd, v.shift || 0) === date) sdateOf[s.uid] = sd;
+  }));
+  const list = $("attScope").value === "all" ? active : active.filter(s => sdateOf[s.uid]);
+  list.forEach(s => { if (!sdateOf[s.uid]) sdateOf[s.uid] = date; });
   const token = ++attToken;
   if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="6" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
   $("attBody").innerHTML = `<tr><td colspan="6" class="empty">Loading&hellip;</td></tr>`;
-  const docs = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", date)).then(d => d.exists() ? d.data() : null)));
+  const docs = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", sdateOf[s.uid])).then(d => d.exists() ? d.data() : null).catch(() => null)));
   if (token !== attToken) return;
   const marks = docs.map(d => d ? d.status : null);
-  const lens = docs.map((d, i) => d?.lessons || slotsOf(list[i])[dk]?.lessons || 1);
+  const lens = docs.map((d, i) => d?.lessons || slotsOf(list[i])[dayKey(sdateOf[list[i].uid])]?.lessons || 1);
   $("attBody").innerHTML = list.map((s, i) => `
-    <tr data-uid="${s.uid}">
+    <tr data-uid="${s.uid}" data-date="${sdateOf[s.uid]}">
       <td class="col-no">${i + 1}</td>
       <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
       <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
-      <td class="hide-sm">${timeCell(s, date, dk)}</td>
+      <td class="hide-sm">${timeCell(s, sdateOf[s.uid], dayKey(sdateOf[s.uid]))}${sdateOf[s.uid] !== date ? `<div class="hint" style="margin:0">${esc(DAY_NAMES[dayKey(sdateOf[s.uid])])} where ${esc(s.name.split(" ")[0])} lives</div>` : ""}</td>
       <td><div class="len-toggle" role="group" aria-label="Single or double lesson">
         <button type="button" class="len-btn ${lens[i] == 1 ? "on" : ""}" data-len="1">Single</button><button type="button" class="len-btn ${lens[i] == 2 ? "on" : ""}" data-len="2">Double</button>
       </div></td>
@@ -1816,7 +1858,7 @@ $("attBody").addEventListener("click", async e => {
   if (star) { const s = students.find(x => x.uid === star.closest("tr").dataset.uid); if (s) openAwardPop(s); return; }
   const lb = e.target.closest("[data-len]");
   if (lb) {
-    const tr = lb.closest("tr"), uid = tr.dataset.uid, date = $("attDate").value, prevLen = rowLen(tr), len = +lb.dataset.len;
+    const tr = lb.closest("tr"), uid = tr.dataset.uid, date = tr.dataset.date, prevLen = rowLen(tr), len = +lb.dataset.len;
     if (len === prevLen) return;
     tr.querySelectorAll(".len-btn").forEach(x => x.classList.toggle("on", x === lb));
     if (!tr.querySelector(".att-btn.on")) return;          // not marked yet: saved together with the mark
@@ -1825,7 +1867,7 @@ $("attBody").addEventListener("click", async e => {
     return;
   }
   const b = e.target.closest("[data-mark]"); if (!b) return;
-  const tr = b.closest("tr"); const uid = tr.dataset.uid; const date = $("attDate").value;
+  const tr = b.closest("tr"); const uid = tr.dataset.uid; const date = tr.dataset.date;
   const ref = doc(db, "students", uid, "attendance", date);
   const prev = tr.querySelector(".att-btn.on")?.dataset.mark || null;
   const next = prev === b.dataset.mark ? null : b.dataset.mark;
@@ -1898,17 +1940,23 @@ async function renderWeek() {
   $("wkRange").textContent = `Week of ${shortDate(dates[0])} – ${prettyDate(dates[6])}`;
   // Time columns
   const color = {}; list.forEach((s, i) => color[s.uid] = WK_COLORS[i % WK_COLORS.length]);
-  const showDays = DAYS.filter((d, i) => i < 6 || list.some(s => s.lessonDays.includes(d)));
+  const lessons = [];
+  for (let k = -1; k <= 7; k++) {               // student-local days, one each side, so shifted lessons aren't lost
+    const sdate = addDays(wkStart, k), sd = dayKey(sdate);
+    list.filter(s => s.lessonDays.includes(sd)).forEach(s => {
+      const x = slotsOf(s)[sd] || {}, v = toViewer(sdate, x.time, x.tz), vdate = addDays(sdate, v?.shift || 0);
+      if (vdate < dates[0] || vdate > dates[6]) return;
+      lessons.push({ s, d: dayKey(vdate), date: vdate, sdate, x, slot: v ? v.time : "Time not set",
+        local: v && (v.time !== x.time || v.shift) ? `${v.shift ? DAY_NAMES[sd].slice(0, 3) + " " : ""}${x.time} ${slotPlace(x)}` : "" });
+    });
+  }
+  const showDays = DAYS.filter((d, i) => i < 6 || lessons.some(l => l.d === d));
   if (!list.length) { $("wkSum").textContent = ""; $("wkGrid").innerHTML = `<tbody><tr><td class="empty">No active students with lesson days${all ? "" : ` for ${esc(tName)}`}. Set lesson days and a time on each student's record.</td></tr></tbody>`; return; }
   const token = ++wkToken;
   // Load marks for every lesson this week
-  const lessons = [];
-  showDays.forEach(d => { const date = dates[DAYS.indexOf(d)]; list.filter(s => s.lessonDays.includes(d)).forEach(s => {
-    const x = slotsOf(s)[d] || {}, v = toViewer(date, x.time, x.tz);
-    lessons.push({ s, d, date, x, slot: v ? v.time : "Time not set", local: v && (v.time !== x.time || v.shift) ? `${x.time} ${slotPlace(x)}` : "" });
-  }); });
+
   const slots = [...new Set(lessons.map(l => l.slot))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
-  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.date)).then(x => x.exists() ? x.data() : null).catch(() => null)));
+  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.sdate)).then(x => x.exists() ? x.data() : null).catch(() => null)));
   if (token !== wkToken) return;
   lessons.forEach((l, i) => { l.mark = marks[i]?.status || null; l.len = marks[i]?.lessons || l.x.lessons || 1; });
   const n = { p: 0, a: 0, u: 0 }; lessons.forEach(l => l.mark === "present" ? n.p++ : l.mark === "absent" ? n.a++ : l.date <= today ? n.u++ : 0);

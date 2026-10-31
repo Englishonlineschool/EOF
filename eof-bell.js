@@ -2,8 +2,8 @@
 // has logged in to the portal on this device (localStorage "eofPortal"), after the page has
 // finished loading, so the homepage stays fast for everyone else.
 import { auth, db, currentUser, isAdmin, getDoc, getDocs, doc, collection, query, where, limit } from "./eof-portal.js?v=7";
-import { mountBell, loadFeed, markRead, feedCol } from "./eof-awards.js?v=3";
-import { staffInbox, studentInbox, inboxBellItems } from "./eof-chat.js?v=2";
+import { mountBell, markRead, feedCol } from "./eof-awards.js?v=4";
+import { staffInbox, studentInbox, inboxBellItems } from "./eof-chat.js?v=3";
 
 const el = document.getElementById("siteBell");
 const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } };
@@ -19,7 +19,7 @@ const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) {
   const place = () => { if (!mq.matches && login) login.parentNode.insertBefore(el, login); else if (el.parentNode !== home) home.appendChild(el); };
   place(); mq.addEventListener ? mq.addEventListener("change", place) : mq.addListener(place);
   const admin = await isAdmin(user);
-  const teacher = admin ? null : await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active !== false ? t.data() : null).catch(() => null);
+  const teacher = admin ? null : await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active === true ? t.data() : null).catch(() => null);
   if (admin || teacher) {
     // Staff: unread replies from their students
     const snap = await getDocs(admin ? collection(db, "students") : query(collection(db, "students"), where("teacher", "==", teacher.name))).catch(() => null);
@@ -33,7 +33,7 @@ const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) {
       load: async () => {
         const chats = await staffInbox({ admin, teacherName: teacher?.name }).then(r => inboxBellItems(r, "staff")).catch(() => []);
         const replies = (await Promise.all(list.map(s => getDocs(query(feedCol(s.uid), where("readByTeacher", "==", false)))
-          .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid })))))).flat().filter(x => x.type === "reply");
+          .then(q => q.docs.map(d => ({ id: d.id, ...d.data(), sid: s.uid }))).catch(() => [])))).flat().filter(x => x.type === "reply");
         return [...chats, ...replies];
       },
       onItemClick: () => { location.href = "eof-admin.html"; }
@@ -50,7 +50,9 @@ const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) {
     unread: x => x.byRole !== "student" && x.readByStudent === false,
     load: async () => {
       const chats = await studentInbox(sid).then(r => inboxBellItems(r, "student")).catch(() => []);
-      return [...chats, ...(await loadFeed(sid)).filter(x => x.byRole !== "student")];
+      // only unread items are fetched — cheaper than the whole feed on every check
+      const q = await getDocs(query(feedCol(sid), where("readByStudent", "==", false)));
+      return [...chats, ...q.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.byRole !== "student")];
     },
     onOpen: unread => markRead(sid, unread.filter(x => !x.chat), "readByStudent"),
     onItemClick: it => { location.href = it && it.chat ? "eof-account.html#chatCard" : "eof-account.html#messages"; }

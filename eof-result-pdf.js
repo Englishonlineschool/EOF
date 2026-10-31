@@ -52,10 +52,14 @@
       document.head.appendChild(s);
     });
   }
-  var libReady = window.jspdf ? Promise.resolve() :
-    loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js')
-      .catch(function(){ return loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); });
+  function loadLib(){
+    return window.jspdf ? Promise.resolve() :
+      loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js')
+        .catch(function(){ return loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); });
+  }
+  var libReady = loadLib();
   libReady.catch(function(){});
+  function libNow(){ return libReady.catch(function(){ libReady = loadLib(); return libReady; }); }   // retry after a failed download
 
   // Brand fonts (Poppins + Fraunces) as TTF for the PDF. If they can't load, the PDF falls back to built-in fonts.
   var FONT_BASE = 'https://cdn.jsdelivr.net/fontsource/fonts/';
@@ -545,7 +549,7 @@
     });
   }
   function downloadSaved(r, logoSrc){
-    return Promise.all([libReady, fontsReady, logoFrom(logoSrc || 'favicon-192.png')]).then(function(v){
+    return Promise.all([libNow(), fontsReady, logoFrom(logoSrc || 'favicon-192.png')]).then(function(v){
       var out = build(r, v[2], v[1]), blob = out.doc.output('blob');
       var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = out.fileName;
       document.body.appendChild(a); a.click(); a.remove();

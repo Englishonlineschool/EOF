@@ -473,3 +473,4 @@ th.num,td.num{text-align:center;}
   .chat-bub{max-width:86%;}
 }
 .tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;} .tabs::-webkit-scrollbar{display:none;} .tab{white-space:nowrap;flex:0 0 auto;}
+@media (max-width:760px){.chat-input{font-size:16px;}}

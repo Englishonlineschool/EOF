@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=18">
+<link rel="stylesheet" href="eof-portal.css?v=19">
 </head>
 <body>
 <header class="portal-top">
@@ -126,13 +126,13 @@
 <script type="module">
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, DAYS, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
-  levelHistory, monthYear, doc, getDoc, isoDate } from "./eof-portal.js?v=7";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=10";
+  levelHistory, monthYear, doc, getDoc, isoDate, onSnapshot } from "./eof-portal.js?v=7";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=11";
 import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
-  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=3";
+  feedCol, byNewest, loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=4";
 import { canDo } from "./eof-curriculum.js?v=1";
-import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=2";
-import { askAlerts, alertsState } from "./eof-awards.js?v=3";
+import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=3";
+import { askAlerts, alertsState } from "./eof-awards.js?v=4";
 let teacherLabel = "", teacherPhoto = null, chatUI = null, chatTid = null, inboxRows = [];
 let me = null, sid = null, attRows = [], results = [], progress = null, feed = [], progressOff = false, feedOff = false, bell = null;
 document.getElementById("yr").textContent = new Date().getFullYear();
@@ -144,10 +144,12 @@ $("logoutBtn").addEventListener("click", async () => { forget(); await signOut(a
 
 const user = await currentUser();
 if (!user) { forget(); location.replace("eof-login.html"); }
-else if (await isAdmin(user) || (await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active !== false).catch(() => false))) { location.replace("eof-admin.html"); }
+else if (await isAdmin(user) || (await getDoc(doc(db, "teachers", user.uid)).then(t => t.exists() && t.data().active === true).catch(() => false))) { location.replace("eof-admin.html"); }
 else {
   try {
-    const found = await getDocs(query(collection(db, "students"), where("authUid", "==", user.uid), where("portalBlocked", "==", false), limit(1))).catch(() => ({ empty: true, docs: [] }));
+    let found;
+    try { found = await getDocs(query(collection(db, "students"), where("authUid", "==", user.uid), where("portalBlocked", "==", false), limit(1))); }
+    catch (e) { if (!isDenied(e)) throw e; found = { empty: true, docs: [] }; }   // connection problems show "try again", not "no account"
     $("loading").classList.add("hidden");
     if (found.empty) { forget(); $("noRecord").classList.remove("hidden"); }
     else {
@@ -185,7 +187,7 @@ else {
 
       loadTeacher(s).then(startChat);
       const [att, res, pr] = await Promise.all([
-        getDocs(collection(db, "students", snap.id, "attendance")),
+        getDocs(collection(db, "students", snap.id, "attendance")).catch(() => ({ docs: [] })),
         getDocs(collection(db, "students", snap.id, "results")).catch(() => ({ docs: [] })),
         getDoc(doc(db, "students", snap.id, "progress", "main")).then(d => d.exists() ? d.data() : {}).catch(e => { progressOff = isDenied(e); return {}; })
       ]);
@@ -202,25 +204,34 @@ else {
         ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status === "present" ? "present" : "absent"}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
         : `<tr><td colspan="3" class="empty">No lessons recorded yet.</td></tr>`;
       renderTimetable();
-      // The bell loads the feed (and refreshes it every 90 s); everything else redraws from it.
+      // The feed (badges, stamps, results, comments) is kept live with one listener — only changes cost reads.
+      let feedFirst, feedSig = "";
+      const feedReady = new Promise(r => feedFirst = r);
+      onSnapshot(feedCol(sid), snap => {
+        feed = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort(byNewest); feedOff = false;
+        const sig = JSON.stringify(feed.map(x => [x.id, x.readByStudent, x.at?.seconds || 0]));
+        if (sig !== feedSig) { feedSig = sig; renderAll(); }
+        feedFirst(); bell && bell.refresh();
+      }, e => { if (isDenied(e)) { feedOff = true; feed = []; renderAll(); } feedFirst(); });
+      // The bell shows the feed + unread chats (checked every 90 s).
       bell = mountBell($("studentBell"), {
         title: "Notifications", empty: "Nothing new yet. Badges, stamps and messages from your teacher appear here.",
         unread: x => x.byRole !== "student" && x.readByStudent === false,
         footer: `<a href="#messages">See all messages</a>`,
         load: async () => {
-          try { feed = await loadFeed(sid); feedOff = false; }
-          catch (e) { feed = []; feedOff = isDenied(e); renderAll(); throw e; }
-          renderAll();
+          await feedReady;
+          if (feedOff) throw Object.assign(new Error("denied"), { code: "permission-denied" });
           let chats = [];
           try { inboxRows = await studentInbox(sid); chats = inboxBellItems(inboxRows, "student", teacherLabel); renderChatTabs(); } catch (e) { }
           return [...chats, ...feed.filter(x => x.byRole !== "student")];
         },
         onOpen: async unread => { await markRead(sid, unread.filter(x => !x.chat), "readByStudent"); renderFeed(); },
-        onItemClick: it => { if (it?.chat) { openChat(it.tid); $("chatCard").scrollIntoView({ behavior: "smooth", block: "start" }); return; } const el = document.querySelector(`#feedBody [data-fid="${it?.id}"]`) || $("messages"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
+        onItemClick: it => { if (it?.chat) { if (chatTid === it.tid && chatUI) chatUI.markRead(true); else openChat(it.tid); $("chatCard").scrollIntoView({ behavior: "smooth", block: "start" }); return; } const el = document.querySelector(`#feedBody [data-fid="${it?.id}"]`) || $("messages"); el.scrollIntoView({ behavior: "smooth", block: "center" }); }
       });
     }
   } catch (e) {
-    $("loading").textContent = friendlyError(e);
+    $("loading").classList.remove("hidden");
+    $("loading").innerHTML = `${esc(friendlyError(e))}<br><button class="btn btn-ghost btn-sm" type="button" onclick="location.reload()" style="margin-top:12px">Try again</button>`;
   }
 }
 
@@ -342,7 +353,7 @@ function openChat(tid) {
     s: me, tid, me: { uid: auth.currentUser.uid, role: "student", name: me.name },
     title: school ? "English Online Forum" : (teacherLabel || "My teacher"),
     subtitle: school ? "The school office — questions about lessons, payments, schedule…" : "Your teacher",
-    avatar: school ? `<img src="favicon-192.png" alt="">` : (teacherPhoto ? `<img src="${teacherPhoto}" alt="">` : ""),
+    avatar: school ? `<img src="favicon-192.png" alt="">` : (teacherPhoto ? `<img src="${esc(teacherPhoto)}" alt="">` : ""),
     empty: school ? "Write to the school — we usually reply within a day." : `Ask ${teacherLabel || "your teacher"} a question or send your homework.`,
     inboxUnread: inboxRows.some(r => r.tid === tid && r.unreadStudent),
     onRead: () => { inboxRows.forEach(r => { if (r.tid === tid) r.unreadStudent = false; }); renderChatTabs(); bell && bell.refresh(); }
@@ -372,7 +383,7 @@ async function loadTeacher(s) {
   try { t = await findPublicTeacher(s.teacher); } catch (e) { }
   if (t) { teacherLabel = titled(t); teacherPhoto = t.photo || null; }
   if (!t) { $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box"><span class="ph-initials">${esc(s.teacher.split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span></div><div><h3>${esc(s.teacher)}</h3><p class="hint">Your teacher's full profile will appear here soon.</p></div></div>`; return; }
-  $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box">${t.photo ? `<img src="${t.photo}" alt="">` : `<span class="ph-initials">${esc(String(t.name).split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span>`}</div>
+  $("teacherBody").innerHTML = `<div class="tcard"><div class="photo-box">${t.photo ? `<img src="${esc(t.photo)}" alt="">` : `<span class="ph-initials">${esc(String(t.name).split(/\s+/).map(w => w[0]).slice(0, 2).join(""))}</span>`}</div>
     <div style="flex:1;min-width:200px"><h3>${esc(titled(t))}</h3>${t.teaches ? `<div class="tc-sub">Teaches ${esc(t.teaches)}</div>` : `<div class="tc-sub">English Online Forum teacher</div>`}${t.bio ? `<p>${esc(t.bio)}</p>` : ""}</div></div>`;
 }
 
@@ -413,7 +424,7 @@ let pdfTool = null;
 function loadPdfTool() {
   return pdfTool ||= new Promise((resolve, reject) => {
     if (window.EOFResultPDF) { resolve(window.EOFResultPDF); return; }
-    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=5";
+    const sc = document.createElement("script"); sc.src = "eof-result-pdf.js?v=6";
     sc.onload = () => window.EOFResultPDF ? resolve(window.EOFResultPDF) : reject(new Error("missing"));
     sc.onerror = () => { pdfTool = null; reject(new Error("load failed")); };
     document.head.appendChild(sc);

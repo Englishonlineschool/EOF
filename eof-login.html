@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=18">
+<link rel="stylesheet" href="eof-portal.css?v=19">
 </head>
 <body>
 <header class="portal-top">
@@ -27,7 +27,7 @@
       <h1 id="loginTitle">Welcome back</h1>
       <p class="lead" id="loginLead">Log in to see your student details, lesson days and attendance.</p>
 
-      <form id="loginForm" novalidate>
+      <form id="loginForm" onsubmit="event.preventDefault()" novalidate>
         <div class="field">
           <label for="email">Email</label>
           <input class="input" id="email" type="email" autocomplete="username" required>
@@ -54,7 +54,7 @@
 import { auth, configReady, currentUser, isAdmin, signInWithEmailAndPassword, sendPasswordResetEmail, friendlyError, db, doc, getDoc } from "./eof-portal.js?v=7";
 async function isStaff(u) {
   if (await isAdmin(u)) return true;
-  try { const t = await getDoc(doc(db, "teachers", u.uid)); return t.exists() && t.data().active !== false; } catch { return false; }
+  try { const t = await getDoc(doc(db, "teachers", u.uid)); return t.exists() && t.data().active === true; } catch { return false; }
 }
 document.getElementById("yr").textContent = new Date().getFullYear();
 
@@ -71,13 +71,6 @@ async function goHome(user) {
   location.replace((await isStaff(user)) ? "eof-admin.html" : "eof-account.html");
 }
 
-if (!configReady) {
-  err.textContent = "The student portal is being set up. Please try again soon.";
-  btn.disabled = true;
-} else {
-  const u = await currentUser();
-  if (u) goHome(u);
-}
 
 function setMode(reset) {
   resetMode = reset;
@@ -117,6 +110,14 @@ form.addEventListener("submit", async e => {
   }
   btn.disabled = false;
 });
+// Checked last, so the form already works while the login check is still running on a slow phone
+if (!configReady) {
+  err.textContent = "The student portal is being set up. Please try again soon.";
+  btn.disabled = true;
+} else {
+  const u = await currentUser();
+  if (u) goHome(u);
+}
 </script>
 </body>
 </html>

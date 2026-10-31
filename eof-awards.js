@@ -211,9 +211,12 @@ export async function syncPublicTeacher(uid, t) {
   } catch (e) { return false; }
 }
 const normT = n => String(n || "").toLowerCase().replace(/^\s*(mr|mrs|ms|miss|dr)\.?\s+/, "").replace(/\s+/g, " ").trim();
+// Only a real photo (data:image/…) is ever used, so a card can't carry anything else into the page
+export const safePhoto = p => typeof p === "string" && /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(p) ? p : null;
 export async function findPublicTeacher(name) {
   const snap = await getDocs(collection(db, "publicTeachers"));
-  return snap.docs.map(d => d.data()).find(t => normT(t.name) === normT(name)) || null;
+  const t = snap.docs.map(d => d.data()).find(t => normT(t.name) === normT(name)) || null;
+  return t ? { ...t, photo: safePhoto(t.photo) } : null;
 }
 export const titled = t => [t.title ? String(t.title).replace(/\.?$/, ".") : "", t.name].filter(Boolean).join(" ");
 
@@ -296,8 +299,9 @@ export function mountBell(el, cfg) {
   // Desktop / phone alert for anything new that arrives while the site is open (if the person allowed alerts)
   const canAlert = () => "Notification" in window && Notification.permission === "granted";
   function alertNew() {
-    const fresh = items.filter(cfg.unread).filter(x => !seen.has(x.id));
-    items.forEach(x => seen.add(x.id));
+    const key = x => x.id + "@" + atMs(x);   // chat items keep one id per conversation, so include the time
+    const fresh = items.filter(cfg.unread).filter(x => !seen.has(key(x)));
+    items.forEach(x => seen.add(key(x)));
     if (!loaded) { loaded = true; return; }
     if (!canAlert()) return;
     fresh.slice(0, 3).forEach(it => {
@@ -340,7 +344,9 @@ export function mountBell(el, cfg) {
     const it = e.target.closest("[data-fid]"); if (it && cfg.onItemClick) { cfg.onItemClick(items.find(x => x.id === it.dataset.fid)); setOpen(false); } });
   refresh();
   // Keeps checking while the tab is in the background too (every 90 s), so alerts and the tab count stay current
-  const timer = setInterval(() => { if (!off) refresh(); }, cfg.every || 90000);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && !off) refresh(); });
+  // Every 90 s while the tab is visible; every 5 min in the background (saves the free database quota)
+  let lastRun = Date.now();
+  const timer = setInterval(() => { if (off) return; if (!document.hidden || Date.now() - lastRun > 300000) { lastRun = Date.now(); refresh(); } }, cfg.every || 90000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !off && Date.now() - lastRun > 30000) { lastRun = Date.now(); refresh(); } });
   return { refresh, close: () => setOpen(false), stop: () => clearInterval(timer), get items() { return items; }, setItems(x) { items = x; paint(); if (open) render(); } };
 }
