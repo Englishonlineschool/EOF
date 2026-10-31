@@ -49,6 +49,7 @@
       <div class="sec-head"><h2 style="margin:0">Chat</h2><span class="hint" style="margin:0">Ask a question or send a photo of your homework or a document.</span></div>
       <div class="ctabs" id="chatTabs" role="tablist"></div>
       <div id="chatBox"></div>
+      <p class="hint" id="alertTip" style="margin:10px 0 0">We also email you at your login address when your teacher or the school sends you something. <span id="alertBtnWrap"></span></p>
     </section>
 
     <section class="card" id="progressCard">
@@ -128,9 +129,10 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDoc
   levelHistory, monthYear, doc, getDoc, isoDate } from "./eof-portal.js?v=7";
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=10";
 import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
-  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=2";
+  loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=3";
 import { canDo } from "./eof-curriculum.js?v=1";
-import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=1";
+import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=2";
+import { askAlerts, alertsState } from "./eof-awards.js?v=3";
 let teacherLabel = "", teacherPhoto = null, chatUI = null, chatTid = null, inboxRows = [];
 let me = null, sid = null, attRows = [], results = [], progress = null, feed = [], progressOff = false, feedOff = false, bell = null;
 document.getElementById("yr").textContent = new Date().getFullYear();
@@ -347,6 +349,14 @@ function openChat(tid) {
   });
   renderChatTabs();
 }
+// "Turn on alerts on this device" (browser notifications while the site is open)
+function paintAlertBtn() {
+  const st = alertsState();
+  $("alertBtnWrap").innerHTML = st === "default" ? `<button type="button" class="linkbtn" id="alertBtn">🔔 Turn on alerts on this device</button>`
+    : st === "granted" ? "Alerts are on for this device." : "";
+}
+paintAlertBtn();
+$("alertTip").addEventListener("click", e => { if (e.target.id === "alertBtn") askAlerts().then(paintAlertBtn); });
 $("chatTabs").addEventListener("click", e => { const b = e.target.closest("[data-ctid]"); if (b) openChat(b.dataset.ctid); });
 async function startChat() {
   try { inboxRows = await studentInbox(sid); } catch (e) { }

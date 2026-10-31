@@ -2,8 +2,8 @@
 // has logged in to the portal on this device (localStorage "eofPortal"), after the page has
 // finished loading, so the homepage stays fast for everyone else.
 import { auth, db, currentUser, isAdmin, getDoc, getDocs, doc, collection, query, where, limit } from "./eof-portal.js?v=7";
-import { mountBell, loadFeed, markRead, feedCol } from "./eof-awards.js?v=2";
-import { staffInbox, studentInbox, inboxBellItems } from "./eof-chat.js?v=1";
+import { mountBell, loadFeed, markRead, feedCol } from "./eof-awards.js?v=3";
+import { staffInbox, studentInbox, inboxBellItems } from "./eof-chat.js?v=2";
 
 const el = document.getElementById("siteBell");
 const forget = () => { try { localStorage.removeItem("eofPortal"); } catch (e) { } };

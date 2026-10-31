@@ -276,18 +276,41 @@ function ensureBellCss() {
   const st = document.createElement("style"); st.id = "eofBellCss"; st.textContent = BELL_CSS; document.head.appendChild(st);
 }
 const BELL_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-1.7 1.7A1 1 0 0 0 4 19.4h16a1 1 0 0 0 .7-1.7Z"/></svg>`;
+// Ask the browser for permission to show alerts (desktop notifications) for the portal
+export function askAlerts() {
+  if (!("Notification" in window)) return Promise.resolve("unsupported");
+  try { const r = Notification.requestPermission(); return r && r.then ? r : Promise.resolve(Notification.permission); } catch (e) { return Promise.resolve("denied"); }
+}
+export const alertsState = () => !("Notification" in window) ? "unsupported" : Notification.permission;
 // mountBell(el, { title, light, load: async () => items, unread: item => bool, onOpen: async items => {}, staff, footer: html, onItemClick })
 export function mountBell(el, cfg) {
   ensureBellCss();
   el.classList.add("eof-bell"); if (cfg.light) el.classList.add("on-light");
   el.innerHTML = `<button type="button" class="eof-bell-btn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">${BELL_SVG}<span class="eof-bell-n" hidden>0</span></button><div class="eof-bell-panel" hidden role="dialog" aria-label="Notifications"></div>`;
   const btn = el.querySelector(".eof-bell-btn"), n = el.querySelector(".eof-bell-n"), panel = el.querySelector(".eof-bell-panel");
-  let items = [], off = false, open = false;
+  let items = [], off = false, open = false, loaded = false;
+  const seen = new Set(), baseTitle = document.title.replace(/^\(\d+\+?\)\s*/, "");
   const count = () => items.filter(cfg.unread).length;
-  const paint = () => { const c = count(); n.hidden = !c; n.textContent = c > 9 ? "9+" : c; btn.setAttribute("aria-label", c ? `Notifications: ${c} unread` : "Notifications"); };
+  // Unread count on the bell and in the browser tab title, e.g. "(2) My Account | English Online Forum"
+  const paint = () => { const c = count(); n.hidden = !c; n.textContent = c > 9 ? "9+" : c; btn.setAttribute("aria-label", c ? `Notifications: ${c} unread` : "Notifications"); document.title = c ? `(${c > 9 ? "9+" : c}) ${baseTitle}` : baseTitle; };
+  // Desktop / phone alert for anything new that arrives while the site is open (if the person allowed alerts)
+  const canAlert = () => "Notification" in window && Notification.permission === "granted";
+  function alertNew() {
+    const fresh = items.filter(cfg.unread).filter(x => !seen.has(x.id));
+    items.forEach(x => seen.add(x.id));
+    if (!loaded) { loaded = true; return; }
+    if (!canAlert()) return;
+    fresh.slice(0, 3).forEach(it => {
+      try {
+        const a = new Notification(it.title || "English Online Forum", { body: String(it.body || "").slice(0, 140), icon: "favicon-192.png", tag: "eof-" + it.id });
+        a.onclick = () => { window.focus(); a.close(); cfg.onItemClick && cfg.onItemClick(it); };
+      } catch (e) { }
+    });
+  }
+  const alertLink = () => "Notification" in window && Notification.permission === "default" ? `<button type="button" data-alerts>Turn on alerts</button>` : "";
   const render = () => {
     const unreadIds = new Set(items.filter(cfg.unread).map(x => x.id));
-    panel.innerHTML = `<div class="eof-bell-head"><b>${esc(cfg.title || "Notifications")}</b>${cfg.headLink || ""}</div>` +
+    panel.innerHTML = `<div class="eof-bell-head"><b>${esc(cfg.title || "Notifications")}</b>${alertLink() || cfg.headLink || ""}</div>` +
       (off ? `<div class="eof-bell-empty">Notifications are being switched on. They'll appear here soon.</div>`
         : items.length ? `<div class="eof-bell-list">${items.slice(0, 30).map(it => feedItemHtml(it, { staff: cfg.staff, showStudent: cfg.staff })).join("")}</div>`
           : `<div class="eof-bell-empty">${esc(cfg.empty || "Nothing new yet.")}</div>`) +
@@ -296,7 +319,7 @@ export function mountBell(el, cfg) {
     panel.querySelectorAll(".fd-item").forEach(x => x.classList.toggle("unread", unreadIds.has(x.dataset.fid) || x.classList.contains("unread")));
   };
   async function refresh() {
-    try { items = (await cfg.load()) || []; off = false; }
+    try { items = (await cfg.load()) || []; off = false; alertNew(); }
     catch (e) { if (isDenied(e)) { off = true; items = []; } }
     paint(); if (open) render();
     return items;
@@ -312,8 +335,12 @@ export function mountBell(el, cfg) {
   btn.addEventListener("click", e => { e.stopPropagation(); setOpen(!open); });
   document.addEventListener("click", e => { if (open && !el.contains(e.target)) setOpen(false); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && open) setOpen(false); });
-  panel.addEventListener("click", e => { const it = e.target.closest("[data-fid]"); if (it && cfg.onItemClick) { cfg.onItemClick(items.find(x => x.id === it.dataset.fid)); setOpen(false); } });
+  panel.addEventListener("click", e => {
+    if (e.target.closest("[data-alerts]")) { e.stopPropagation(); askAlerts().then(render); return; }
+    const it = e.target.closest("[data-fid]"); if (it && cfg.onItemClick) { cfg.onItemClick(items.find(x => x.id === it.dataset.fid)); setOpen(false); } });
   refresh();
-  const timer = setInterval(() => { if (!document.hidden && !off) refresh(); }, cfg.every || 90000);
+  // Keeps checking while the tab is in the background too (every 90 s), so alerts and the tab count stay current
+  const timer = setInterval(() => { if (!off) refresh(); }, cfg.every || 90000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && !off) refresh(); });
   return { refresh, close: () => setOpen(false), stop: () => clearInterval(timer), get items() { return items; }, setItems(x) { items = x; paint(); if (open) render(); } };
 }

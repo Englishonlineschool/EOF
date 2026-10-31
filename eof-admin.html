@@ -219,7 +219,8 @@
       <div class="grid-2">
         <div class="field"><label for="fName">Full name</label><input class="input" id="fName" autocomplete="off" required></div>
         <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" autocomplete="off" type="date"></div>
-        <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div></div>
+        <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div>
+          <label class="check-line admin-only" style="margin:8px 0 0"><input type="checkbox" id="fNotify" checked> Email notifications (new messages, badges, results)</label></div>
         <div class="field admin-only"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
         <div class="field"><label for="fCountry">Country of residence</label><div class="combo"><input class="input" id="fCountry" data-combo="country" placeholder="Type or scroll…" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
         <div class="field"><label for="fCity">City of residence</label><div class="combo"><input class="input" id="fCity" data-combo="city" placeholder="Choose the country first" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
@@ -411,8 +412,8 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
 import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=10";
 import { CITIES } from "./eof-cities.js?v=1";
 import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
-  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=2";
-import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=1";
+  resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=3";
+import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=2";
 import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
 const $ = id => document.getElementById(id);
 
@@ -730,6 +731,7 @@ function openModal(s) {
   $("fName").value = s?.name || "";
   $("fEmail").value = s?.email || "";
   $("fEmail").disabled = !!s?.authUid;
+  $("fNotify").checked = s?.emailNotify !== false;
   $("emailHint").textContent = s?.authUid ? "This is the student's login email." : (s ? "No login yet. Add their email and save to send them a password-setup email." : "Leave empty if you don't have it yet. Adding it later switches on their login.");
   $("deleteBtn").textContent = "Delete student"; delete $("deleteBtn").dataset.armed;
   $("fPhone").value = "";
@@ -832,6 +834,7 @@ $("studentForm").addEventListener("submit", async e => {
     parentName: $("fParentName").value.trim()
   };
   if (ADMIN) {
+    data.emailNotify = $("fNotify").checked;
     const refName = $("fRef").value.trim(), hit = refName ? students.find(x => x !== editing && fold(x.name) === fold(refName)) : null;
     data.referredBy = refName ? { name: hit ? hit.name : refName, sid: hit ? hit.uid : null } : null;
   }
