@@ -239,7 +239,7 @@
           <select class="input" id="fLevel"><option>Pre-A1</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option></select></div>
         <div class="field"><label for="fTeacher">Teacher</label>
           <input class="input" id="fTeacher" list="teachers" placeholder="e.g. Mashel Auma">
-          <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Ms. Irene</option><option>Lorraine Osiany Auma</option><option>Mr. Kareem</option></datalist></div>
+          <datalist id="teachers"><option>Mashel Auma</option><option>Eda Yavuz</option><option>Amina Ulanova</option><option>Lorraine Osiany Auma</option><option>Mr. Kareem</option></datalist></div>
         <div class="field"><label for="fReg">Date of registration</label><input class="input" id="fReg" type="date"><div class="hint">Defaults to today. Change it for students who joined earlier.</div></div>
         <div class="field admin-only"><label for="fRef">Referred by</label><input class="input" id="fRef" list="refList" autocomplete="off" placeholder="Pick a student or type a name"><datalist id="refList"></datalist><div class="hint" id="fRefHint">Who told this student about EOF? Optional.</div></div>
       </div>
@@ -1649,7 +1649,7 @@ async function loadTeachers() {
   const snap = await getDocs(collection(db, "teachers"));
   teachers = snap.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)));
   teachers.filter(t => t.name && t.active !== false).forEach(t => syncPublicTeacher(t.uid, t));   // teacher cards students can see (no phone, email, DOB or CV)
-  const names = new Set(["Mashel Auma", ...teachers.map(t => t.name), "Eda Yavuz", "Amina Ulanova", "Lorraine Osiany Auma", "Ms. Irene", "Mr. Kareem"]);
+  const names = new Set(["Mashel Auma", ...teachers.map(t => t.name), "Eda Yavuz", "Amina Ulanova", "Lorraine Osiany Auma", "Mr. Kareem"]);
   $("teachers").innerHTML = [...names].map(n => `<option>${esc(n)}</option>`).join("");
   $("teacherBody").innerHTML = teachers.length ? teachers.map(t => {
     const count = students.filter(s => s.teacher === t.name && (s.status || "active") === "active").length;
