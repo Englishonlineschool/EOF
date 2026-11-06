@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <meta charset="UTF-8">
+<script>/* EOF language: the visitor's own choice wins; otherwise follow the phone/browser language (tr, ru, en); anything else gets English */(function(){var c=['en','tr','ru'],s=null,l=null,n,i,p;try{s=localStorage.getItem('eof_lang');}catch(e){}if(c.indexOf(s)>=0){l=s;}else{n=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||''];for(i=0;i<n.length&&!l;i++){p=String(n[i]).toLowerCase().split(/[-_]/)[0];if(c.indexOf(p)>=0)l=p;}}window.EOF_LANG=l||'en';})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy | English Online Forum</title>
 <meta name="description" content="How English Online Forum collects, uses, and protects your information.">
@@ -639,7 +640,7 @@
     ru:{t:'Мы используем файлы cookie Google Analytics, чтобы понять, как посетители пользуются нашим сайтом. Вы можете принять или отклонить их.',p:'Политика конфиденциальности',a:'Принять',d:'Отклонить'}
   };
   function show(){
-    var lang=get('eof_lang'); if(!T[lang]) lang='en'; var L=T[lang];
+    var lang=get('eof_lang')||window.EOF_LANG; if(!T[lang]) lang='en'; var L=T[lang];
     var box=document.createElement('div'); box.id='eof-consent'; box.setAttribute('role','dialog'); box.setAttribute('aria-label','Cookie consent');
     box.innerHTML='<p>'+L.t+' <a href="eof-privacy-policy.html">'+L.p+'</a></p><div class="eof-c-btns"><button type="button" class="eof-c-decline">'+L.d+'</button><button type="button" class="eof-c-accept">'+L.a+'</button></div>';
     document.body.appendChild(box);
