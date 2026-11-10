@@ -257,6 +257,31 @@
         <div class="field"><label for="fParentName">Name and surname</label><input class="input" id="fParentName" autocomplete="off"></div>
         <div class="field admin-only"><label for="fParentPhone">Phone / WhatsApp</label><input class="input" id="fParentPhone" autocomplete="off" type="tel"></div>
       </div>
+
+      <div class="admin-only" id="agreementSec">
+      <h3 class="form-sec">Lesson agreement</h3>
+      <p class="hint" style="margin:-4px 0 10px">The agreement is filled in automatically with this student's details (name, parent, student number, course, level, teacher, lesson days, contact). Add the details below, preview it, then tick “Show in the student's portal” and save.</p>
+      <div class="grid-2">
+        <div class="field"><label for="fAgLength">Lesson length</label><input class="input" id="fAgLength" list="agLengths" placeholder="e.g. 45 minutes">
+          <datalist id="agLengths"><option>40 minutes</option><option>45 minutes</option><option>50 minutes</option><option>60 minutes</option><option>90 minutes</option></datalist></div>
+        <div class="field"><label for="fAgStart">Start date</label><input class="input" id="fAgStart" type="date"></div>
+        <div class="field"><label for="fAgDate">Date of the agreement</label><input class="input" id="fAgDate" type="date"><div class="hint">Defaults to today.</div></div>
+        <div class="field"><label for="fAgRef">Reference no.</label><input class="input" id="fAgRef" autocomplete="off"><div class="hint" id="fAgRefHint">Leave empty to use the automatic number.</div></div>
+      </div>
+      <div class="field"><label>Languages the student can download</label>
+        <div class="days" id="fAgLangs">
+          <label><input type="checkbox" value="EN" checked> English</label>
+          <label><input type="checkbox" value="RU"> Russian</label>
+          <label><input type="checkbox" value="TR"> Turkish</label>
+        </div></div>
+      <label class="check-line" style="margin:4px 0 10px"><input type="checkbox" id="fAgIssued"> Show in the student's portal (the student is notified and can download it)</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="hint" style="margin:0">Preview / download:</span>
+        <button class="btn btn-ghost btn-sm" type="button" data-ag-dl="EN">English PDF</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-ag-dl="RU">Russian PDF</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-ag-dl="TR">Turkish PDF</button>
+      </div>
+      </div>
       </fieldset>
       <div class="err" id="formErr" role="alert"></div>
       <div class="modal-actions">
@@ -410,6 +435,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=7";
 import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=11";
+import { downloadAgreement, defaultRef } from "./eof-agreement.js?v=1";
 import { CITIES } from "./eof-cities.js?v=1";
 import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
   resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=4";
@@ -753,6 +779,12 @@ function openModal(s) {
   $("fParentName").value = s?.parentName || "";
   $("fParentPhone").value = "";
   contact = { phone: "", parentPhone: "" };
+  { const ag = s?.agreement || {};
+    $("fAgLength").value = ag.length || ""; $("fAgStart").value = ag.start || ""; $("fAgDate").value = ag.date || "";
+    $("fAgRef").value = ag.ref || ""; $("fAgIssued").checked = !!ag.issued;
+    const langs = ag.langs?.length ? ag.langs : ["EN"];
+    document.querySelectorAll("#fAgLangs input").forEach(c => c.checked = langs.includes(c.value));
+    $("fAgRefHint").textContent = `Leave empty to use the automatic number${s?.studentNumber ? ` (${defaultRef(s, ag.date || isoDate())})` : ""}.`; }
   if (s && ADMIN) loadContact(s);
   $("studentFields").disabled = !!TEACHER;
   $("saveBtn").classList.toggle("hidden", !!TEACHER);
@@ -842,6 +874,7 @@ $("studentForm").addEventListener("submit", async e => {
     data.emailNotify = $("fNotify").checked;
     const refName = $("fRef").value.trim(), hit = refName ? students.find(x => x !== editing && fold(x.name) === fold(refName)) : null;
     data.referredBy = refName ? { name: hit ? hit.name : refName, sid: hit ? hit.uid : null } : null;
+    data.agreement = formAgreement();
   }
   const phones = { phone: $("fPhone").value.trim(), parentPhone: $("fParentPhone").value.trim() };
   const email = $("fEmail").value.trim().toLowerCase();
@@ -869,6 +902,10 @@ $("studentForm").addEventListener("submit", async e => {
         msg = `Login created. Password email sent to ${email}.`;
       }
       await updateDoc(doc(db, "students", editing.uid), data);
+      if (ADMIN && data.agreement?.issued && !editing.agreement?.issued) {
+        notify({ ...editing, ...data }, { type: "comment", title: "Your lesson agreement is ready", points: 0,
+          body: "Your lesson agreement with English Online Forum is ready. Open “My lesson agreement” in your portal to download it, read it, sign the last page and send a copy back to the school by email or WhatsApp." }).catch(() => {});
+      }
       await setDoc(doc(db, "students", editing.uid, "private", "contact"), phones, { merge: true });
       Object.assign(editing, data);
       toast(msg);
@@ -1630,6 +1667,34 @@ $("testBody").addEventListener("click", e => {
   const t = testRows.find(x => x.id === b.closest("[data-test]").dataset.test); if (!t) return;
   downloadPlacementPdf(t.r || t.saved, testName(t), b);
 });
+
+// ---------- Lesson agreement (admin) ----------
+function formAgreement() {
+  return {
+    issued: $("fAgIssued").checked,
+    langs: [...document.querySelectorAll("#fAgLangs input:checked")].map(c => c.value),
+    length: $("fAgLength").value.trim(),
+    start: $("fAgStart").value || "",
+    date: $("fAgDate").value || isoDate(),
+    ref: $("fAgRef").value.trim()
+  };
+}
+document.querySelectorAll("[data-ag-dl]").forEach(b => b.addEventListener("click", async () => {
+  // Uses what is in the form now (saved or not), so the admin can check it before issuing.
+  const slots = {}; $("fSlots").querySelectorAll(".slot").forEach(r => slots[r.dataset.day] = readSlot(r));
+  const s = { ...(editing || {}), name: $("fName").value.trim(), parentName: $("fParentName").value.trim(),
+    email: $("fEmail").value.trim() || editing?.email || "", course: $("fCourse").value.trim(), level: $("fLevel").value,
+    teacher: $("fTeacher").value.trim(), registeredOn: $("fReg").value, city: $("fCity").value.trim(),
+    country: findCountry($("fCountry").value) || $("fCountry").value.trim(), lessonSlots: slots,
+    lessonDays: [...document.querySelectorAll("#fDays input:checked")].map(c => c.value),
+    phone: $("fPhone").value.trim() || contact.phone || "", parentPhone: $("fParentPhone").value.trim() || contact.parentPhone || "",
+    agreement: formAgreement() };
+  if (!s.name) { toast("Enter the student's name first.", "bad"); return; }
+  const label = b.textContent; b.disabled = true; b.textContent = "Preparing…";
+  try { await downloadAgreement(s, b.dataset.agDl); }
+  catch (ex) { console.error(ex); toast("Couldn't create the agreement PDF. Please try again.", "bad"); }
+  b.disabled = false; b.textContent = label;
+}));
 
 $("cardBtn").addEventListener("click", async () => {
   const s = editing; if (!s) return;

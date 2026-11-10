@@ -94,6 +94,12 @@
       <div class="level-track" id="levelTrack" style="margin:16px 0 0"></div>
     </section>
 
+    <section class="card hidden" id="agreementCard">
+      <h2>My lesson agreement</h2>
+      <p style="color:var(--muted);margin-bottom:14px">Your lesson agreement with English Online Forum, filled in with your details. Download it, read it, sign the last page and send a copy back to the school by email or WhatsApp.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="agreementBtns"></div>
+    </section>
+
     <section class="card">
       <h2>My results</h2>
       <div class="chart-wrap" id="chart"></div>
@@ -128,6 +134,7 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDoc
   esc, prettyDate, dayKey, DAY_NAMES, DAYS, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
   levelHistory, monthYear, doc, getDoc, isoDate, onSnapshot } from "./eof-portal.js?v=7";
 import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=11";
+import { downloadAgreement, AGREEMENT_LANGS } from "./eof-agreement.js?v=1";
 import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
   feedCol, byNewest, loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=4";
 import { canDo } from "./eof-curriculum.js?v=1";
@@ -173,6 +180,17 @@ else {
       $("fLoc").textContent = [s.city, s.country].filter(Boolean).join(", ") || "—";
       if (s.parentName || s.parentPhone) $("fParent").textContent = [s.parentName, s.parentPhone].filter(Boolean).join(" · ");
       else $("parentFact").classList.add("hidden");
+      if (s.agreement?.issued) {
+        const langs = AGREEMENT_LANGS.filter(l => (s.agreement.langs?.length ? s.agreement.langs : ["EN"]).includes(l.code));
+        $("agreementBtns").innerHTML = langs.map(l => `<button class="btn btn-ghost" type="button" data-ag="${l.code}">Download (${esc(l.label)})</button>`).join("");
+        $("agreementBtns").querySelectorAll("[data-ag]").forEach(b => b.addEventListener("click", async () => {
+          const label = b.textContent; b.disabled = true; b.textContent = "Preparing PDF…";
+          try { await downloadAgreement(s, b.dataset.ag); }
+          catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
+          b.disabled = false; b.textContent = label;
+        }));
+        $("agreementCard").classList.remove("hidden");
+      }
       $("fReg").textContent = prettyDate(s.registeredOn);
       $("fDays").textContent = schedule(s);
       $("fTeacher").textContent = s.teacher || "—";
