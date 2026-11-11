@@ -294,6 +294,9 @@ function detect(){
   if(isIOS){
     var key=sw+'x'+sh, m=IOS.filter(function(d){return d.pt[0]===sw&&d.pt[1]===sh;})[0];
     if(m) return {name:IOS_BY_PT[key]||m.n,w:m.px[0],h:m.px[1],src:'auto',os:'ios'};
+    /* Display Zoom or a model not in the list: use this screen's own pixel size */
+    var iw=Math.round(sw*dpr),ih=Math.round(sh*dpr);
+    if(iw>=640&&ih>=1100) return {name:'This iPhone',w:iw,h:ih,src:'auto',os:'ios'};
     return null;
   }
   if(isAndroid){
@@ -431,7 +434,8 @@ document.querySelectorAll('.langs button').forEach(function(b){b.addEventListene
 
 /* start */
 var saved=load(),auto=detect();
-dev=(saved&&saved.src==='user')?saved:(auto||saved);
+/* on a phone, always use what we detect on this visit; a remembered choice is only used when nothing can be detected */
+dev=auto||saved;
 buildGrid();i18n();
 })();
 </script>
