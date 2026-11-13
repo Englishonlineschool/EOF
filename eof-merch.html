@@ -5,7 +5,7 @@
 <script>(function(){var c=['en','tr','ru'],s=null,l=null,n,i,p;try{s=localStorage.getItem('eof_lang');}catch(e){}if(c.indexOf(s)>=0){l=s;}else{n=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||''];for(i=0;i<n.length&&!l;i++){p=String(n[i]).toLowerCase().split(/[-_]/)[0];if(c.indexOf(p)>=0)l=p;}}window.EOF_LANG=l||'en';})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>EOF Merch | English Online Forum</title>
-<meta name="description" content="Free English Online Forum phone wallpapers, made to fit your exact screen — every iPhone from the 13 to the 18 series and Android phones.">
+<meta name="description" content="Free English Online Forum phone wallpapers in many colours, made to fit your exact screen — every iPhone from the 13 to the 18 series and Android phones.">
 <link rel="canonical" href="https://englishonlineforum.com/eof-merch.html">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
@@ -77,6 +77,9 @@ header{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0
 .btn[disabled]{opacity:.6;cursor:wait}
 /* gallery */
 section.col{padding:46px 0 10px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:30px 2px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1.5px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13.5px;font-weight:600;color:var(--navy);background:#fff;white-space:nowrap}.chip:hover{border-color:var(--navy)}
+section.col{scroll-margin-top:80px}
 .colhead{display:flex;align-items:end;justify-content:space-between;gap:14px;margin-bottom:18px}
 .colhead h2{font:600 30px/1.15 Fraunces;color:var(--navy)}
 .colhead p{color:var(--muted);font-size:14.5px}
@@ -172,10 +175,8 @@ footer .bar{height:6px;background:linear-gradient(90deg,var(--red) 0 55%,#fff 55
 </div>
 
 <main class="wrap">
-  <section class="col">
-    <div class="colhead"><h2 data-t="kits">Kit Collection</h2><p data-t="tap">Tap a wallpaper to download it.</p></div>
-    <div class="grid" id="gKit"></div>
-  </section>
+  <nav class="chips" id="chips" aria-label="Collections"></nav>
+  <div id="cols"></div>
   <div class="how">
     <div><h3> iPhone</h3><ol><li data-t="i1">Tap a wallpaper, then “Save to Photos”.</li><li data-t="i2">Open Photos → the wallpaper → Share → Use as Wallpaper.</li><li data-t="i3">Turn off Perspective Zoom so it fits perfectly.</li></ol></div>
     <div><h3>Android</h3><ol><li data-t="a1">Tap a wallpaper, then “Download”.</li><li data-t="a2">Open the image → ⋮ → Set as wallpaper.</li><li data-t="a3">Choose Home screen, Lock screen or both.</li></ol></div>
@@ -226,9 +227,9 @@ footer .bar{height:6px;background:linear-gradient(90deg,var(--red) 0 55%,#fff 55
 (function(){
 'use strict';
 var T={
- en:{back:'Back to website',lead:'Free EOF wallpapers for your phone, made to fit your exact screen.',wallpapers:'Wallpapers',soon:'More coming soon',yourdev:'Your device',change:'Change device',kits:'Kit Collection',tap:'Tap a wallpaper to download it.',i1:'Tap a wallpaper, then “Save to Photos”.',i2:'Open Photos → the wallpaper → Share → Use as Wallpaper.',i3:'Turn off Perspective Zoom so it fits perfectly.',a1:'Tap a wallpaper, then “Download”.',a2:'Open the image → ⋮ → Set as wallpaper.',a3:'Choose Home screen, Lock screen or both.',soonnote:'More EOF merch is coming soon.',choose:'Choose your phone',w:'Width (px)',h:'Height (px)',use:'Use this size',wallpaper:'Wallpaper',detected:'Detected automatically',chosen:'Chosen by you',notdet:'Please choose your phone for a perfect fit',pick:'Choose your phone',save:'Save to Photos',download:'Download PNG',preparing:'Preparing…',iosHint:'If the share sheet doesn’t open: press and hold the image, then tap “Save to Photos”.',other:'Other size',otherAndroid:'Other Android phone',this:'This phone',sizeFor:'PNG · {w} × {h} px',done:'Saved ✓',suggested:'Suggested — tap Change device to pick your phone',generic:'Desktop / other',fallback:'Download PNG'},
- tr:{back:'Siteye dön',lead:'Telefonunuz için ücretsiz EOF duvar kâğıtları — ekranınızın tam boyutunda.',wallpapers:'Duvar Kâğıtları',soon:'Daha fazlası yakında',yourdev:'Cihazınız',change:'Cihazı değiştir',kits:'Forma Koleksiyonu',tap:'İndirmek için bir duvar kâğıdına dokunun.',i1:'Bir duvar kâğıdına, ardından “Fotoğraflar’a Kaydet”e dokunun.',i2:'Fotoğraflar → duvar kâğıdı → Paylaş → Duvar Kâğıdı Olarak Kullan.',i3:'Tam oturması için Perspektif Yakınlaştırma’yı kapatın.',a1:'Bir duvar kâğıdına, ardından “İndir”e dokunun.',a2:'Görseli açın → ⋮ → Duvar kâğıdı olarak ayarla.',a3:'Ana ekran, kilit ekranı veya ikisini seçin.',soonnote:'Daha fazla EOF ürünü yakında.',choose:'Telefonunuzu seçin',w:'Genişlik (px)',h:'Yükseklik (px)',use:'Bu boyutu kullan',wallpaper:'Duvar kâğıdı',detected:'Otomatik algılandı',chosen:'Sizin seçiminiz',notdet:'Tam uyum için lütfen telefonunuzu seçin',pick:'Telefonunuzu seçin',save:'Fotoğraflar’a Kaydet',download:'PNG İndir',preparing:'Hazırlanıyor…',iosHint:'Paylaşım ekranı açılmazsa: görsele basılı tutun ve “Fotoğraflar’a Kaydet”e dokunun.',other:'Diğer boyut',otherAndroid:'Diğer Android telefon',this:'Bu telefon',sizeFor:'PNG · {w} × {h} px',done:'Kaydedildi ✓',suggested:'Önerilen — telefonunuzu seçmek için Cihazı değiştir’e dokunun',generic:'Masaüstü / diğer',fallback:'PNG İndir'},
- ru:{back:'Вернуться на сайт',lead:'Бесплатные обои EOF для телефона — точно под размер вашего экрана.',wallpapers:'Обои',soon:'Скоро — больше',yourdev:'Ваше устройство',change:'Сменить устройство',kits:'Коллекция «Форма»',tap:'Нажмите на обои, чтобы скачать.',i1:'Нажмите на обои, затем «Сохранить в Фото».',i2:'Откройте Фото → обои → Поделиться → Сделать обоями.',i3:'Отключите «Перспективу», чтобы обои легли идеально.',a1:'Нажмите на обои, затем «Скачать».',a2:'Откройте изображение → ⋮ → Установить как обои.',a3:'Выберите главный экран, экран блокировки или оба.',soonnote:'Скоро — больше товаров EOF.',choose:'Выберите телефон',w:'Ширина (px)',h:'Высота (px)',use:'Применить',wallpaper:'Обои',detected:'Определено автоматически',chosen:'Выбрано вами',notdet:'Выберите телефон для идеальной посадки',pick:'Выберите телефон',save:'Сохранить в Фото',download:'Скачать PNG',preparing:'Подготовка…',iosHint:'Если меню не открылось: нажмите и удерживайте изображение и выберите «Сохранить в Фото».',other:'Другой размер',otherAndroid:'Другой Android',this:'Этот телефон',sizeFor:'PNG · {w} × {h} px',done:'Сохранено ✓',suggested:'Рекомендуемый — нажмите «Сменить устройство», чтобы выбрать свой телефон',generic:'Компьютер / другое',fallback:'Скачать PNG'}
+ en:{back:'Back to website',lead:'Free EOF wallpapers for your phone, made to fit your exact screen.',wallpapers:'Wallpapers',soon:'More coming soon',yourdev:'Your device',change:'Change device',kits:'Kit Collection',tap:'Tap a wallpaper to download it.',i1:'Tap a wallpaper, then “Save to Photos”.',i2:'Open Photos → the wallpaper → Share → Use as Wallpaper.',i3:'Turn off Perspective Zoom so it fits perfectly.',a1:'Tap a wallpaper, then “Download”.',a2:'Open the image → ⋮ → Set as wallpaper.',a3:'Choose Home screen, Lock screen or both.',soonnote:'More EOF merch is coming soon.',choose:'Choose your phone',w:'Width (px)',h:'Height (px)',use:'Use this size',wallpaper:'Wallpaper',detected:'Detected automatically',chosen:'Chosen by you',notdet:'Please choose your phone for a perfect fit',pick:'Choose your phone',save:'Save to Photos',download:'Download PNG',preparing:'Preparing…',iosHint:'If the share sheet doesn’t open: press and hold the image, then tap “Save to Photos”.',other:'Other size',otherAndroid:'Other Android phone',this:'This phone',sizeFor:'PNG · {w} × {h} px',done:'Saved ✓',suggested:'Suggested — tap Change device to pick your phone',designs:'designs',generic:'Desktop / other',fallback:'Download PNG'},
+ tr:{back:'Siteye dön',lead:'Telefonunuz için ücretsiz EOF duvar kâğıtları — ekranınızın tam boyutunda.',wallpapers:'Duvar Kâğıtları',soon:'Daha fazlası yakında',yourdev:'Cihazınız',change:'Cihazı değiştir',kits:'Forma Koleksiyonu',tap:'İndirmek için bir duvar kâğıdına dokunun.',i1:'Bir duvar kâğıdına, ardından “Fotoğraflar’a Kaydet”e dokunun.',i2:'Fotoğraflar → duvar kâğıdı → Paylaş → Duvar Kâğıdı Olarak Kullan.',i3:'Tam oturması için Perspektif Yakınlaştırma’yı kapatın.',a1:'Bir duvar kâğıdına, ardından “İndir”e dokunun.',a2:'Görseli açın → ⋮ → Duvar kâğıdı olarak ayarla.',a3:'Ana ekran, kilit ekranı veya ikisini seçin.',soonnote:'Daha fazla EOF ürünü yakında.',choose:'Telefonunuzu seçin',w:'Genişlik (px)',h:'Yükseklik (px)',use:'Bu boyutu kullan',wallpaper:'Duvar kâğıdı',detected:'Otomatik algılandı',chosen:'Sizin seçiminiz',notdet:'Tam uyum için lütfen telefonunuzu seçin',pick:'Telefonunuzu seçin',save:'Fotoğraflar’a Kaydet',download:'PNG İndir',preparing:'Hazırlanıyor…',iosHint:'Paylaşım ekranı açılmazsa: görsele basılı tutun ve “Fotoğraflar’a Kaydet”e dokunun.',other:'Diğer boyut',otherAndroid:'Diğer Android telefon',this:'Bu telefon',sizeFor:'PNG · {w} × {h} px',done:'Kaydedildi ✓',suggested:'Önerilen — telefonunuzu seçmek için Cihazı değiştir’e dokunun',designs:'tasarım',generic:'Masaüstü / diğer',fallback:'PNG İndir'},
+ ru:{back:'Вернуться на сайт',lead:'Бесплатные обои EOF для телефона — точно под размер вашего экрана.',wallpapers:'Обои',soon:'Скоро — больше',yourdev:'Ваше устройство',change:'Сменить устройство',kits:'Коллекция «Форма»',tap:'Нажмите на обои, чтобы скачать.',i1:'Нажмите на обои, затем «Сохранить в Фото».',i2:'Откройте Фото → обои → Поделиться → Сделать обоями.',i3:'Отключите «Перспективу», чтобы обои легли идеально.',a1:'Нажмите на обои, затем «Скачать».',a2:'Откройте изображение → ⋮ → Установить как обои.',a3:'Выберите главный экран, экран блокировки или оба.',soonnote:'Скоро — больше товаров EOF.',choose:'Выберите телефон',w:'Ширина (px)',h:'Высота (px)',use:'Применить',wallpaper:'Обои',detected:'Определено автоматически',chosen:'Выбрано вами',notdet:'Выберите телефон для идеальной посадки',pick:'Выберите телефон',save:'Сохранить в Фото',download:'Скачать PNG',preparing:'Подготовка…',iosHint:'Если меню не открылось: нажмите и удерживайте изображение и выберите «Сохранить в Фото».',other:'Другой размер',otherAndroid:'Другой Android',this:'Этот телефон',sizeFor:'PNG · {w} × {h} px',done:'Сохранено ✓',suggested:'Рекомендуемый — нажмите «Сменить устройство», чтобы выбрать свой телефон',designs:'дизайнов',generic:'Компьютер / другое',fallback:'Скачать PNG'}
 };
 var lang=(function(){var l=window.EOF_LANG||'en';return T[l]?l:'en';})();
 function t(k){return (T[lang]&&T[lang][k])||T.en[k]||k;}
@@ -236,7 +237,62 @@ function t(k){return (T[lang]&&T[lang][k])||T.en[k]||k;}
 var WP=[
  ['kit1','Kit · EOF Red','k'],['kit2','Kit · Deep Red','k'],['kit4','Kit · Red & Navy','k'],['kit7','Kit · Red & Black','k'],
  ['kit11','Kit · Yellow & Blue','k'],['kit12','Kit · Golden Yellow','k'],['kit8','Kit · Gold','k'],['kit9','Kit · Badge Blue','k'],
- ['kit6','Kit · Navy','k'],['kit5','Kit · Black & Silver','k'],['kit10','Kit · Embossed Charcoal','k'],['kit3','Kit · Grey','k']
+ ['kit6','Kit · Navy','k'],['kit5','Kit · Black & Silver','k'],['kit10','Kit · Embossed Charcoal','k'],['kit3','Kit · Grey','k'],
+ ['kit13', 'Kit · EOF Red · Est. 2019', 'k'],
+ ['kit16', 'Kit · Yellow & Blue · Est. 2019', 'k'],
+ ['kit14', 'Kit · Badge Blue · Est. 2019', 'k'],
+ ['kit15', 'Kit · Embossed Charcoal · Est. 2019', 'k'],
+ ['sash-navy', 'Sash · Navy', 'sash'],
+ ['sash-red', 'Sash · Red', 'sash'],
+ ['sash-black', 'Sash · Black', 'sash'],
+ ['sash-white', 'Sash · White', 'sash'],
+ ['sash-gold', 'Sash · Gold', 'sash'],
+ ['sash-royal', 'Sash · Royal', 'sash'],
+ ['sash-badge-blue', 'Sash · Badge Blue', 'sash'],
+ ['sash-charcoal', 'Sash · Charcoal', 'sash'],
+ ['mascot-royal', 'Mascot · Royal', 'mascot'],
+ ['mascot-red', 'Mascot · Red', 'mascot'],
+ ['mascot-navy', 'Mascot · Navy', 'mascot'],
+ ['mascot-yellow', 'Mascot · Yellow', 'mascot'],
+ ['mascot-black', 'Mascot · Black', 'mascot'],
+ ['mascot-cream', 'Mascot · Cream', 'mascot'],
+ ['mascot-gold', 'Mascot · Gold', 'mascot'],
+ ['mascot-badge-blue', 'Mascot · Badge Blue', 'mascot'],
+ ['pattern-navy', 'Pattern · Navy', 'pattern'],
+ ['pattern-red', 'Pattern · Red', 'pattern'],
+ ['pattern-royal', 'Pattern · Royal', 'pattern'],
+ ['pattern-black', 'Pattern · Black', 'pattern'],
+ ['pattern-white', 'Pattern · White', 'pattern'],
+ ['pattern-charcoal', 'Pattern · Charcoal', 'pattern'],
+ ['pattern-badge-blue', 'Pattern · Badge Blue', 'pattern'],
+ ['pattern-gold', 'Pattern · Gold', 'pattern'],
+ ['heritage-cream', 'Heritage · Cream', 'heritage'],
+ ['heritage-white', 'Heritage · White', 'heritage'],
+ ['heritage-navy', 'Heritage · Navy', 'heritage'],
+ ['heritage-gold', 'Heritage · Gold', 'heritage'],
+ ['heritage-black', 'Heritage · Black', 'heritage'],
+ ['heritage-red', 'Heritage · Red', 'heritage'],
+ ['split-red-and-navy', 'Split · Red & Navy', 'split'],
+ ['split-gold-and-navy', 'Split · Gold & Navy', 'split'],
+ ['split-royal-and-navy', 'Split · Royal & Navy', 'split'],
+ ['split-red-and-black', 'Split · Red & Black', 'split'],
+ ['split-yellow-and-blue', 'Split · Yellow & Blue', 'split'],
+ ['split-navy-and-red', 'Split · Navy & Red', 'split'],
+ ['split-white-and-navy', 'Split · White & Navy', 'split'],
+ ['midnight-navy', 'Midnight · Navy', 'midnight'],
+ ['midnight-badge-blue', 'Midnight · Badge Blue', 'midnight'],
+ ['midnight-red', 'Midnight · Red', 'midnight'],
+ ['midnight-charcoal', 'Midnight · Charcoal', 'midnight'],
+ ['midnight-gold', 'Midnight · Gold', 'midnight']
+];
+var COLS=[
+ {k:'k',en:'Kit Collection',tr:'Forma Koleksiyonu',ru:'Коллекция «Форма»'},
+ {k:'sash',en:'Sash Collection',tr:'Kuşak Koleksiyonu',ru:'Коллекция «Лента»'},
+ {k:'mascot',en:'Mascot Collection',tr:'Maskot Koleksiyonu',ru:'Коллекция «Талисман»'},
+ {k:'pattern',en:'Pattern Collection',tr:'Desen Koleksiyonu',ru:'Коллекция «Узор»'},
+ {k:'heritage',en:'Heritage Collection',tr:'Miras Koleksiyonu',ru:'Коллекция «Наследие»'},
+ {k:'split',en:'Split Collection',tr:'İki Renk Koleksiyonu',ru:'Коллекция «Два цвета»'},
+ {k:'midnight',en:'Midnight Collection',tr:'Gece Koleksiyonu',ru:'Коллекция «Полночь»'}
 ];
 var FAM=[['F108',2100,2268],['F142',1878,2670],['F200',1440,2880],['F211',1440,3040],['F217',1440,3120],['F222',1440,3200],['F233',1644,3840],['F250',1080,2700]];
 
@@ -329,17 +385,32 @@ function i18n(){
   document.querySelectorAll('[data-t]').forEach(function(e){e.textContent=t(e.getAttribute('data-t'));});
   document.querySelectorAll('.langs button').forEach(function(b){b.setAttribute('aria-pressed',b.getAttribute('data-l')===lang?'true':'false');});
   renderDev();
+  if(typeof colTitles==='function')colTitles();
 }
 
 function buildGrid(){
-  WP.forEach(function(w){
-    var b=document.createElement('button');b.type='button';b.className='card';b.setAttribute('data-id',w[0]);
-    b.innerHTML='<div class="ph"><img loading="lazy" src="wallpapers/t/'+w[0]+'.webp" alt=""></div><div class="nm"></div><div class="dl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>PNG</span></div>';
-    b.querySelector('.nm').textContent=w[1];b.querySelector('img').alt=w[1];
-    b.addEventListener('click',function(){openPreview(w);});
-    $('#gKit').appendChild(b);
+  var host=$('#cols'),chips=$('#chips');
+  COLS.forEach(function(c,ci){
+    var items=WP.filter(function(w){return w[2]===c.k;});if(!items.length)return;
+    var sec=document.createElement('section');sec.className='col';sec.id='col-'+c.k;
+    sec.innerHTML='<div class="colhead"><h2></h2><p></p></div><div class="grid"></div>';
+    sec.querySelector('h2').setAttribute('data-col',c.k);
+    var p=sec.querySelector('p');if(ci===0)p.setAttribute('data-t','tap');else p.textContent=items.length+' ';
+    p.setAttribute('data-count',items.length);
+    var g=sec.querySelector('.grid');
+    items.forEach(function(w){
+      var b=document.createElement('button');b.type='button';b.className='card';b.setAttribute('data-id',w[0]);
+      b.innerHTML='<div class="ph"><img loading="lazy" src="wallpapers/t/'+w[0]+'.webp" alt=""></div><div class="nm"></div><div class="dl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>PNG</span></div>';
+      b.querySelector('.nm').textContent=w[1];b.querySelector('img').alt=w[1];
+      b.addEventListener('click',function(){openPreview(w);});
+      g.appendChild(b);
+    });
+    host.appendChild(sec);
+    var a=document.createElement('a');a.href='#col-'+c.k;a.className='chip';a.setAttribute('data-col',c.k);chips.appendChild(a);
   });
 }
+function colTitles(){document.querySelectorAll('[data-col]').forEach(function(e){var c=COLS.filter(function(x){return x.k===e.getAttribute('data-col');})[0];e.textContent=c[lang]||c.en;});
+  document.querySelectorAll('.colhead p[data-count]:not([data-t])').forEach(function(p){p.textContent=p.getAttribute('data-count')+' '+t('designs');});}
 
 /* ---------- device chooser ---------- */
 var os=isAndroid?'android':'ios';
