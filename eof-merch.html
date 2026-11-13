@@ -14,7 +14,7 @@
 <meta property="og:site_name" content="English Online Forum">
 <meta property="og:title" content="EOF Merch — Wallpapers | English Online Forum">
 <meta property="og:description" content="Free EOF phone wallpapers, sized exactly for your phone.">
-<meta property="og:image" content="https://englishonlineforum.com/wallpapers/t/kit1.webp">
+<meta property="og:image" content="https://englishonlineforum.com/wallpapers/t/kit1.webp?v=r2">
 <meta property="og:url" content="https://englishonlineforum.com/eof-merch.html">
 <meta name="theme-color" content="#16264D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -163,7 +163,7 @@ footer .bar{height:6px;background:linear-gradient(90deg,var(--red) 0 55%,#fff 55
 <div class="topstrip"></div>
 <header>
   <div class="wrap hrow">
-    <a class="brand" href="index.html"><img src="wallpapers/eof-seal.webp" width="40" height="40" alt="English Online Forum logo"><span>EOF Merch<small>Language is Freedom</small></span></a>
+    <a class="brand" href="index.html"><img src="wallpapers/eof-seal.webp?v=r2" width="40" height="40" alt="English Online Forum logo"><span>EOF Merch<small>Language is Freedom</small></span></a>
     <div class="hright">
       <div class="langs" role="group" aria-label="Language">
         <button type="button" data-l="en">EN</button><button type="button" data-l="tr">TR</button><button type="button" data-l="ru">RU</button>
@@ -186,7 +186,7 @@ footer .bar{height:6px;background:linear-gradient(90deg,var(--red) 0 55%,#fff 55
       </div>
     </div>
     <div class="phones" aria-hidden="true">
-      <img src="wallpapers/t/kit2.webp" alt=""><img src="wallpapers/t/kit1.webp" alt=""><img src="wallpapers/t/kit11.webp" alt="">
+      <img src="wallpapers/t/kit2.webp?v=r2" alt=""><img src="wallpapers/t/kit1.webp?v=r2" alt=""><img src="wallpapers/t/kit11.webp?v=r2" alt="">
     </div>
   </div>
 </section>
@@ -485,7 +485,7 @@ function buildGrid(){
     var g=sec.querySelector('.grid');
     items.forEach(function(w){
       var b=document.createElement('button');b.type='button';b.className='card';b.setAttribute('data-id',w[0]);
-      b.innerHTML='<div class="ph"><img loading="lazy" src="wallpapers/t/'+w[0]+'.webp" alt=""></div><div class="nm"></div><div class="dl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>PNG</span></div>';
+      b.innerHTML='<div class="ph"><img loading="lazy" src="wallpapers/t/'+w[0]+'.webp?v=r2" alt=""></div><div class="nm"></div><div class="dl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>PNG</span></div>';
       b.querySelector('.nm').textContent=w[1];b.querySelector('img').alt=w[1];
       b.addEventListener('click',function(){openPreview(w);});
       g.appendChild(b);
@@ -549,7 +549,7 @@ function makePNG(id,W,H){
       }catch(e){rej(e);}
     };
     img.onerror=function(){rej(new Error('load'));};
-    img.src='wallpapers/m/'+id+'_'+f[0]+'.jpg';
+    img.src='wallpapers/m/'+id+'_'+f[0]+'.jpg?v=r2';
   });
 }
 function openPreview(w){
@@ -558,7 +558,7 @@ function openPreview(w){
   $('#pvTitle').textContent=w[1];
   $('#pvMeta').textContent=dev.name+' · '+t('sizeFor').replace('{w}',dev.w).replace('{h}',dev.h);
   $('#pvPh').style.aspectRatio=dev.w+'/'+dev.h;
-  var im=$('#pvImg');im.src='wallpapers/t/'+w[0]+'.webp';im.alt=w[1];
+  var im=$('#pvImg');im.src='wallpapers/t/'+w[0]+'.webp?v=r2';im.alt=w[1];
   var sb=$('#saveBtn'),hint=$('#pvHint');hint.hidden=true;
   sb.disabled=true;sb.innerHTML='<span class="spin"></span><span></span>';sb.lastChild.textContent=t('preparing');
   open('#pvOv');
@@ -583,7 +583,7 @@ function openPreview(w){
   }).catch(function(){
     if(my!==job)return;
     sb.disabled=false;sb.textContent=t('fallback');
-    sb.onclick=function(){var a=document.createElement('a');a.href='wallpapers/m/'+w[0]+'_'+fam(dev.w,dev.h)[0]+'.jpg';a.download='';a.click();};
+    sb.onclick=function(){var a=document.createElement('a');a.href='wallpapers/m/'+w[0]+'_'+fam(dev.w,dev.h)[0]+'.jpg?v=r2';a.download='';a.click();};
   });
 }
 
