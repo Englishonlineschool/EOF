@@ -18,15 +18,15 @@ FULL_LISTENING = [
 
  dict(id='lA2', level='A2', title='At the train station', speed=0.93, pause=0.2, b=0.0, lines=[
   ('am_michael', "Hi. I'd like a ticket to Manchester, please."),
-  ('bf_isabella', "Single or return?"),
+  ('bf_emma', "Single or return?"),
   ('am_michael', "Return, please. I'm coming back on Sunday."),
-  ('bf_isabella', "OK. The next train leaves at twenty past two, from platform six. It's forty-two pounds fifty."),
+  ('bf_emma', "OK. The next train leaves at twenty past two, from platform six. It's forty-two pounds fifty."),
   ('am_michael', "Forty-two fifty? Is there anything cheaper?"),
-  ('bf_isabella', "Well, if you take the three-fifteen train, it's only thirty pounds. But you have to change at Leeds."),
+  ('bf_emma', "Well, if you take the three-fifteen train, it's only thirty pounds. But you have to change at Leeds."),
   ('am_michael', "That's fine. I'm not in a hurry. I'll take the three-fifteen."),
-  ('bf_isabella', "Right. That train leaves from platform two. There's a café next to the platform if you want to wait there."),
+  ('bf_emma', "Right. That train leaves from platform two. There's a café next to the platform if you want to wait there."),
   ('am_michael', "Great, thanks. Can I pay by card?"),
-  ('bf_isabella', "Of course."),
+  ('bf_emma', "Of course."),
  ], questions=[
   ("What kind of ticket does the man buy?", ["A return ticket", "A single ticket", "A weekly ticket", "A first-class ticket"]),
   ("How much does the man pay?", ["£30", "£42.50", "£24.50", "£15"]),
@@ -106,7 +106,7 @@ DEMO_LISTENING = [
  ]),
 
  dict(id='dlC1', level='C1', title='A podcast about language learning', speed=1.05, b=0.0, lines=[
-  ('af_bella', "One of the most persistent myths I come across is that adults simply can't learn languages as well as children. "
+  ('af_heart', "One of the most persistent myths I come across is that adults simply can't learn languages as well as children. "
                "There's a grain of truth in it: very few people who start as adults will ever sound exactly like a native speaker. "
                "But pronunciation is only one part of the picture. In controlled studies, adults often make faster progress than children in the early stages, "
                "precisely because they can understand explanations of grammar and apply strategies consciously. "

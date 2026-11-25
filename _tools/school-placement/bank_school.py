@@ -6,6 +6,8 @@
 # fixed shuffled order, and the test page shuffles them again for every student.
 # 'pic' (optional) is a picture shown above a grammar item (emoji, drawn large).
 # Listening items: 'lines' = [(voice, text)], 'speed' = Kokoro speed, 'pause' = gap (s)
+# Natural-pace standard (Nov 2026): A1 ~0.92-0.95, A2 ~0.95-0.98, B1 ~1.0, B2/C1 1.0-1.05, pauses 0.35-0.55 s;
+# clear, neutral voices only (no bf_isabella / af_bella / af_nicole: they sound breathy at school-test speeds).
 # after each sentence, so lower levels stay slow and clear. Voices: af_/am_ American,
 # bf_/bm_ British.
 
@@ -122,7 +124,7 @@ None of this means that individual habits are irrelevant. But it does suggest th
 ]
 
 TEENS_LISTENING = [
- dict(id='tlA1', level='A1', title="A voice message from a friend", speed=0.8, pause=1.15, lines=[
+ dict(id='tlA1', level='A1', title="A voice message from a friend", speed=0.76, pause=0.55, lines=[
   ('am_puck', "Hi Sofia, it's Daniel. Do you want to come to the cinema with me and Leo on Saturday? "
               "The film starts at four o'clock. Let's meet outside the cinema at half past three. "
               "It's on Park Street, next to the big bookshop. The tickets are six pounds. "
@@ -134,7 +136,7 @@ TEENS_LISTENING = [
   ("What should Sofia bring?", ["Her student card", "Some snacks", "A book", "Her camera"]),
   ("What does Daniel want Sofia to do tonight?", ["Call him", "Buy the tickets", "Meet Leo", "Send him a message"]),
  ]),
- dict(id='tlA2', level='A2', title="Choosing an after-school club", speed=0.86, pause=0.7, lines=[
+ dict(id='tlA2', level='A2', title="Choosing an after-school club", speed=0.88, pause=0.5, lines=[
   ('bf_emma', "Hey Max, have you chosen an after-school club yet? We have to decide by Friday."),
   ('am_puck', "Not yet. I wanted to do football, but it's on Tuesdays, and I have piano lessons then."),
   ('bf_emma', "What about the drama club? It's on Thursdays, and they're doing a musical this year."),
@@ -150,8 +152,8 @@ TEENS_LISTENING = [
   ("What does the girl say about cameras?", ["The school lends them to students", "Students must bring their own camera", "Students can only use their phones", "Cameras are very expensive"]),
   ("What happens at the end of the year?", ["There is an exhibition", "There is a musical", "There is a football match", "There is a trip with Mr Patel"]),
  ]),
- dict(id='tlB1', level='B1', title="An announcement about the school trip", speed=0.86, pause=0.75, lines=[
-  ('bf_isabella', "Good morning, Grade 9. This is Ms Turner with some important news about next Friday's trip to the Natural History Museum. "
+ dict(id='tlB1', level='B1', title="An announcement about the school trip", speed=0.83, pause=0.55, lines=[
+  ('bf_emma', "Good morning, Grade 9. This is Ms Turner with some important news about next Friday's trip to the Natural History Museum. "
                 "First of all, there's been a change of plan. The coach will now leave at eight fifteen, not eight thirty, because of roadworks on the motorway, "
                 "so please be in the school car park by eight o'clock at the latest. We'll be back at school at about four. "
                 "You don't need to bring money for the entrance, as the school has already paid, but you will need a packed lunch, "
@@ -184,7 +186,7 @@ TEENS_LISTENING = [
   ("What is Ella's next priority for the app?", ["Making it easier to read for students with dyslexia", "Adding new features for users", "Selling it to universities", "Translating it into other languages"]),
  ]),
  dict(id='tlC1', level='C1', title="A talk: why cramming doesn't work", speed=1.02, pause=0.14, lines=[
-  ('af_bella', "Let me start with a confession. The night before my own final exams, I stayed up until three in the morning, reading my notes over and over again. "
+  ('af_heart', "Let me start with a confession. The night before my own final exams, I stayed up until three in the morning, reading my notes over and over again. "
                "I felt incredibly productive, and I passed. But if you'd asked me a month later what I'd learned, I'd have struggled to tell you very much at all. "
                "That experience is surprisingly typical, and psychologists have a good explanation for it. "
                "When we reread the same material many times in one session, it starts to feel familiar, and we mistake that sense of familiarity for genuine understanding. "
@@ -248,7 +250,7 @@ There is also some evidence that students who take a gap year arrive at universi
  ]),
 ]
 TEENS_DEMO_LISTENING = [
- dict(id='dtlB1', level='B1', title="Planning a birthday surprise", speed=0.9, pause=0.5, lines=[
+ dict(id='dtlB1', level='B1', title="Planning a birthday surprise", speed=0.83, pause=0.35, lines=[
   ('af_heart', "Jack, it's Lily's birthday next Saturday. Shall we do something special for her?"),
   ('am_puck', "Definitely. What about a surprise party at my house?"),
   ('af_heart', "That's a nice idea, but your parents will be away that weekend, won't they?"),
@@ -369,7 +371,7 @@ They also wrote letters to the hotels near the beach, asking them to turn off th
 ]
 
 JUNIOR_LISTENING = [
- dict(id='jlP', level='Pre-A1', title="Sara and her family", speed=0.86, pause=0.8, lines=[
+ dict(id='jlP', level='Pre-A1', title="Sara and her family", speed=0.88, pause=0.53, lines=[
   ('bf_emma', "Hello! I'm Sara. I'm eleven years old. This is my family. "
                "I have one brother. His name is Ben. He is seven. "
                "I have a dog, too. His name is Rocky. He is big and brown. "
@@ -380,23 +382,23 @@ JUNIOR_LISTENING = [
   ("What colour is Rocky?", ["Brown", "Green", "Black", "White"]),
   ("What does Sara like doing with her dad?", ["Playing tennis", "Walking the dog", "Playing football", "Swimming"]),
  ]),
- dict(id='jlA1', level='A1', title="A phone call from Mum", speed=0.88, pause=0.5, lines=[
-  ('bf_isabella', "Hi, Leo. I'm at the supermarket. What do we need for your party tomorrow?"),
+ dict(id='jlA1', level='A1', title="A phone call from Mum", speed=0.87, pause=0.35, lines=[
+  ('af_heart', "Hi, Leo. I'm at the supermarket. What do we need for your party tomorrow?"),
   ('am_puck', "Hi, Mum. We need a big cake, please. A chocolate cake!"),
-  ('bf_isabella', "OK. And drinks?"),
+  ('af_heart', "OK. And drinks?"),
   ('am_puck', "Yes, orange juice. Not apple juice. My friends don't like apple juice."),
-  ('bf_isabella', "How many friends are coming?"),
+  ('af_heart', "How many friends are coming?"),
   ('am_puck', "Eight friends. And Grandma and Grandpa."),
-  ('bf_isabella', "OK. The party starts at three o'clock, right?"),
+  ('af_heart', "OK. The party starts at three o'clock, right?"),
   ('am_puck', "No, Mum. At four o'clock."),
-  ('bf_isabella', "Oh, yes. Four o'clock. See you soon!"),
+  ('af_heart', "Oh, yes. Four o'clock. See you soon!"),
  ], qs=[
   ("Where is Leo's mum?", ["At the supermarket", "At home", "At school", "At Grandma's house"]),
   ("What kind of cake does Leo want?", ["Chocolate", "Orange", "Apple", "Strawberry"]),
   ("How many friends are coming to the party?", ["8", "3", "4", "10"]),
   ("What time does the party start?", ["4:00", "3:00", "8:00", "2:00"]),
  ]),
- dict(id='jlA2', level='A2', title="A trip to the farm", speed=0.86, pause=0.75, lines=[
+ dict(id='jlA2', level='A2', title="A trip to the farm", speed=0.88, pause=0.55, lines=[
   ('bm_george', "OK, everyone, listen carefully, please. Tomorrow is our trip to Green Hill Farm. "
                 "The bus leaves at nine o'clock, so please be at school by quarter to nine. Don't be late, because the bus can't wait! "
                 "At the farm, we're going to feed the animals and see how cheese is made. "
@@ -409,7 +411,7 @@ JUNIOR_LISTENING = [
   ("Why should students wear old clothes?", ["It can be muddy", "They will work in a shop", "It is going to rain", "The animals are dangerous"]),
   ("Why don't students need any money?", ["There isn't a shop at the farm", "The teacher will pay", "The trip is very short", "Lunch is free at the farm"]),
  ]),
- dict(id='jlB1', level='B1', title="A science project", speed=0.88, pause=0.5, lines=[
+ dict(id='jlB1', level='B1', title="A science project", speed=0.88, pause=0.49, lines=[
   ('bf_emma', "Sam, have you started the science project yet? It's due next Monday."),
   ('am_puck', "Not really. I wanted to make a volcano, but my brother said everyone does that."),
   ('bf_emma', "He's right. Mrs Clark said she wants something original this year."),
@@ -469,13 +471,13 @@ The librarian, Mrs Ortiz, says Max can't do everything. "He can't fix the comput
  ]),
 ]
 JUNIOR_DEMO_LISTENING = [
- dict(id='djlA1', level='A1', title="Where is my bag?", speed=0.86, pause=0.7, lines=[
+ dict(id='djlA1', level='A1', title="Where is my bag?", speed=0.75, pause=0.35, lines=[
   ('am_puck', "Mum, where is my school bag? I can't find it."),
-  ('bf_isabella', "Is it in your bedroom?"),
+  ('af_heart', "Is it in your bedroom?"),
   ('am_puck', "No, it isn't. I looked under my bed, too."),
-  ('bf_isabella', "What about the kitchen? You had breakfast there."),
+  ('af_heart', "What about the kitchen? You had breakfast there."),
   ('am_puck', "No. Oh, wait! It's in the car! I left it there yesterday."),
-  ('bf_isabella', "OK. Here are the car keys. Be quick. The bus comes at eight o'clock!"),
+  ('af_heart', "OK. Here are the car keys. Be quick. The bus comes at eight o'clock!"),
   ('am_puck', "Thanks, Mum!"),
  ], qs=[
   ("What is the boy looking for?", ["His school bag", "The car keys", "His breakfast", "His bed"]),
@@ -483,7 +485,7 @@ JUNIOR_DEMO_LISTENING = [
   ("When did he leave it there?", ["Yesterday", "This morning", "Last week", "At breakfast"]),
   ("What time does the bus come?", ["8:00", "7:00", "8:30", "9:00"]),
  ]),
- dict(id='djlB1', level='B1', title="Saving for a skateboard", speed=0.86, pause=0.7, lines=[
+ dict(id='djlB1', level='B1', title="Saving for a skateboard", speed=0.79, pause=0.55, lines=[
   ('af_heart', "Owen, did you buy that skateboard you wanted?"),
   ('am_puck', "Not yet. It costs sixty pounds, and I've only saved forty."),
   ('af_heart', "Can't your parents help?"),

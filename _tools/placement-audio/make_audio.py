@@ -1,13 +1,17 @@
 """Generate the EOF placement-test listening recordings (run from the repo root).
+Usage: python _tools/placement-audio/make_audio.py [clip_id ...]   (no ids = all clips)
 Needs: pip install kokoro-onnx==0.6.1 soundfile ; model files kokoro-v1.0.onnx + voices-v1.0.bin in the working directory."""
-import os, re, importlib.util, numpy as np, soundfile as sf
+import os, re, sys, importlib.util, numpy as np, soundfile as sf
 from kokoro_onnx import Kokoro
 here = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location('bank', os.path.join(here, 'bank_listening.py'))
 L = importlib.util.module_from_spec(spec); spec.loader.exec_module(L)
-k = Kokoro('kokoro-v1.0.onnx', 'voices-v1.0.bin')
+kdir = os.environ.get('KOKORO_DIR', '.')
+k = Kokoro(os.path.join(kdir, 'kokoro-v1.0.onnx'), os.path.join(kdir, 'voices-v1.0.bin'))
+want = set(sys.argv[1:])
 os.makedirs('eof-audio', exist_ok=True)
 for clip in L.FULL_LISTENING + L.DEMO_LISTENING:
+    if want and clip['id'] not in want: continue
     parts = [np.zeros(int(24000 * 0.6))]
     for voice, text in clip['lines']:
         chunks = re.split(r'(?<=[.?!])\s+', text) if clip.get('pause') else [text]

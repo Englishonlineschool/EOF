@@ -42,7 +42,7 @@ def sil(sec): return np.zeros(int(SR * sec), dtype=np.float32)
 
 def render(clip):
     pause = clip.get('pause', 0.15)
-    turn_gap = 0.55 if clip['level'] in ('Pre-A1', 'A1', 'A2') else 0.42
+    turn_gap = 0.45 if clip['level'] in ('Pre-A1', 'A1', 'A2') else 0.42
     parts, words = [sil(0.8)], 0
     for li, (voice, text) in enumerate(clip['lines']):
         sentences = [s for s in re.split(r'(?<=[.?!])\s+', text.strip()) if s]
