@@ -4,7 +4,8 @@
  * Every 10 minutes this script reads the portal's Firestore database (as the project owner) and emails:
  *   • a STUDENT when her teacher or the school sent her something she hasn't read yet
  *     (chat message, badge, stamp, result, comment, answer to her reply);
- *   • a TEACHER when one of her students wrote to her (chat) or replied to a badge/comment/result;
+ *   • a TEACHER when one of her students wrote to her (chat) or replied to a badge/comment/result
+ *     (Mr. Mashel's students → mashelauma@gmail.com);
  *   • the SCHOOL (admin) when a student wrote to "The school".
  * Only things that are still UNREAD 5 minutes after they were sent are emailed, so people who are
  * on the website at that moment don't get an email as well. One email per person per run (a short digest).
@@ -13,7 +14,7 @@
  * LESSON REMINDERS (added 27 Nov 2026) — every 5 minutes `sendReminders` emails:
  *   • each STUDENT with a login email: on the morning of a lesson day (from 09:00 in her city) and about
  *     10 minutes before the lesson starts (time in her city);
- *   • each TEACHER (email on her teacher profile; Mr. Mashel's go to the school): one morning list of the
+ *   • each TEACHER (email on her teacher profile; Mr. Mashel's go to mashelauma@gmail.com): one morning list of the
  *     day's lessons (from 07:00 in her city) and about 10 minutes before each lesson;
  *   • the student and the teacher when a lesson is RESCHEDULED (a make-up lesson is created in the portal).
  * Cancelled and rescheduled lessons get no reminders; make-up lessons do. Students whose record has
@@ -27,7 +28,9 @@
  * Gmail limit on a free account: 100 emails a day.
  */
 const PROJECT = 'eof-student-portal';
-const SCHOOL_EMAIL = 'englishonlineforum@gmail.com';
+const SCHOOL_EMAIL = 'englishonlineforum@gmail.com';   // school matters: messages to "The school", setup and summary emails
+const MASHEL_EMAIL = 'mashelauma@gmail.com';           // Mr. Mashel's own lessons and students (reminders, his students' chats and replies)
+const isMashel_ = function (name) { return norm_(name) === 'mashel auma'; };
 const SITE = 'https://www.englishonlineforum.com';
 const DELAY_MIN = 5;           // wait this long before emailing (the person may read it on the website)
 const MAX_PER_RUN = 40;        // safety limit on emails per run
@@ -101,7 +104,7 @@ function collect_(since, until) {
     if (c.lastByRole === 'student' && c.unreadStaff) {
       const item = { kind: 'chat', who: s.name, text: c.lastText, link: SITE + '/eof-admin.html' };
       if (c.tid === 'school') add(SCHOOL_EMAIL, 'school', 'English Online Forum', item);
-      else add(teacherEmail(s.teacher) || SCHOOL_EMAIL, 'teacher', s.teacher, item);   // no teacher email → the school
+      else add(isMashel_(s.teacher) ? MASHEL_EMAIL : (teacherEmail(s.teacher) || SCHOOL_EMAIL), 'teacher', s.teacher, item);   // no teacher email → the school
     }
   });
 
@@ -113,7 +116,7 @@ function collect_(since, until) {
         add(s.email, 'student', s.name, { kind: f.type, who: f.byName || teacherTitle(s.teacher), title: f.title, text: f.body, points: f.points, link: SITE + '/eof-account.html#messages' });
       }
       if (f.type === 'reply' && f.readByTeacher === false) {
-        add(teacherEmail(s.teacher) || SCHOOL_EMAIL, 'teacher', s.teacher, { kind: 'reply', who: s.name, title: f.title, text: f.body, link: SITE + '/eof-admin.html' });
+        add(isMashel_(s.teacher) ? MASHEL_EMAIL : (teacherEmail(s.teacher) || SCHOOL_EMAIL), 'teacher', s.teacher, { kind: 'reply', who: s.name, title: f.title, text: f.body, link: SITE + '/eof-admin.html' });
       }
     });
   });
@@ -242,7 +245,7 @@ function planReminders_(now, props, opt) {
   const students = listStudents_().filter(function (s) { return (s.status || 'active') === 'active' && s.portalBlocked !== true; });
   const teachers = list_('teachers');
   const tOf = function (name) { const k = norm_(name); return teachers.filter(function (x) { return norm_(x.name) === k; })[0] || (k === 'mashel auma' ? { name: 'Mashel Auma', title: 'Mr', tz: 'Asia/Bishkek', city: 'Bishkek', role: 'admin' } : null); };
-  const tEmail = function (t) { return t && t.email && t.active !== false && t.role !== 'admin' ? t.email : SCHOOL_EMAIL; };
+  const tEmail = function (t) { return t && isMashel_(t.name) ? MASHEL_EMAIL : t && t.email && t.active !== false && t.role !== 'admin' ? t.email : SCHOOL_EMAIL; };
   const tTitle = function (t, name) { return t && t.title ? String(t.title).replace(/\.?$/, '.') + ' ' + t.name : (name || 'your teacher'); };
   const done = function (k) { return !!props.getProperty(k); };
   const out = [], teacherDay = {};
@@ -284,7 +287,8 @@ function planReminders_(now, props, opt) {
       const k1 = 'r:mv:' + s.id + ':' + L.id;
       if (wantsReminders_(s) && !done(k1)) out.push(mailMoved_(k1, s.email, 'student', s, t, info, tTitle(t, s.teacher)));
       const k2 = 'r:tmv:' + s.id + ':' + L.id;
-      if (!done(k2) && !(L.by && String(L.by).toLowerCase() === String(tEmail(t)).toLowerCase())) out.push(mailMoved_(k2, tEmail(t), 'teacher', s, t, info, tTitle(t, s.teacher)));
+      const byMe = L.by && (String(L.by).toLowerCase() === String(tEmail(t)).toLowerCase() || (t && isMashel_(t.name) && String(L.by).toLowerCase() === SCHOOL_EMAIL));
+      if (!done(k2) && !byMe) out.push(mailMoved_(k2, tEmail(t), 'teacher', s, t, info, tTitle(t, s.teacher)));
     });
   });
 
