@@ -80,16 +80,8 @@ export const TEACHER_CITIES = [
   ["Nairobi", "Africa/Nairobi", "Kenya"], ["Kampala", "Africa/Kampala", "Uganda"], ["Dubai", "Asia/Dubai", "United Arab Emirates"],
   ["London", "Europe/London", "United Kingdom"], ["Berlin", "Europe/Berlin", "Germany"], ["New York", "America/New_York", "United States of America"]
 ];
-// Teacher's time zone: her profile → a guess from her phone code → Bishkek (the school's home time)
-export function teacherTz(t) {
-  if (t?.tz) return t.tz;
-  const p = String(t?.phone || "").replace(/[^\d+]/g, "");
-  if (p.startsWith("+90")) return "Europe/Istanbul";
-  if (p.startsWith("+996")) return "Asia/Bishkek";
-  if (p.startsWith("+254")) return "Africa/Nairobi";
-  if (p.startsWith("+998")) return "Asia/Tashkent";
-  return "Asia/Bishkek";
-}
+// Teacher's time zone: her profile, otherwise Bishkek (all EOF teachers live in Bishkek — owner, 27 Nov 2026)
+export function teacherTz(t) { return t?.tz || "Asia/Bishkek"; }
 export function teacherCity(t) {
   if (t?.city) return t.city;
   const tz = teacherTz(t); const hit = TEACHER_CITIES.find(c => c[1] === tz); return hit ? hit[0] : tzCity(tz);

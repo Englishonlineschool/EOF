@@ -445,7 +445,7 @@ import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, 
   resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=4";
 import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=3";
 import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
-import { STATUS, statusLabel, statusBadge, attRowsOf, attCounts, attDate, isMakeupId, newMakeupId, toZone, TEACHER_CITIES, teacherTz, teacherCity, shortDay } from "./eof-lessons.js?v=1";
+import { STATUS, statusLabel, statusBadge, attRowsOf, attCounts, attDate, isMakeupId, newMakeupId, toZone, TEACHER_CITIES, teacherTz, teacherCity, shortDay } from "./eof-lessons.js?v=2";
 const $ = id => document.getElementById(id);
 
 let IS_TEACHER = false;   // set once we know; safe to read even while the page is still loading
@@ -1840,7 +1840,7 @@ function openProfile(t) {
   $("pJoined").value = t.joinedOn || ""; $("pDob").value = t.dob || ""; $("pEmail").value = t.email || (t.role === "admin" ? "englishonlineforum@gmail.com" : "No login yet");
   $("pPhone").value = t.phone || ""; $("pBio").value = t.bio || "";
   { const cur = teacherCity(t), list = TEACHER_CITIES.some(c => c[0] === cur) ? TEACHER_CITIES : [[cur, teacherTz(t)], ...TEACHER_CITIES];
-    $("pCity").innerHTML = list.map(([c, tz]) => `<option value="${esc(c)}" data-tz="${esc(tz)}"${c === cur ? " selected" : ""}>${esc(c)}${t.tz ? "" : c === cur ? " (guessed — please confirm)" : ""}</option>`).join(""); }
+    $("pCity").innerHTML = list.map(([c, tz]) => `<option value="${esc(c)}" data-tz="${esc(tz)}"${c === cur ? " selected" : ""}>${esc(c)}${t.tz ? "" : c === cur ? " (default — please confirm)" : ""}</option>`).join(""); }
   $("pEdu").value = toLines(t.education); $("pExp").value = toLines(t.experience); $("pCert").value = toLines(t.certificates);
   $("pLang").value = toLines(t.languages); $("pSkills").value = toLines(t.skills);
   document.querySelectorAll("#profileForm .staff-admin").forEach(el => el.disabled = !!TEACHER);

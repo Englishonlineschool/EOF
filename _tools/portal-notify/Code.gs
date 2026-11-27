@@ -212,6 +212,7 @@ function val_(v) {
 // =====================================================================================================
 // LESSON REMINDERS (every 5 minutes)
 // =====================================================================================================
+const LESSON_MIN = 45;           // one lesson = 45 minutes; a double lesson = 90 (Latifa 27 Nov: 16:30 double → ends 18:00)
 const MORNING_HOUR = 9;          // students: morning reminder from 09:00 in the city where she lives
 const TEACHER_MORNING_HOUR = 7;  // teachers: the day's lesson list from 07:00 in her city
 const SOON_MIN = 3, SOON_MAX = 14;   // "about 10 minutes before": sent when the lesson starts in 3–14 minutes
@@ -262,7 +263,7 @@ function planReminders_(now, props, opt) {
       if (wantsReminders_(s) && L.date === sToday) {
         const sd = studentDay[s.id] || (studentDay[s.id] = { s: s, t: t, teacher: tTitle(t, s.teacher), date: sToday, hour: sLocal.hour, items: [], due: false });
         sd.items.push(info);
-        if (opt.force ? mins > 15 : sLocal.hour >= MORNING_HOUR && mins > 30) sd.due = true;
+        if (opt.all || (opt.force ? mins > 15 : sLocal.hour >= MORNING_HOUR && mins > 30)) sd.due = true;
       }
       // Student — about 10 minutes before
       if (!opt.force && wantsReminders_(s) && mins >= SOON_MIN && mins <= SOON_MAX) {
@@ -302,7 +303,7 @@ function planReminders_(now, props, opt) {
     const d = teacherDay[to];
     if (!opt.force && d.hour < TEACHER_MORNING_HOUR) return;
     const left = d.items.filter(function (i) { return i.start.getTime() - now.getTime() > (opt.force ? 15 : 30) * 60000; });
-    if (!left.length) return;
+    if (!left.length && !opt.all) return;
     const k = 'r:tm:' + to + ':' + d.date;
     if (done(k)) return;
     d.items.sort(function (a, b) { return a.start - b.start; });
@@ -364,8 +365,8 @@ function lessonsAround_(s, now) {
 }
 
 function lessonInfo_(L, s, t, ttz, tcity) {
-  const sp = localParts_(L.start, L.tz), tp = localParts_(L.start, ttz);
-  return { start: L.start, id: L.id, level: s.level || '', makeup: !!L.makeup, fromDate: L.fromDate, note: L.note, lessons: L.lessons, student: s.name,
+  const sp = localParts_(L.start, L.tz), tp = localParts_(L.start, ttz), end = new Date(L.start.getTime() + (L.lessons == 2 ? 2 : 1) * LESSON_MIN * 60000);
+  return { sEnd: localParts_(end, L.tz).time, tEnd: localParts_(end, ttz).time, note: L.note, start: L.start, id: L.id, level: s.level || '', makeup: !!L.makeup, fromDate: L.fromDate, lessons: L.lessons, student: s.name,
     sTime: sp.time, sDate: sp.date, sCity: L.city || cityOf_(L.tz), tTime: tp.time, tDate: tp.date, tCity: tcity, sameZone: L.tz === ttz };
 }
 
@@ -410,13 +411,13 @@ function mailStudentDay_(key, d, opt) {
   opt = opt || {};
   const s = d.s, first = String(s.name || '').split(' ')[0] || 'there', live = d.items, n = live.length;
   const city = (live[0] && live[0].sCity) || s.city || '';
-  const times = live.map(function (i) { return i.sTime; }).join(' & ');
+  const times = live.map(function (i) { return i.sTime + '–' + i.sEnd; }).join(' & ');
   const pdf = studentDayPdf_(d, opt);
   const lead = opt.updated
     ? '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier email</b> — your lessons for today have changed. ' + (n ? 'Your updated lesson schedule is attached as a PDF.' : 'You have <b>no lesson today</b>.') + '</p>'
-    : '<p style="margin:0 0 10px;font-size:15px">Good morning! You have ' + (n === 1 ? 'an English lesson' : n + ' English lessons') + ' with ' + esc_(d.teacher) + ' <b>today at ' + esc_(times) + ' (' + esc_(city) + ' time)</b>.</p>' +
+    : '<p style="margin:0 0 10px;font-size:15px">Good morning! You have ' + (n === 1 ? 'an English lesson' : n + ' English lessons') + ' with ' + esc_(d.teacher) + ' <b>today, ' + esc_(times) + ' (' + esc_(city) + ' time)</b>.</p>' +
       '<p style="margin:0">Your lesson schedule for today is attached as a PDF.</p>';
-  const subject = opt.updated ? (n ? 'Updated: your English lesson today at ' + times : 'Update: no English lesson today') : 'Your English lesson today at ' + times + ' — schedule attached';
+  const subject = opt.updated ? (n ? 'Updated: your English lesson today, ' + times : 'Update: no English lesson today') : 'Your English lesson today, ' + times + ' — schedule attached';
   return { key: key, to: s.email, attachments: pdf ? [pdf] : [], subject: subject,
     html: shell_(first, lead, SITE + '/eof-account.html', 'Open my student portal', 'Can’t make it? Tell ' + esc_(d.teacher) + ' or the school in the portal chat as early as possible.'),
     text: 'Hello ' + first + '!\n\n' + (opt.updated ? 'Please ignore our earlier email — your lessons for today have changed.\n' : '') +
@@ -463,15 +464,7 @@ function dayKeyOf_(iso) { const p = iso.split('-').map(Number); return DAY_KEYS[
 function prettyShort_(iso) { const p = iso.split('-').map(Number); const d = new Date(Date.UTC(p[0], p[1] - 1, p[2])); return DAY_LONG[DAY_KEYS[(d.getUTCDay() + 6) % 7]] + ' ' + p[2] + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][p[1] - 1]; }
 const CITY_OF_TZ = { 'Asia/Bishkek': 'Bishkek', 'Europe/Istanbul': 'İstanbul', 'Africa/Nairobi': 'Nairobi', 'Asia/Almaty': 'Almaty', 'Asia/Tashkent': 'Tashkent', 'Europe/Moscow': 'Moscow', 'Europe/London': 'London' };
 function cityOf_(tz) { return CITY_OF_TZ[tz] || String(tz || '').split('/').pop().replace(/_/g, ' '); }
-function teacherTz_(t) {
-  if (t && t.tz) return t.tz;
-  const p = String((t && t.phone) || '').replace(/[^\d+]/g, '');
-  if (p.indexOf('+90') === 0) return 'Europe/Istanbul';
-  if (p.indexOf('+996') === 0) return 'Asia/Bishkek';
-  if (p.indexOf('+254') === 0) return 'Africa/Nairobi';
-  if (p.indexOf('+998') === 0) return 'Asia/Tashkent';
-  return 'Asia/Bishkek';
-}
+function teacherTz_(t) { return (t && t.tz) || 'Asia/Bishkek'; }   // all EOF teachers live in Bishkek unless their profile says otherwise (owner, 27 Nov)
 function teacherCity_(t) { return (t && t.city) || cityOf_(teacherTz_(t)); }
 function todayUtc_() { return new Date().toISOString().slice(0, 10); }
 // Sent-reminder markers are kept 4 days, then removed
@@ -635,8 +628,8 @@ function studentDayPdf_(d, opt) {
   try {
     const s = d.s, first = String(s.name || '').split(' ')[0], items = d.items, city = (items[0] && items[0].sCity) || s.city || '';
     const rows = items.map(function (i, n) {
-      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.sTime) + '</b><div class="m">' + esc_(i.sCity) + ' time</div></td>' +
-        '<td>' + esc_(d.teacher) + '</td><td>' + (i.lessons == 2 ? 'Double lesson' : 'Single lesson') + (i.makeup ? '<div class="m" style="color:#3A57AB">Make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</div>' : '') + '</td>' +
+      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '</b><div class="m">' + esc_(i.sCity) + ' time</div></td>' +
+        '<td>' + esc_(d.teacher) + '</td><td>' + (i.lessons == 2 ? 'Double lesson' : 'Single lesson') + (i.makeup ? '<div class="m" style="color:#3A57AB">Make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</div>' : '') + (i.note ? '<div class="m">' + esc_(i.note) + '</div>' : '') + '</td>' +
         '<td>' + esc_(i.level || s.level || '—') + '</td></tr>';
     }).join('');
     const changed = (d.changed || []).map(function (L) { return '<li>' + esc_(L.time) + ' — ' + (L.status === 'cancelled' ? 'cancelled' : 'moved to ' + esc_(L.movedDate ? prettyShort_(L.movedDate) : 'another day') + (L.movedTime ? ', ' + esc_(L.movedTime) : '')) + '</li>'; }).join('');
@@ -654,9 +647,9 @@ function teacherDayPdf_(d) {
   try {
     const t = d.t || {}, name = t.title ? String(t.title).replace(/\.?$/, '.') + ' ' + String(t.name || '').split(' ')[0] : (t.name || 'Teacher');
     const rows = d.items.map(function (i, n) {
-      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.tTime) + '</b><div class="m">' + esc_(i.tCity) + '</div></td>' +
+      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.tTime) + ' – ' + esc_(i.tEnd) + '</b><div class="m">' + esc_(i.tCity) + '</div></td>' +
         '<td><b>' + esc_(i.student) + '</b>' + (i.makeup ? '<div class="m" style="color:#3A57AB">Make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</div>' : '') + '</td>' +
-        '<td>' + esc_(i.level || '—') + '</td><td>' + esc_(i.sTime) + '<div class="m">' + esc_(i.sCity) + (i.sDate !== i.tDate ? ', ' + esc_(prettyShort_(i.sDate)) : '') + '</div></td>' +
+        '<td>' + esc_(i.level || '—') + '</td><td>' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '<div class="m">' + esc_(i.sCity) + (i.sDate !== i.tDate ? ', ' + esc_(prettyShort_(i.sDate)) : '') + '</div></td>' +
         '<td>' + (i.lessons == 2 ? 'Double' : 'Single') + '</td></tr>';
     }).join('');
     const body = '<p style="font-size:12pt;margin:0 0 8px">Dear ' + esc_(name) + ',</p>' +
@@ -665,4 +658,57 @@ function teacherDayPdf_(d) {
       '<p style="margin:12px 0 0;line-height:1.5">Please mark attendance in the staff area after each lesson, and use ↻ Reschedule if a lesson needs to move. Have a wonderful day of teaching!</p>';
     return pdfBlob_(pdfPage_('Teaching Schedule', d.date, body), 'EOF teaching schedule ' + d.date + ' - ' + (t.name || 'teacher'));
   } catch (e) { console.warn('teacher PDF failed: ' + e); return null; }
+}
+
+
+// ---------- Firestore writes (one-off fixes, run by hand) ----------
+function enc_(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (v instanceof Date) return { timestampValue: v.toISOString() };
+  if (typeof v === 'object') { const f = {}; Object.keys(v).forEach(function (k) { f[k] = enc_(v[k]); }); return { mapValue: { fields: f } }; }
+  return { stringValue: String(v) };
+}
+function patch_(path, data) {
+  const mask = Object.keys(data).map(function (k) { return 'updateMask.fieldPaths=' + encodeURIComponent(k); }).join('&');
+  const f = {}; Object.keys(data).forEach(function (k) { f[k] = enc_(data[k]); });
+  const r = UrlFetchApp.fetch(BASE + '/' + path + '?' + mask, { method: 'patch', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'x-goog-user-project': PROJECT }, payload: JSON.stringify({ fields: f }) });
+  if (r.getResponseCode() !== 200) throw new Error('Firestore patch ' + r.getResponseCode() + ': ' + r.getContentText().slice(0, 300));
+}
+
+// 27 Nov 2026 (owner): Latifa's Thursday lesson (26 Nov) is done today together with today's lesson — one block
+// 16:30–18:00 Bishkek. → today's make-up becomes a DOUBLE lesson "for Thu 26 Nov + today"; the 26 Nov and 27 Nov
+// regular lessons are marked Rescheduled → that make-up (so the monthly count shows 2 lessons taught, no absences).
+function fixLatifa27Nov() {
+  CacheService.getScriptCache().remove('students');
+  const s = listStudents_().filter(function (x) { return /latif/i.test(x.name); })[0];
+  if (!s) { console.log('Latifa not found'); return; }
+  const att = list_('students/' + s.id + '/attendance');
+  const mk = att.filter(function (a) { return a.makeup && a.date === '2026-11-27'; })[0];
+  console.log('Before: ' + att.filter(function (a) { return (a.date || a.id.slice(0, 10)) >= '2026-11-25'; }).map(function (a) { return a.id + ' ' + JSON.stringify({ status: a.status, makeup: a.makeup, date: a.date, time: a.time, lessons: a.lessons, fromDate: a.fromDate, movedTo: a.movedTo }); }).join('\n'));
+  if (!mk) { console.log('No make-up lesson on 27 Nov found — nothing changed.'); return; }
+  const base = 'students/' + s.id + '/attendance/';
+  patch_(base + mk.id, { time: '16:30', lessons: 2, fromDate: '2026-11-26', note: 'Thursday’s lesson (26 Nov) and today’s lesson together', updatedAt: new Date(), updatedBy: 'claude (owner request 27 Nov)' });
+  [['2026-11-26'], ['2026-11-27']].forEach(function (d) {
+    patch_(base + d[0], { status: 'rescheduled', lessons: 1, movedTo: mk.id, movedDate: '2026-11-27', movedTime: '16:30', markedAt: new Date(), markedBy: 'claude (owner request 27 Nov)' });
+  });
+  const after = list_('students/' + s.id + '/attendance').filter(function (a) { return (a.date || a.id.slice(0, 10)) >= '2026-11-25'; });
+  console.log('After: ' + after.map(function (a) { return a.id + ' ' + JSON.stringify({ status: a.status, makeup: a.makeup, date: a.date, time: a.time, lessons: a.lessons, fromDate: a.fromDate, movedTo: a.movedTo }); }).join('\n'));
+}
+
+// PREVIEW (run by hand): the REAL emails for today, without sending anything to students or teachers.
+//  • Mr. Mashel's teaching-schedule email (with PDF) for today → mashelauma@gmail.com
+//  • every student who has a lesson today and an email → a copy of HER email (with PDF) → englishonlineforum@gmail.com
+function previewTodayEmails() {
+  CacheService.getScriptCache().remove('students');
+  const props = PropertiesService.getScriptProperties(), fake = { getProperty: function () { return null; } };
+  const plan = planReminders_(new Date(), fake, { force: true, all: true });
+  const out = [];
+  plan.forEach(function (m) {
+    if (/^r:tm:/.test(m.key) && m.to === MASHEL_EMAIL) { send_(MASHEL_EMAIL, '[Preview — your email today] ' + m.subject, m.text, m.html, m.attachments); out.push('Mashel: ' + m.subject); }
+    if (/^r:md:/.test(m.key)) { send_(SCHOOL_EMAIL, '[Preview for ' + m.to + '] ' + m.subject, m.text, '<p style="font-family:Arial;color:#6B7385;font-size:13px">Preview of the email for <b>' + esc_(m.to) + '</b> (not sent to the student):</p>' + m.html, m.attachments); out.push('Student ' + m.to + ': ' + m.subject); }
+  });
+  console.log('Previews sent (' + out.length + '):\n' + out.join('\n'));
 }
