@@ -11,7 +11,7 @@
  * Students whose record has emailNotify == false (admin: student form) get no emails.
  *
  * LESSON REMINDERS (added 27 Nov 2026) — every 5 minutes `sendReminders` emails:
- *   • each STUDENT with a login email: on the morning of a lesson day (from 07:00 in her city) and about
+ *   • each STUDENT with a login email: on the morning of a lesson day (from 09:00 in her city) and about
  *     10 minutes before the lesson starts (time in her city);
  *   • each TEACHER (email on her teacher profile; Mr. Mashel's go to the school): one morning list of the
  *     day's lessons (from 07:00 in her city) and about 10 minutes before each lesson;
@@ -211,7 +211,8 @@ function val_(v) {
 // =====================================================================================================
 // LESSON REMINDERS (every 5 minutes)
 // =====================================================================================================
-const MORNING_HOUR = 7;          // morning reminder from 07:00 in the person's city
+const MORNING_HOUR = 9;          // students: morning reminder from 09:00 in the city where she lives
+const TEACHER_MORNING_HOUR = 7;  // teachers: the day's lesson list from 07:00 in her city
 const SOON_MIN = 3, SOON_MAX = 14;   // "about 10 minutes before": sent when the lesson starts in 3–14 minutes
 const MAX_REMIND_PER_RUN = 30;
 const DAY_KEYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -236,7 +237,8 @@ function sendReminders() {
 }
 
 // Works out which reminder emails are due now. Returns [{key, to, subject, text, html}] — keys already sent are skipped.
-function planReminders_(now, props) {
+function planReminders_(now, props, opt) {
+  opt = opt || {};
   const students = listStudents_().filter(function (s) { return (s.status || 'active') === 'active' && s.portalBlocked !== true; });
   const teachers = list_('teachers');
   const tOf = function (name) { const k = norm_(name); return teachers.filter(function (x) { return norm_(x.name) === k; })[0] || (k === 'mashel auma' ? { name: 'Mashel Auma', title: 'Mr', tz: 'Asia/Bishkek', city: 'Bishkek', role: 'admin' } : null); };
@@ -255,12 +257,12 @@ function planReminders_(now, props) {
       const sLocal = localParts_(now, L.tz), sToday = sLocal.date;
       const info = lessonInfo_(L, s, t, ttz, tcity);
       // Student — morning of the lesson day (her own date), only if the lesson is still at least 30 minutes away
-      if (wantsReminders_(s) && L.date === sToday && sLocal.hour >= MORNING_HOUR && mins > 30) {
+      if (wantsReminders_(s) && L.date === sToday && (opt.force ? mins > 15 : sLocal.hour >= MORNING_HOUR && mins > 30)) {
         const k = 'r:m:' + s.id + ':' + L.id;
         if (!done(k)) out.push(mailStudent_(k, s, info, 'morning', tTitle(t, s.teacher)));
       }
       // Student — about 10 minutes before
-      if (wantsReminders_(s) && mins >= SOON_MIN && mins <= SOON_MAX) {
+      if (!opt.force && wantsReminders_(s) && mins >= SOON_MIN && mins <= SOON_MAX) {
         const k = 'r:s:' + s.id + ':' + L.id;
         if (!done(k)) out.push(mailStudent_(k, s, info, 'soon', tTitle(t, s.teacher)));
       }
@@ -271,13 +273,13 @@ function planReminders_(now, props) {
         d.items.push(info);
       }
       // Teacher — about 10 minutes before
-      if (mins >= SOON_MIN && mins <= SOON_MAX) {
+      if (!opt.force && mins >= SOON_MIN && mins <= SOON_MAX) {
         const k = 'r:ts:' + s.id + ':' + L.id;
         if (!done(k)) out.push(mailTeacherSoon_(k, tEmail(t), t, s, info));
       }
     });
     // Rescheduled lessons created since the last run → tell the student and the teacher right away
-    lessons.filter(function (L) { return L.makeup && L.at && new Date(L.at) > sinceMk && L.start > now; }).forEach(function (L) {
+    if (!opt.force) lessons.filter(function (L) { return L.makeup && L.at && new Date(L.at) > sinceMk && L.start > now; }).forEach(function (L) {
       const info = lessonInfo_(L, s, t, ttz, tcity);
       const k1 = 'r:mv:' + s.id + ':' + L.id;
       if (wantsReminders_(s) && !done(k1)) out.push(mailMoved_(k1, s.email, 'student', s, t, info, tTitle(t, s.teacher)));
@@ -288,8 +290,8 @@ function planReminders_(now, props) {
 
   Object.keys(teacherDay).forEach(function (to) {
     const d = teacherDay[to];
-    if (d.hour < MORNING_HOUR) return;
-    const left = d.items.filter(function (i) { return i.start.getTime() - now.getTime() > 30 * 60000; });
+    if (!opt.force && d.hour < TEACHER_MORNING_HOUR) return;
+    const left = d.items.filter(function (i) { return i.start.getTime() - now.getTime() > (opt.force ? 15 : 30) * 60000; });
     if (!left.length) return;
     const k = 'r:tm:' + to + ':' + d.date;
     if (done(k)) return;
@@ -298,6 +300,29 @@ function planReminders_(now, props) {
   });
   return out;
 }
+// ONE-OFF (run by hand): send today's morning reminders RIGHT NOW to every student and teacher who still has a
+// lesson later today (15+ minutes away), whatever the time, and email the school a copy of each one.
+// The normal 09:00 / 07:00 run then skips them (no duplicates); the 10-minute reminders still go out as usual.
+function sendTodayNow() {
+  const lock = LockService.getScriptLock(); if (!lock.tryLock(10000)) return;
+  try {
+    const props = PropertiesService.getScriptProperties();
+    CacheService.getScriptCache().remove('students');
+    const plan = planReminders_(new Date(), props, { force: true });
+    const done = [];
+    plan.forEach(function (m) {
+      try {
+        MailApp.sendEmail(m.to, m.subject, m.text, { name: 'English Online Forum', htmlBody: m.html });
+        props.setProperty(m.key, todayUtc_()); done.push(m.to + ' — ' + m.subject);
+        if (m.to !== SCHOOL_EMAIL) MailApp.sendEmail(SCHOOL_EMAIL, '[Copy] To ' + m.to + ': ' + m.subject, m.text,
+          { name: 'English Online Forum', htmlBody: '<p style="font-family:Arial;color:#6B7385;font-size:13px">Copy of the reminder sent to <b>' + esc_(m.to) + '</b>:</p>' + m.html });
+      } catch (e) { console.warn('reminder to ' + m.to + ' failed: ' + e); }
+    });
+    MailApp.sendEmail(SCHOOL_EMAIL, 'Today\'s lesson reminders: ' + done.length + ' sent', done.length ? 'Sent now:\n' + done.join('\n') : 'No students or teachers have a lesson later today (or they have no email on their record).', { name: 'English Online Forum' });
+    console.log('Sent ' + done.length + ' reminder(s) now:\n' + done.join('\n'));
+  } finally { lock.releaseLock(); }
+}
+
 const wantsReminders_ = function (s) { return s.email && s.remindEmail !== false; };
 
 // A student's lessons from yesterday to tomorrow (her dates): regular lesson days + make-ups, with their marks.
