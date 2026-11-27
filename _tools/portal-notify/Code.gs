@@ -65,7 +65,7 @@ function sendDigests() {
     Object.keys(out).forEach(function (to) {
       if (sent >= MAX_PER_RUN) return;
       const m = out[to];
-      try { MailApp.sendEmail(to, m.subject, m.text, { name: 'English Online Forum', htmlBody: m.html }); sent++; }
+      try { send_(to, m.subject, m.text, m.html); sent++; }
       catch (e) { console.warn('mail to ' + to + ' failed: ' + e); }
     });
     props.setProperty('cutoff', until.toISOString());
@@ -147,14 +147,12 @@ function render_(b) {
       '</td></tr>';
   }).join('');
   const html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;color:#232B3D">' +
-    '<div style="background:#16264D;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0;border-bottom:4px solid #E0392C">' +
-    '<div style="font-size:12px;letter-spacing:2px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
-    '<div style="font-size:20px;font-weight:bold;margin-top:4px">Hello ' + esc_(first) + '!</div></div>' +
+    brandHead_(first) +
     '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E6EBF5;border-top:0">' + rows + '</table>' +
     '<p style="margin:18px 0"><a href="' + link + '" style="background:#E0392C;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">' +
     (b.role === 'student' ? 'Open my student portal' : 'Open the staff area') + '</a></p>' +
     '<p style="font-size:12px;color:#6B7385">Please reply in the portal, not to this email. ' +
-    (b.role === 'student' ? 'Don’t want these emails? Tell your teacher or the school and we’ll switch them off.' : '') + '</p></div>';
+    (b.role === 'student' ? 'Don’t want these emails? Tell your teacher or the school and we’ll switch them off.' : '') + '</p>' + brandFoot_() + '</div>';
   const text = 'Hello ' + first + '!\n\n' + b.items.map(function (i) {
     return '• ' + (LABEL[i.kind] || 'Update') + ' — ' + (i.title || 'from ' + i.who) + (i.text ? '\n  ' + clip_(i.text, 300) : '');
   }).join('\n') + '\n\nOpen: ' + link + '\nPlease reply in the portal, not to this email.';
@@ -230,7 +228,7 @@ function sendReminders() {
     let sent = 0;
     plan.forEach(function (m) {
       if (sent >= MAX_REMIND_PER_RUN) return;
-      try { MailApp.sendEmail(m.to, m.subject, m.text, { name: 'English Online Forum', htmlBody: m.html }); props.setProperty(m.key, todayUtc_()); sent++; }
+      try { send_(m.to, m.subject, m.text, m.html); props.setProperty(m.key, todayUtc_()); sent++; }
       catch (e) { console.warn('reminder to ' + m.to + ' failed: ' + e); }
     });
     props.setProperty('mkSince', now.toISOString());
@@ -316,10 +314,10 @@ function sendTodayNow() {
     const done = [];
     plan.forEach(function (m) {
       try {
-        MailApp.sendEmail(m.to, m.subject, m.text, { name: 'English Online Forum', htmlBody: m.html });
+        send_(m.to, m.subject, m.text, m.html);
         props.setProperty(m.key, todayUtc_()); done.push(m.to + ' — ' + m.subject);
-        if (m.to !== SCHOOL_EMAIL) MailApp.sendEmail(SCHOOL_EMAIL, '[Copy] To ' + m.to + ': ' + m.subject, m.text,
-          { name: 'English Online Forum', htmlBody: '<p style="font-family:Arial;color:#6B7385;font-size:13px">Copy of the reminder sent to <b>' + esc_(m.to) + '</b>:</p>' + m.html });
+        if (m.to !== SCHOOL_EMAIL) send_(SCHOOL_EMAIL, '[Copy] To ' + m.to + ': ' + m.subject, m.text,
+          '<p style="font-family:Arial;color:#6B7385;font-size:13px">Copy of the reminder sent to <b>' + esc_(m.to) + '</b>:</p>' + m.html);
       } catch (e) { console.warn('reminder to ' + m.to + ' failed: ' + e); }
     });
     MailApp.sendEmail(SCHOOL_EMAIL, 'Today\'s lesson reminders: ' + done.length + ' sent', done.length ? 'Sent now:\n' + done.join('\n') : 'No students or teachers have a lesson later today (or they have no email on their record).', { name: 'English Online Forum' });
@@ -411,12 +409,10 @@ function mailMoved_(key, to, role, s, t, i, teacher) {
 }
 function shell_(first, inner, link, button, foot) {
   return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;color:#232B3D">' +
-    '<div style="background:#16264D;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0;border-bottom:4px solid #E0392C">' +
-    '<div style="font-size:12px;letter-spacing:2px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
-    '<div style="font-size:20px;font-weight:bold;margin-top:4px">Hello ' + esc_(first) + '!</div></div>' +
+    brandHead_(first) +
     '<div style="background:#fff;border:1px solid #E6EBF5;border-top:0;padding:16px 18px">' + inner + '</div>' +
     '<p style="margin:18px 0"><a href="' + link + '" style="background:#E0392C;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">' + button + '</a></p>' +
-    (foot ? '<p style="font-size:12px;color:#6B7385">' + foot + '</p>' : '') + '<p style="font-size:11px;color:#9AA0AC">Language is Freedom · www.englishonlineforum.com</p></div>';
+    (foot ? '<p style="font-size:12px;color:#6B7385">' + foot + '</p>' : '') + brandFoot_() + '</div>';
 }
 
 // ---------- Time zones (IANA names, e.g. Asia/Bishkek, Europe/Istanbul) ----------
@@ -482,4 +478,65 @@ function todayReport() {
     if (!(s.lessonDays || []).length) rows.push([s.name, s.teacher || '-', 'NO LESSON DAYS', '', s.email || 'NO EMAIL'].join(' | '));
   });
   console.log(rows.join('\n'));
+}
+
+
+// ---------- Brand: logo in the header, the EOF penguin in the footer (inline images, so they show without "load images") ----------
+const LOGO_URL = 'https://www.englishonlineforum.com/logo-192.png';
+const MASCOT_URL = 'https://raw.githubusercontent.com/Englishonlineschool/eof/723e418dff604f9bc9c5df7caf698a55173a5dea/eof-mascot-email.png';
+let IMGS_ = null;
+function brandImages_() {
+  if (IMGS_) return IMGS_;
+  IMGS_ = {};
+  [['eoflogo', LOGO_URL], ['eofmascot', MASCOT_URL]].forEach(function (x) {
+    try { const r = UrlFetchApp.fetch(x[1], { muteHttpExceptions: true }); if (r.getResponseCode() === 200) IMGS_[x[0]] = r.getBlob().setName(x[0] + '.png'); }
+    catch (e) { console.warn('image ' + x[0] + ': ' + e); }
+  });
+  return IMGS_;
+}
+function brandHead_(first) {
+  const logo = brandImages_().eoflogo;
+  return '<table role="presentation" style="width:100%;border-collapse:collapse;background:#16264D;border-radius:12px 12px 0 0;border-bottom:4px solid #E0392C"><tr>' +
+    (logo ? '<td style="width:68px;padding:14px 0 14px 18px;vertical-align:middle"><img src="cid:eoflogo" width="56" height="56" alt="English Online Forum" style="display:block;border-radius:50%"></td>' : '') +
+    '<td style="padding:14px 20px 14px ' + (logo ? '12px' : '20px') + ';vertical-align:middle;color:#fff">' +
+    '<div style="font-size:12px;letter-spacing:2px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
+    '<div style="font-size:20px;font-weight:bold;margin-top:4px;color:#fff">Hello ' + esc_(first) + '!</div></td></tr></table>';
+}
+function brandFoot_() {
+  const pen = brandImages_().eofmascot;
+  return '<table role="presentation" style="width:100%;border-collapse:collapse;border-top:1px solid #E6EBF5;margin-top:8px"><tr>' +
+    (pen ? '<td style="width:52px;padding:10px 8px 4px 0;vertical-align:bottom"><img src="cid:eofmascot" width="44" height="58" alt="" style="display:block"></td>' : '') +
+    '<td style="padding:10px 0 4px;vertical-align:middle;font-family:Arial,Helvetica,sans-serif">' +
+    '<div style="font-size:13px;font-weight:bold;color:#16264D">Language is Freedom</div>' +
+    '<div style="font-size:11px;color:#9AA0AC">English Online Forum · <a href="https://www.englishonlineforum.com" style="color:#9AA0AC">www.englishonlineforum.com</a></div></td></tr></table>';
+}
+function send_(to, subject, text, html) {
+  const imgs = brandImages_(), used = {};
+  Object.keys(imgs).forEach(function (k) { if (html.indexOf('cid:' + k) >= 0) used[k] = imgs[k]; });
+  MailApp.sendEmail(to, subject, text, { name: 'English Online Forum', htmlBody: html, inlineImages: used });
+}
+
+// SAMPLE (run by hand): emails Mr. Mashel (mashelauma@gmail.com) one example of each lesson email, made from
+// his next real lesson today (or a made-up one if there is none). Nothing is sent to students or teachers.
+function sendSamplesToMe() {
+  CacheService.getScriptCache().remove('students');
+  const now = new Date(), students = listStudents_().filter(function (s) { return (s.status || 'active') === 'active'; });
+  let pick = null;
+  students.forEach(function (s) { if (pick) return; lessonsAround_(s, now).filter(function (L) { return !L.far && L.start > now && !L.status; }).forEach(function (L) { if (!pick) pick = { s: s, L: L }; }); });
+  if (!pick) pick = { s: { name: 'Sample Student', teacher: 'Mashel Auma', email: MASHEL_EMAIL }, L: { id: 'x', date: localParts_(now, 'Asia/Bishkek').date, time: '18:00', tz: 'Asia/Bishkek', city: 'Bishkek', lessons: 1, start: new Date(now.getTime() + 6 * 3600000) } };
+  const teachers = list_('teachers'), k = norm_(pick.s.teacher);
+  const t = teachers.filter(function (x) { return norm_(x.name) === k; })[0] || { name: 'Mashel Auma', title: 'Mr', tz: 'Asia/Bishkek', city: 'Bishkek' };
+  const title = t.title ? String(t.title).replace(/\.?$/, '.') + ' ' + t.name : t.name;
+  const info = lessonInfo_(pick.L, pick.s, t, teacherTz_(t), teacherCity_(t));
+  const mk = Object.assign({}, info, { makeup: true, fromDate: addDays_(info.sDate, -1), note: 'Make-up for the lesson we missed yesterday.' });
+  const mails = [
+    mailStudent_('x', pick.s, info, 'morning', title),
+    mailStudent_('x', pick.s, info, 'soon', title),
+    mailTeacherDay_('x', { to: MASHEL_EMAIL, t: t, city: teacherCity_(t), items: [info] }),
+    mailTeacherSoon_('x', MASHEL_EMAIL, t, pick.s, info),
+    mailMoved_('x', MASHEL_EMAIL, 'student', pick.s, t, mk, title)
+  ];
+  const labels = ['Student — morning reminder', 'Student — 10 minutes before', 'Teacher — morning list', 'Teacher — 10 minutes before', 'Student — lesson rescheduled'];
+  mails.forEach(function (m, i) { send_(MASHEL_EMAIL, '[Sample ' + (i + 1) + '/5: ' + labels[i] + '] ' + m.subject, m.text, m.html); });
+  console.log('Sent 5 samples to ' + MASHEL_EMAIL + ' (based on ' + pick.s.name + ', ' + info.sTime + ' ' + info.sCity + ')');
 }
