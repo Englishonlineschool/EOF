@@ -375,7 +375,7 @@ function mailStudent_(key, s, i, kind, teacher) {
   const first = String(s.name || '').split(' ')[0] || 'there';
   const when = i.sTime + ' (' + i.sCity + ' time)';
   const what = (i.lessons == 2 ? 'double English lesson' : 'English lesson') + ' with ' + teacher;
-  const subject = kind === 'soon' ? 'Your lesson starts in about 10 minutes — ' + i.sTime : 'Reminder: English lesson today at ' + i.sTime;
+  const subject = (kind === 'soon' ? 'Your lesson starts in about 10 minutes — ' + i.sTime : 'Reminder: English lesson today at ' + i.sTime) + ' · ' + prettyShort_(i.sDate);
   const lead = kind === 'soon' ? 'Your ' + what + ' starts in about 10 minutes, at <b>' + esc_(when) + '</b>. Get ready — see you soon!'
     : 'You have an ' + what + ' <b>today at ' + esc_(when) + '</b>.';
   const extra = i.makeup ? 'This is a make-up lesson' + (i.fromDate ? ' for ' + prettyShort_(i.fromDate) : '') + '.' + (i.note ? ' ' + i.note : '') : '';
@@ -386,7 +386,7 @@ function mailStudent_(key, s, i, kind, teacher) {
 function mailTeacherSoon_(key, to, t, s, i) {
   const first = t ? String(t.name || '').split(' ')[0] : 'there';
   const both = i.tTime + ' ' + i.tCity + (i.sameZone ? '' : ' · ' + i.sTime + ' ' + i.sCity);
-  return { key: key, to: to, subject: 'Lesson with ' + s.name + ' in about 10 minutes (' + i.tTime + ' ' + i.tCity + ')',
+  return { key: key, to: to, subject: 'Lesson with ' + s.name + ' in about 10 minutes (' + i.tTime + ' ' + i.tCity + ') · ' + prettyShort_(i.tDate),
     html: shell_(first, '<p style="margin:0 0 10px;font-size:15px">Your ' + (i.lessons == 2 ? 'double ' : '') + 'lesson with <b>' + esc_(s.name) + '</b> starts in about 10 minutes: <b>' + esc_(both) + '</b>.</p>' +
       (i.makeup ? '<p style="margin:0;color:#3A57AB">Make-up lesson' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '.</p>' : ''), SITE + '/eof-admin.html', 'Open attendance', 'Mark attendance in the staff area after the lesson.'),
     text: 'Your lesson with ' + s.name + ' starts in about 10 minutes: ' + both + '.' + (i.makeup ? ' (make-up lesson)' : '') + '\n\nStaff area: ' + SITE + '/eof-admin.html' };
@@ -400,7 +400,7 @@ function mailTeacherDay_(key, d) {
   }).join('');
   const n = d.items.length;
   const pdf = teacherDayPdf_(d);
-  return { key: key, to: d.to, attachments: pdf ? [pdf] : [], subject: 'Your lessons today: ' + n + ' lesson' + (n === 1 ? '' : 's') + ' (' + d.items[0].tTime + ' first)',
+  return { key: key, to: d.to, attachments: pdf ? [pdf] : [], subject: 'EOF Teaching Schedule — ' + longDate_(d.date) + ' · ' + n + ' lesson' + (n === 1 ? '' : 's') + ', first at ' + d.items[0].tTime,
     html: shell_(first, '<p style="margin:0 0 10px;font-size:15px">Here are your lessons for today (' + esc_(d.city) + ' time). Your signed lesson schedule is attached as a PDF.</p><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E6EBF5">' + rows + '</table>',
       SITE + '/eof-admin.html', 'Open attendance', 'You’ll also get an email about 10 minutes before each lesson.'),
     text: 'Your lessons today (' + d.city + ' time):\n' + d.items.map(function (i) { return '• ' + i.tTime + ' ' + i.student + (i.level ? ' (' + i.level + ')' : '') + (i.lessons == 2 ? ' (double)' : '') + (i.makeup ? ' (make-up)' : '') + (i.sameZone ? '' : ' — ' + i.sTime + ' in ' + i.sCity); }).join('\n') + '\n\nYour signed lesson schedule is attached (PDF).\nStaff area: ' + SITE + '/eof-admin.html' };
@@ -417,7 +417,7 @@ function mailStudentDay_(key, d, opt) {
     ? '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier email</b> — your lessons for today have changed. ' + (n ? 'Your updated lesson schedule is attached as a PDF.' : 'You have <b>no lesson today</b>.') + '</p>'
     : '<p style="margin:0 0 10px;font-size:15px">Good morning! You have ' + (n === 1 ? 'an English lesson' : n + ' English lessons') + ' with ' + esc_(d.teacher) + ' <b>today, ' + esc_(times) + ' (' + esc_(city) + ' time)</b>.</p>' +
       '<p style="margin:0">Your lesson schedule for today is attached as a PDF.</p>';
-  const subject = opt.updated ? (n ? 'Updated: your English lesson today, ' + times : 'Update: no English lesson today') : 'Your English lesson today, ' + times + ' — schedule attached';
+  const subject = (opt.updated ? 'Updated EOF Lesson Schedule — ' : 'EOF Lesson Schedule — ') + longDate_(d.date) + ' · ' + (n ? times : 'no lesson today');
   return { key: key, to: s.email, attachments: pdf ? [pdf] : [], subject: subject,
     html: shell_(first, lead, SITE + '/eof-account.html', 'Open my student portal', 'Can’t make it? Tell ' + esc_(d.teacher) + ' or the school in the portal chat as early as possible.'),
     text: 'Hello ' + first + '!\n\n' + (opt.updated ? 'Please ignore our earlier email — your lessons for today have changed.\n' : '') +
@@ -724,4 +724,14 @@ function sendTeachersTodayNow() {
     send_(m.to, m.subject, m.text, m.html, m.attachments); props.setProperty(m.key, todayUtc_()); out.push(m.to + ' — ' + m.subject);
   });
   console.log('Teacher schedules sent (' + out.length + '):\n' + out.join('\n'));
+}
+
+// ONE-OFF: Mr. Mashel's teaching schedule for today again, as a new email (not in a thread).
+function resendMyScheduleNow() {
+  CacheService.getScriptCache().remove('students');
+  const fake = { getProperty: function () { return null; } }, out = [];
+  planReminders_(new Date(), fake, { force: true, all: true }).forEach(function (m) {
+    if (/^r:tm:/.test(m.key) && m.to === MASHEL_EMAIL) { send_(m.to, m.subject, m.text, m.html, m.attachments); out.push(m.subject); }
+  });
+  console.log('Sent to ' + MASHEL_EMAIL + ': ' + (out.join(' | ') || 'nothing — no lessons today'));
 }
