@@ -387,21 +387,43 @@ function mailTeacherSoon_(key, to, t, s, i) {
       (i.makeup ? '<p style="margin:0;color:#3A57AB">Make-up lesson' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '.</p>' : ''), SITE + '/eof-admin.html', 'Open attendance', 'Mark attendance in the staff area after the lesson.'),
     text: 'Your lesson with ' + s.name + ' starts in about 10 minutes: ' + both + '.' + (i.makeup ? ' (make-up lesson)' : '') + '\n\nStaff area: ' + SITE + '/eof-admin.html' };
 }
-function mailTeacherDay_(key, d) {
-  const first = d.t ? String(d.t.name || '').split(' ')[0] : 'there';
-  const rows = d.items.map(function (i) {
-    return '<tr><td style="padding:9px 12px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap">' + esc_(i.tTime) + '</td>' +
-      '<td style="padding:9px 12px;border-top:1px solid #E6EBF5"><b>' + esc_(i.student) + '</b>' + (i.level ? ' · ' + esc_(i.level) : '') + (i.lessons == 2 ? ' · double' : '') + (i.makeup ? ' · <span style="color:#3A57AB">make-up</span>' : '') +
-      (i.sameZone ? '' : '<div style="font-size:12px;color:#6B7385">' + esc_(i.sTime + ' in ' + i.sCity) + (i.sDate !== i.tDate ? ' (' + esc_(prettyShort_(i.sDate)) + ')' : '') + '</div>') + '</td></tr>';
+// ONE template for the day's lessons (teachers and students). The email body IS this card, and the attached PDF
+// is the same card (+ director's signature and stamp, penguin footer). Owner, 27 Nov 2026.
+function dayCard_(first, intro, rows, logoSrc) {
+  const list = rows.map(function (r) {
+    return '<tr><td width="150" style="width:150px;padding:14px 18px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap;vertical-align:top;font-size:15px">' + r.time + '</td>' +
+      '<td style="padding:14px 18px;border-top:1px solid #E6EBF5;vertical-align:top;font-size:15px;color:#232B3D">' + r.main + (r.sub ? '<div style="font-size:13px;color:#6B7385;margin-top:3px">' + r.sub + '</div>' : '') + '</td></tr>';
   }).join('');
-  const n = d.items.length;
-  const pdf = teacherDayPdf_(d);
-  return { key: key, to: d.to, attachments: pdf ? [pdf] : [], subject: 'EOF Teaching Schedule — ' + longDate_(d.date) + ' · ' + n + ' lesson' + (n === 1 ? '' : 's') + ', first at ' + d.items[0].tTime,
-    html: shell_(first, '<p style="margin:0 0 10px;font-size:15px">Here are your lessons for today (' + esc_(d.city) + ' time). Your signed lesson schedule is attached as a PDF.</p><table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E6EBF5">' + rows + '</table>',
-      SITE + '/eof-admin.html', 'Open attendance', 'You’ll also get an email about 10 minutes before each lesson.'),
-    text: 'Your lessons today (' + d.city + ' time):\n' + d.items.map(function (i) { return '• ' + i.tTime + ' ' + i.student + (i.level ? ' (' + i.level + ')' : '') + (i.lessons == 2 ? ' (double)' : '') + (i.makeup ? ' (make-up)' : '') + (i.sameZone ? '' : ' — ' + i.sTime + ' in ' + i.sCity); }).join('\n') + '\n\nYour signed lesson schedule is attached (PDF).\nStaff area: ' + SITE + '/eof-admin.html' };
+  return '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;max-width:600px"><tr>' +
+    '<td bgcolor="#16264D" style="border:0;background-color:#16264D;width:96px;padding:20px 0 20px 26px;border-radius:14px 0 0 0"><img src="' + logoSrc + '" width="70" height="70" alt="English Online Forum" style="display:block;border-radius:50%"></td>' +
+    '<td bgcolor="#16264D" style="border:0;background-color:#16264D;padding:20px 26px 20px 14px;border-radius:0 14px 0 0">' +
+    '<div style="font-size:13px;letter-spacing:3px;color:#E3A94C;font-weight:bold;font-family:Arial,Helvetica,sans-serif">ENGLISH ONLINE FORUM</div>' +
+    '<div style="font-size:26px;font-weight:bold;color:#FFFFFF;margin-top:6px;font-family:Arial,Helvetica,sans-serif">Hello ' + esc_(first) + '!</div></td></tr>' +
+    '<tr><td colspan="2" bgcolor="#E0392C" style="background-color:#E0392C;height:5px;font-size:1px;line-height:5px">&nbsp;</td></tr>' +
+    '<tr><td colspan="2" style="border:1px solid #E6EBF5;border-top:0;padding:22px 26px 26px;font-family:Arial,Helvetica,sans-serif">' +
+    '<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#232B3D">' + intro + '</p>' +
+    (rows.length ? '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E6EBF5;border-top:0">' + list + '</table>' : '') +
+    '</td></tr></table>';
 }
-// Student: one morning email per lesson day, with the day's schedule as a signed, branded PDF.
+function teacherRows_(d) {
+  return d.items.map(function (i) {
+    return { time: esc_(i.tTime), main: '<b>' + esc_(i.student) + '</b>' + (i.level ? ' · ' + esc_(i.level) : '') + (i.lessons == 2 ? ' · double' : '') + (i.makeup ? ' · <span style="color:#3A57AB">make-up</span>' : ''),
+      sub: i.sameZone ? '' : esc_(i.sTime) + ' in ' + esc_(i.sCity) + (i.sDate !== i.tDate ? ' (' + esc_(prettyShort_(i.sDate)) + ')' : '') };
+  });
+}
+function studentRows_(d) {
+  const s = d.s;
+  return d.items.map(function (i) {
+    return { time: esc_(i.sTime), main: '<b>English lesson</b> with ' + esc_(d.teacher) + (i.level || s.level ? ' · ' + esc_(i.level || s.level) : '') + (i.lessons == 2 ? ' · double' : '') + (i.makeup ? ' · <span style="color:#3A57AB">make-up</span>' : ''), sub: '' };
+  });
+}
+function mailTeacherDay_(key, d) {
+  const first = d.t ? String(d.t.name || '').split(' ')[0] : 'there', n = d.items.length, pdf = teacherDayPdf_(d);
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px">' + dayCard_(first, 'Here are your lessons for today (' + esc_(d.city) + ' time). Your signed lesson schedule is attached as a PDF.', teacherRows_(d), LOGO_URL) + brandFoot_() + '</div>';
+  return { key: key, to: d.to, attachments: pdf ? [pdf] : [], subject: 'EOF Teaching Schedule — ' + longDate_(d.date) + ' · ' + n + ' lesson' + (n === 1 ? '' : 's') + ', first at ' + d.items[0].tTime, html: html,
+    text: 'Your lessons today (' + d.city + ' time):\n' + d.items.map(function (i) { return '• ' + i.tTime + ' ' + i.student + (i.level ? ' (' + i.level + ')' : '') + (i.lessons == 2 ? ' (double)' : '') + (i.makeup ? ' (make-up)' : '') + (i.sameZone ? '' : ' — ' + i.sTime + ' in ' + i.sCity); }).join('\n') + '\n\nYour signed lesson schedule is attached (PDF).' };
+}
+// Student: one morning email per lesson day — the same card, with the same card as a signed PDF.
 // opt.updated = a correction that replaces an earlier email the same day.
 function mailStudentDay_(key, d, opt) {
   opt = opt || {};
@@ -409,21 +431,13 @@ function mailStudentDay_(key, d, opt) {
   const city = (live[0] && live[0].sCity) || s.city || '';
   const times = live.map(function (i) { return i.sTime + '–' + i.sEnd; }).join(' & ');
   const pdf = studentDayPdf_(d, opt);
-  // Same layout as the teachers' email: one row per lesson, bold time on the left
-  const rows = live.map(function (i) {
-    return '<tr><td style="padding:9px 12px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap">' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '</td>' +
-      '<td style="padding:9px 12px;border-top:1px solid #E6EBF5"><b>English lesson</b> with ' + esc_(d.teacher) + (i.level || s.level ? ' · ' + esc_(i.level || s.level) : '') + (i.lessons == 2 ? ' · double' : '') +
-      (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : '') + '</td></tr>';
-  }).join('');
-  const lead = (opt.updated ? '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier email</b> — your lessons for today have changed.</p>' : '') +
-    (n ? '<p style="margin:0 0 10px;font-size:15px">Here ' + (n === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today (' + esc_(city) + ' time). Your signed lesson schedule is attached as a PDF.</p>' +
-      '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E6EBF5">' + rows + '</table>'
-      : '<p style="margin:0;font-size:15px">You have <b>no English lesson today</b>.</p>');
+  const intro = (opt.updated ? '<b>Please ignore our earlier email</b> — your lessons for today have changed. ' : '') +
+    (n ? 'Here ' + (n === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today (' + esc_(city) + ' time). Your signed lesson schedule is attached as a PDF.' : 'You have <b>no English lesson today</b>.');
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px">' + dayCard_(first, intro, studentRows_(d), LOGO_URL) + brandFoot_() + '</div>';
   const subject = (opt.updated ? 'Updated EOF Lesson Schedule — ' : 'EOF Lesson Schedule — ') + longDate_(d.date) + ' · ' + (n ? times : 'no lesson today');
-  return { key: key, to: s.email, teacher: d.teacher, student: s.name, attachments: pdf ? [pdf] : [], subject: subject,
-    html: shell_(first, lead, SITE + '/eof-account.html', 'Open my student portal', 'Can’t make it? Tell ' + esc_(d.teacher) + ' or the school in the portal chat as early as possible.'),
+  return { key: key, to: s.email, teacher: d.teacher, student: s.name, attachments: pdf ? [pdf] : [], subject: subject, html: html,
     text: 'Hello ' + first + '!\n\n' + (opt.updated ? 'Please ignore our earlier email — your lessons for today have changed.\n' : '') +
-      (n ? 'Today: ' + live.map(function (i) { return i.sTime + (i.lessons == 2 ? ' (double)' : ''); }).join(', ') + ' (' + city + ' time) with ' + d.teacher + '.\nYour lesson schedule is attached (PDF).' : 'You have no lesson today.') + '\n\nStudent portal: ' + SITE + '/eof-account.html' };
+      (n ? 'Today: ' + live.map(function (i) { return i.sTime + (i.lessons == 2 ? ' (double)' : ''); }).join(', ') + ' (' + city + ' time) with ' + d.teacher + '.\nYour signed lesson schedule is attached (PDF).' : 'You have no lesson today.') };
 }
 function mailMoved_(key, to, role, s, t, i, teacher) {
   const student = role === 'student';
@@ -599,69 +613,34 @@ function resendToday_(re) {
 // ---------- Signed lesson-schedule PDFs (EOF branding, director's signature and the school's stamp) ----------
 function img64_(k) { const b = brandImages_()[k]; return b ? 'data:image/png;base64,' + Utilities.base64Encode(b.getBytes()) : ''; }
 function longDate_(iso) { const p = iso.split('-').map(Number); return prettyShort_(iso).split(' ')[0] + ', ' + p[2] + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][p[1] - 1] + ' ' + p[0]; }
-// Same look as the emails: navy header (logo, gold "ENGLISH ONLINE FORUM", "Hello …!"), red line, white card with
-// one row per lesson. Colours use bgcolor + inline styles, which Google's HTML→PDF converter keeps.
-function pdfPage_(title, dateIso, first, body) {
-  const logo = img64_('pdflogo'), sig = img64_('pdfsig'), stamp = img64_('pdfstamp'), pen = img64_('eofmascot');
-  return '<html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;color:#232B3D;font-size:11pt;margin:0">' +
-    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' +
-    (logo ? '<td bgcolor="#16264D" style="background-color:#16264D;width:84px;padding:16px 0 16px 20px"><img src="' + logo + '" width="64" height="64"></td>' : '') +
-    '<td bgcolor="#16264D" style="background-color:#16264D;padding:16px 20px 16px 14px">' +
-    '<div style="font-size:9.5pt;letter-spacing:2.5px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
-    '<div style="font-size:19pt;font-weight:bold;color:#FFFFFF;margin-top:4px">Hello ' + esc_(first) + '!</div>' +
-    '<div style="font-size:10pt;color:#C9D2E6;margin-top:3px">' + esc_(title) + ' · ' + esc_(longDate_(dateIso)) + '</div></td></tr>' +
-    '<tr><td colspan="2" bgcolor="#E0392C" style="background-color:#E0392C;height:5px;font-size:1px;line-height:5px">&nbsp;</td></tr></table>' +
-    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E6EBF5;border-top:0"><tr><td style="padding:18px 20px 8px">' + body +
-    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px"><tr><td style="vertical-align:bottom;width:240px">' +
-    '<div style="font-size:10.5pt;margin-bottom:2px">Warm regards,</div>' +
-    (sig ? '<img src="' + sig + '" width="160">' : '') +
-    '<div style="border-top:1px solid #9AA0AC;width:220px;padding-top:4px;font-weight:bold;color:#16264D">Mashel Auma</div>' +
-    '<div style="font-size:9.5pt;color:#B92C21;font-style:italic">Director, English Online Forum</div></td>' +
-    '<td style="vertical-align:bottom;padding:0 0 4px 0">' + (stamp ? '<img src="' + stamp + '" width="108" height="108">' : '') + '</td></tr></table>' +
-    '</td></tr></table>' +
-    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:12px"><tr>' +
-    (pen ? '<td style="width:42px;vertical-align:bottom"><img src="' + pen + '" width="34" height="45"></td>' : '') +
-    '<td style="vertical-align:middle"><div style="font-weight:bold;color:#16264D;font-size:10pt">Language is Freedom</div>' +
-    '<div style="color:#6B7385;font-size:8.5pt">English Online Forum · www.englishonlineforum.com · Issued automatically by the EOF student portal.</div></td></tr></table>' +
-    '</body></html>';
+// The PDF is the same card as the email, plus the director's signature with the school stamp, and the penguin footer.
+function pdfDoc_(cardHtml) {
+  const sig = img64_('pdfsig'), stamp = img64_('pdfstamp'), pen = img64_('eofmascot');
+  return '<html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;color:#232B3D;margin:0">' + cardHtml +
+    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:22px 0 0 4px"><tr><td style="vertical-align:bottom;width:240px">' +
+    (sig ? '<img src="' + sig + '" width="150">' : '') +
+    '<div style="border-top:1px solid #9AA0AC;width:210px;padding-top:4px;font-weight:bold;color:#16264D;font-size:14px">Mashel Auma</div>' +
+    '<div style="font-size:12px;color:#B92C21;font-style:italic">Director, English Online Forum</div></td>' +
+    '<td style="vertical-align:bottom;padding:0 0 2px 0">' + (stamp ? '<img src="' + stamp + '" width="100" height="100">' : '') + '</td></tr></table>' +
+    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:16px;border-top:1px solid #E6EBF5;width:100%;max-width:600px"><tr>' +
+    (pen ? '<td style="width:52px;padding-top:8px;vertical-align:bottom"><img src="' + pen + '" width="44" height="58"></td>' : '') +
+    '<td style="padding-top:10px;vertical-align:middle"><div style="font-size:13px;font-weight:bold;color:#16264D">Language is Freedom</div>' +
+    '<div style="font-size:11px;color:#9AA0AC">English Online Forum · www.englishonlineforum.com</div></td></tr></table></body></html>';
 }
-// One lesson row, like the email list: bold time on the left, details on the right
-function pdfRow_(time, main, sub) {
-  return '<tr><td width="130" style="width:130px;padding:12px 16px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap;vertical-align:top;font-size:11pt">' + time + '</td>' +
-    '<td style="padding:12px 16px;border-top:1px solid #E6EBF5;vertical-align:top;font-size:11pt">' + main + (sub ? '<div style="font-size:9.5pt;color:#6B7385;margin-top:2px">' + sub + '</div>' : '') + '</td></tr>';
-}
-function pdfList_(rows) { return '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E6EBF5;border-top:0;margin:4px 0 6px">' + rows + '</table>'; }
 function pdfBlob_(html, name) { return Utilities.newBlob(html, 'text/html', name + '.html').getAs('application/pdf').setName(name + '.pdf'); }
-
 function studentDayPdf_(d, opt) {
   try {
-    const s = d.s, first = String(s.name || '').split(' ')[0], items = d.items, city = (items[0] && items[0].sCity) || s.city || '';
-    const rows = items.map(function (i) {
-      return pdfRow_(esc_(i.sTime) + ' – ' + esc_(i.sEnd), '<b>English lesson</b> with ' + esc_(d.teacher) + (i.level || s.level ? ' · ' + esc_(i.level || s.level) : '') + (i.lessons == 2 ? ' · double' : '') +
-        (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : ''), i.note ? esc_(i.note) : '');
-    }).join('');
-    const changed = (d.changed || []).map(function (L) { return pdfRow_('<span style="color:#9AA0AC;text-decoration:line-through">' + esc_(L.time) + '</span>', '<span style="color:#6B7385">' + (L.status === 'cancelled' ? 'Cancelled' : 'Moved to ' + esc_(L.movedDate ? prettyShort_(L.movedDate) : 'another day') + (L.movedTime ? ', ' + esc_(L.movedTime) : '')) + '</span>', ''); }).join('');
-    const body = (opt.updated ? '<p style="margin:0 0 10px;color:#7A5410"><b>Updated schedule</b> — this replaces the schedule we sent you earlier today.</p>' : '') +
-      '<p style="margin:0 0 12px;line-height:1.5">Warm greetings from all of us at English Online Forum! ' +
-      (items.length ? 'Here ' + (items.length === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today (' + esc_(city) + ' time). Your teacher, <b>' + esc_(d.teacher) + '</b>, is looking forward to seeing you.' : 'Please note that you have <b>no English lesson today</b>.') + '</p>' +
-      (items.length || changed ? pdfList_(rows + changed) : '') +
-      '<p style="margin:12px 0 0;line-height:1.5">Please join a few minutes early with your book, notebook and a good internet connection. If you can\'t attend, let your teacher or the school know in the student portal chat as early as possible.</p>';
-    return pdfBlob_(pdfPage_(opt.updated ? 'Updated lesson schedule' : 'Your lesson schedule', d.date, first, body), 'EOF lesson schedule ' + d.date + ' - ' + s.name);
+    const s = d.s, first = String(s.name || '').split(' ')[0], n = d.items.length, city = (d.items[0] && d.items[0].sCity) || s.city || '';
+    const intro = (opt.updated ? '<b>Updated schedule</b> — this replaces the one we sent earlier today. ' : '') +
+      (n ? 'Here ' + (n === 1 ? 'is your English lesson' : 'are your English lessons') + ' for ' + esc_(longDate_(d.date)) + ' (' + esc_(city) + ' time).' : 'You have <b>no English lesson</b> on ' + esc_(longDate_(d.date)) + '.');
+    return pdfBlob_(pdfDoc_(dayCard_(first, intro, studentRows_(d), img64_('pdflogo'))), 'EOF lesson schedule ' + d.date + ' - ' + s.name);
   } catch (e) { console.warn('student PDF failed: ' + e); return null; }
 }
 function teacherDayPdf_(d) {
   try {
     const t = d.t || {}, first = String(t.name || 'Teacher').split(' ')[0];
-    const rows = d.items.map(function (i) {
-      return pdfRow_(esc_(i.tTime) + ' – ' + esc_(i.tEnd), '<b>' + esc_(i.student) + '</b>' + (i.level ? ' · ' + esc_(i.level) : '') + (i.lessons == 2 ? ' · double' : '') +
-        (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : ''),
-        i.sameZone ? '' : esc_(i.sTime + ' – ' + i.sEnd + ' in ' + i.sCity) + (i.sDate !== i.tDate ? ' (' + esc_(prettyShort_(i.sDate)) + ')' : ''));
-    }).join('');
-    const n = d.items.length;
-    const body = '<p style="margin:0 0 12px;line-height:1.5">Good morning, and thank you for everything you do for our students. Here ' + (n === 1 ? 'is your lesson' : 'are your <b>' + n + ' lessons</b>') + ' for today (' + esc_(d.city) + ' time).</p>' +
-      pdfList_(rows) +
-      '<p style="margin:12px 0 0;line-height:1.5">Please mark attendance in the staff area after each lesson, and use Reschedule if a lesson needs to move. Have a wonderful day of teaching!</p>';
-    return pdfBlob_(pdfPage_('Teaching schedule', d.date, first, body), 'EOF teaching schedule ' + d.date + ' - ' + (t.name || 'teacher'));
+    const intro = 'Here are your lessons for ' + esc_(longDate_(d.date)) + ' (' + esc_(d.city) + ' time).';
+    return pdfBlob_(pdfDoc_(dayCard_(first, intro, teacherRows_(d), img64_('pdflogo'))), 'EOF teaching schedule ' + d.date + ' - ' + (t.name || 'teacher'));
   } catch (e) { console.warn('teacher PDF failed: ' + e); return null; }
 }
 
