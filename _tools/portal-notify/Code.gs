@@ -476,6 +476,13 @@ function todayReport() {
       rows.push([s.name, s.teacher || '-', L.time + ' ' + (L.city || ''), L.status || '', s.email || 'NO EMAIL', s.remindEmail === false ? 'reminders OFF' : '', s.portalBlocked ? 'blocked' : '', mins > 0 ? 'in ' + mins + ' min' : 'already started/past'].join(' | '));
     });
     if (!(s.lessonDays || []).length) rows.push([s.name, s.teacher || '-', 'NO LESSON DAYS', '', s.email || 'NO EMAIL'].join(' | '));
+    const slotsTxt = (s.lessonDays || []).map(function (d) { const x = (s.lessonSlots || {})[d] || {}; return d + ' ' + (x.time || '?') + (x.lessons == 2 ? 'x2' : ''); }).join(', ');
+    if (/latif/i.test(s.name)) {
+      rows.push('   ' + s.name + ' timetable: ' + slotsTxt + ' | tz ' + (s.tz || '?'));
+      list_('students/' + s.id + '/attendance').filter(function (a) { return (a.date || a.id.slice(0, 10)) >= addDays_(today, -1); }).forEach(function (a) {
+        rows.push('   attendance ' + a.id + ': ' + JSON.stringify({ status: a.status, makeup: a.makeup, date: a.date, time: a.time, lessons: a.lessons, fromDate: a.fromDate, movedDate: a.movedDate, movedTime: a.movedTime, at: a.at, markedAt: a.markedAt }));
+      });
+    }
   });
   console.log(rows.join('\n'));
 }
