@@ -346,7 +346,7 @@ function lessonsAround_(s, now) {
   // Marks for those days (one small read each) and make-up lessons (only make-ups have a `date` field)
   const marks = {};
   if (regular.length) batchGet_(regular.map(function (L) { return 'students/' + s.id + '/attendance/' + L.id; })).forEach(function (d) { marks[d.id] = d; });
-  regular.forEach(function (L) { const m = marks[L.id]; L.status = m ? m.status : null; if (m && m.lessons) L.lessons = m.lessons; out.push(L); });
+  regular.forEach(function (L) { const m = marks[L.id]; L.status = m ? m.status : null; if (m && m.lessons) L.lessons = m.lessons; if (m) { L.movedDate = m.movedDate; L.movedTime = m.movedTime; } out.push(L); });
   query2_('students/' + s.id, 'attendance', 'date', 'GREATER_THAN_OR_EQUAL', { stringValue: dates[0] }).forEach(function (m) {
     if (!m.makeup || !m.time) return;   // later make-ups are kept too (far: true), for the "lesson moved" email
     out.push({ id: m.id, date: m.date, time: m.time, tz: m.tz || tz0, city: m.city || s.city || '', lessons: m.lessons || 1, status: m.status || null, makeup: true, fromDate: m.fromDate, note: m.note, at: m.at, by: m.by, far: m.date > dates[2] });
@@ -546,4 +546,38 @@ function sendSamplesToMe() {
   const labels = ['Student — morning reminder', 'Student — 10 minutes before', 'Teacher — morning list', 'Teacher — 10 minutes before', 'Student — lesson rescheduled'];
   mails.forEach(function (m, i) { send_(MASHEL_EMAIL, '[Sample ' + (i + 1) + '/5: ' + labels[i] + '] ' + m.subject, m.text, m.html); });
   console.log('Sent 5 samples to ' + MASHEL_EMAIL + ' (based on ' + pick.s.name + ', ' + info.sTime + ' ' + info.sCity + ')');
+}
+
+// CORRECTION (run by hand): emails a student today's lessons AS THEY ARE NOW in the portal, saying it replaces
+// the earlier reminder; copies the teacher. resendLatifaToday() is the one-click version for Latifa (27 Nov 2026).
+function resendLatifaToday() { resendToday_(/latif/i); }
+function resendToday_(re) {
+  CacheService.getScriptCache().remove('students');
+  const now = new Date(), s = listStudents_().filter(function (x) { return re.test(x.name) && (x.status || 'active') === 'active'; })[0];
+  if (!s || !s.email) { console.log('No active student with an email matches ' + re); return; }
+  const teachers = list_('teachers'), k = norm_(s.teacher);
+  const t = teachers.filter(function (x) { return norm_(x.name) === k; })[0] || (k === 'mashel auma' ? { name: 'Mashel Auma', title: 'Mr', tz: 'Asia/Bishkek', city: 'Bishkek' } : null);
+  const title = t && t.title ? String(t.title).replace(/\.?$/, '.') + ' ' + t.name : (s.teacher || 'your teacher');
+  const tz = s.tz || 'Asia/Bishkek', today = localParts_(now, tz).date;
+  const all = lessonsAround_(s, now).filter(function (L) { return !L.far && L.date === today; }).sort(function (a, b) { return a.start - b.start; });
+  const live = all.filter(function (L) { return L.status !== 'cancelled' && L.status !== 'rescheduled'; });
+  const city = (all[0] && all[0].city) || s.city || cityOf_(tz), first = String(s.name).split(' ')[0];
+  const line = function (L) { return '<li style="margin:4px 0"><b>' + esc_(L.time) + '</b> (' + esc_(L.city || city) + ' time)' + (L.lessons == 2 ? ' · double lesson' : '') + (L.makeup ? ' · make-up lesson' : '') + '</li>'; };
+  const changed = all.filter(function (L) { return L.status === 'cancelled' || L.status === 'rescheduled'; }).map(function (L) {
+    return '<li style="margin:4px 0;color:#6B7385"><s>' + esc_(L.time) + '</s> — ' + (L.status === 'cancelled' ? 'cancelled' : 'moved to ' + esc_(L.movedDate ? prettyShort_(L.movedDate) : 'another day') + (L.movedTime ? ', ' + esc_(L.movedTime) : '')) + '</li>'; }).join('');
+  const inner = '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier reminder</b> — your lesson plan for today has changed.</p>' +
+    (live.length ? '<p style="margin:0 0 6px">Your English ' + (live.length > 1 ? 'lessons' : 'lesson') + ' with ' + esc_(title) + ' today:</p><ul style="margin:0 0 10px;padding-left:20px">' + live.map(line).join('') + '</ul>'
+      : '<p style="margin:0 0 10px">You have <b>no lesson today</b>.</p>') +
+    (changed ? '<p style="margin:8px 0 4px;color:#6B7385">Changed:</p><ul style="margin:0;padding-left:20px">' + changed + '</ul>' : '');
+  const subject = live.length ? 'Updated: your English lesson today at ' + live.map(function (L) { return L.time; }).join(' & ') : 'Update: no English lesson today';
+  const text = 'Hello ' + first + '!\n\nPlease ignore our earlier reminder — your lesson plan for today has changed.\n' +
+    (live.length ? live.map(function (L) { return '• ' + L.time + ' (' + (L.city || city) + ' time)' + (L.lessons == 2 ? ', double' : ''); }).join('\n') : 'You have no lesson today.') + '\n\n' + SITE + '/eof-account.html';
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;color:#232B3D">' + brandHead_(first) +
+    '<div style="background:#fff;border:1px solid #E6EBF5;border-top:0;padding:16px 18px">' + inner + '</div>' +
+    '<p style="margin:18px 0"><a href="' + SITE + '/eof-account.html" style="background:#E0392C;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:999px;display:inline-block">Open my student portal</a></p>' +
+    brandFoot_() + '</div>';
+  send_(s.email, subject, text, html);
+  const to = t && isMashel_(t.name) ? MASHEL_EMAIL : (t && t.email) || SCHOOL_EMAIL;
+  send_(to, '[Copy] To ' + s.email + ': ' + subject, text, '<p style="font-family:Arial;color:#6B7385;font-size:13px">Copy of the correction sent to <b>' + esc_(s.email) + '</b>:</p>' + html);
+  console.log('Correction sent to ' + s.name + ' <' + s.email + '>: ' + subject + '\nNow: ' + all.map(function (L) { return L.id + ' ' + L.time + ' ' + (L.status || 'scheduled'); }).join('; '));
 }
