@@ -712,3 +712,16 @@ function previewTodayEmails() {
   });
   console.log('Previews sent (' + out.length + '):\n' + out.join('\n'));
 }
+
+// ONE-OFF (run by hand): send every TEACHER who has lessons today her signed teaching-schedule email (with PDF) now,
+// even if an earlier version went out today. Mr. Mashel's goes to mashelauma@gmail.com. Students get nothing.
+function sendTeachersTodayNow() {
+  CacheService.getScriptCache().remove('students');
+  const props = PropertiesService.getScriptProperties(), fake = { getProperty: function () { return null; } };
+  const out = [];
+  planReminders_(new Date(), fake, { force: true, all: true }).forEach(function (m) {
+    if (!/^r:tm:/.test(m.key)) return;
+    send_(m.to, m.subject, m.text, m.html, m.attachments); props.setProperty(m.key, todayUtc_()); out.push(m.to + ' — ' + m.subject);
+  });
+  console.log('Teacher schedules sent (' + out.length + '):\n' + out.join('\n'));
+}
