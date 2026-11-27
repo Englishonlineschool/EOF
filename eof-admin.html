@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=20">
+<link rel="stylesheet" href="eof-portal.css?v=21">
 </head>
 <body>
 <header class="portal-top">
@@ -1907,17 +1907,20 @@ const studentTzOf = (s, x) => x?.tz || s.tz || null;
 // where her teacher lives, and the viewer's own city. → [{city, time, date, main}]
 function zoneTimes(s, sdate, x) {
   if (!x?.time) return [];
-  if (!x.tz) return [{ city: "", time: x.time, date: sdate, main: true }];      // old record without a city: exactly as typed
+  if (!x.tz) return [{ city: slotPlace(x) || s.city || "", time: x.time, date: sdate, main: true, student: true, noTz: true }];   // no time zone on the record: exactly as typed
   const out = [], seen = new Set();
-  const push = (tz, city, main) => {
-    if (!tz || seen.has(tz)) return; seen.add(tz);
+  // One entry per CITY (İzmir and İstanbul share a time zone but are both shown)
+  const push = (tz, city, flags) => {
+    const key = fold(city) || tz;
+    if (!tz || seen.has(key)) { if (flags.student) { const hit = out.find(z => (fold(z.city) || z.tz) === key); if (hit) hit.student = true; } return; }
+    seen.add(key);
     const v = toViewer(sdate, x.time, x.tz, tz);
-    out.push({ city, time: v.time, date: addDays(sdate, v.shift || 0), main: !!main });
+    out.push({ city, tz, time: v.time, date: addDays(sdate, v.shift || 0), main: !!flags.main, student: !!flags.student });
   };
-  push(SHOW_TZ, cityOfTz(SHOW_TZ), true);
-  push(x.tz, slotPlace(x) || cityOfTz(x.tz));
-  const t = teacherOf(s); if (t) push(teacherTz(t), teacherCity(t));
-  push(VIEW_TZ, cityOfTz(VIEW_TZ));
+  push(SHOW_TZ, cityOfTz(SHOW_TZ), { main: true });
+  push(x.tz, slotPlace(x) || cityOfTz(x.tz), { student: true });
+  const t = teacherOf(s); if (t) push(teacherTz(t), teacherCity(t), {});
+  push(VIEW_TZ, cityOfTz(VIEW_TZ), {});
   return out;
 }
 const dayTag = (z, mainDate) => z.date !== mainDate ? ` (${DAY_NAMES[dayKey(z.date)].slice(0, 3)})` : "";
@@ -2220,11 +2223,15 @@ async function renderWeek() {
       return `<td>${here.map(l => {
         const st = l.mark === "present" ? "p" : l.mark === "absent" ? "a" : l.mark === "cancelled" ? "c" : l.mark === "rescheduled" ? "m" : (l.date <= today ? "u" : "f");
         const label = { p: "Present", a: "Absent", c: "Cancelled", m: `Moved → ${l.att?.movedDate ? shortDay(l.att.movedDate) : ""}${l.att?.movedTime ? " " + l.att.movedTime : ""}`, u: "Not marked" }[st] || "";
-        const other = otherTimesText(zoneTimes(l.s, l.sdate, l.x));
+        const zs = zoneTimes(l.s, l.sdate, l.x), mz = zs.find(z => z.main), sz = zs.find(z => z.student);
+        // Every card: the student's own time and city first, then the other cities
+        const own = sz ? `📍 ${sz.time} ${sz.city || "— city not set"}${sz.noTz ? "" : dayTag(sz, mz.date)}` : "";
+        const rest = zs.filter(z => !z.main && !z.student).map(z => `${z.time} ${z.city}${dayTag(z, mz.date)}`).join(" · ");
+        const other = [own, rest].filter(Boolean).join(" · ");
         return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)} ${city}${other ? " · " + esc(other) : ""}">
           <span class="wk-name">${esc(l.s.name)}${l.len == 2 ? ` <span class="wk-dbl">Double</span>` : ""}${l.makeup ? ` <span class="wk-mk">Make-up</span>` : ""}</span>
           <span class="wk-meta">${esc(l.s.level || "")}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
-          ${other ? `<span class="wk-zones">${esc(other)}</span>` : ""}
+          ${own ? `<span class="wk-own">${esc(own)}</span>` : ""}${rest ? `<span class="wk-zones">${esc(rest)}</span>` : ""}
           ${label ? `<span class="wk-st">${esc(label)}</span>` : ""}</button>`;
       }).join("")}</td>`;
     }).join("");
