@@ -518,3 +518,6 @@ tr.row-moved td:not(:last-child){opacity:.55;}
   #attBody .att-btn{padding:7px 12px;}
 }
 .wk-own{font-size:12px;font-weight:700;}
+/* Typed lesson times (no long scrolling list) */
+.input.t-in{max-width:120px;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
+.input.t-in.bad{border-color:var(--red);background:#FFF5F4;}

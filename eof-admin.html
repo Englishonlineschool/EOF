@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=21">
+<link rel="stylesheet" href="eof-portal.css?v=22">
 </head>
 <body>
 <header class="portal-top">
@@ -629,6 +629,23 @@ const slotPlace = x => x.city || x.country || "";
 const TIMES = Array.from({ length: 288 }, (_, i) => String(Math.floor(i / 12)).padStart(2, "0") + ":" + String((i % 12) * 5).padStart(2, "0"));
 const opt = (v, label, sel) => `<option value="${esc(v)}"${sel ? " selected" : ""}>${esc(label)}</option>`;
 const timeOptions = t => opt("", "— Choose time —", !t) + [...new Set([...TIMES, ...(t && !TIMES.includes(t) ? [t] : [])])].sort().map(x => opt(x, x, x === t)).join("");
+// Typed lesson times: "18", "1830", "18:30", "18.30", "6pm", "6:30 pm", "930" → "18:00" / "18:30" / "09:30".
+// Returns "" for an empty box and null for something that isn't a time.
+function parseTime(v) {
+  const t = String(v || "").trim().toLowerCase().replace(/\s+/g, "");
+  if (!t) return "";
+  const m = t.match(/^(\d{1,2})(?:[:.,h]?(\d{2}))?(am|pm|a|p)?$/) || t.match(/^(\d)(\d{2})(am|pm|a|p)?$/);
+  if (!m) return null;
+  let h = +m[1], mi = +(m[2] || 0); const ap = m[3] || "";
+  if (ap.startsWith("p") && h < 12) h += 12;
+  if (ap.startsWith("a") && h === 12) h = 0;
+  if (h > 23 || mi > 59 || (ap && +m[1] > 12)) return null;
+  return String(h).padStart(2, "0") + ":" + String(mi).padStart(2, "0");
+}
+const timeInput = (v, attrs, cls = "") => `<input class="input t-in${cls ? " " + cls : ""}" ${attrs} type="text" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="e.g. 18:30" value="${esc(v || "")}">`;
+const tidyTime = el => { const p = parseTime(el.value); el.classList.toggle("bad", p === null); if (p !== null) el.value = p; return p; };
+document.addEventListener("focusout", e => { if (e.target.classList?.contains("t-in")) { tidyTime(e.target); e.target.dispatchEvent(new Event("change", { bubbles: true })); } });
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.classList?.contains("t-in")) { e.preventDefault(); tidyTime(e.target); e.target.dispatchEvent(new Event("change", { bubbles: true })); } });
 const citiesOf = country => (CITIES[findCountry(country)] || []).map(([c]) => c);
 
 // Residence currently chosen in the form → its time zone
@@ -711,13 +728,14 @@ form.addEventListener("focusout", e => {
 function slotRow(d, v = {}) {
   return `<div class="slot" data-day="${d}">
     <b class="slot-day">${DAY_NAMES[d]}</b>
-    <label class="slot-f"><span>Time</span><select class="input s-time" aria-label="${DAY_NAMES[d]} lesson time">${timeOptions(v.time || "")}</select></label>
+    <label class="slot-f"><span>Time</span>${timeInput(v.time, `aria-label="${DAY_NAMES[d]} lesson time"`, "s-time")}</label>
     <label class="slot-f"><span>Lesson</span><select class="input s-len" aria-label="${DAY_NAMES[d]} single or double lesson">${opt("1", "Single", (v.lessons || 1) == 1)}${opt("2", "Double", v.lessons == 2)}</select></label>
     <span class="slot-tz"></span>
   </div>`;
 }
 function refreshSlot(row) {
-  const t = row.querySelector(".s-time").value, r = formResidence(), place = r.city || r.country;
+  const raw = row.querySelector(".s-time").value, t = parseTime(raw), r = formResidence(), place = r.city || r.country;
+  if (t === null) { row.querySelector(".slot-tz").textContent = "Write the time like 18:30 or 1830 (24-hour), or 6:30pm."; return; }
   let txt = "";
   if (t && r.tz) {
     const v = toViewer(isoDate(), t, r.tz, VIEW_TZ);
@@ -731,7 +749,7 @@ function refreshResidence() {
   $("fTzShow").classList.toggle("set", !!r.tz);
   $("fSlots").querySelectorAll(".slot").forEach(refreshSlot);
 }
-const readSlot = r => ({ time: r.querySelector(".s-time").value, lessons: +r.querySelector(".s-len").value || 1 });
+const readSlot = r => ({ time: parseTime(r.querySelector(".s-time").value) || "", lessons: +r.querySelector(".s-len").value || 1 });
 let slotMemory = {};   // keeps a day's choices if it's unticked and ticked again
 function renderSlots(initial) {
   if (initial) slotMemory = initial;
@@ -743,6 +761,7 @@ function renderSlots(initial) {
 }
 $("fDays").addEventListener("change", () => renderSlots());
 $("fSlots").addEventListener("change", e => { const r = e.target.closest(".slot"); if (r) refreshSlot(r); });
+$("fSlots").addEventListener("input", e => { const r = e.target.closest(".slot"); if (r && e.target.classList.contains("s-time") && parseTime(e.target.value)) refreshSlot(r); });
 $("fSlots").addEventListener("click", e => {
   if (e.target.id !== "slotCopy") return;
   const rows = [...$("fSlots").querySelectorAll(".slot")], v = readSlot(rows[0]);
@@ -887,6 +906,8 @@ $("studentForm").addEventListener("submit", async e => {
   const email = $("fEmail").value.trim().toLowerCase();
   if (!data.name) { $("formErr").textContent = "Please enter the student's name."; return; }
   if ($("fCountry").value.trim() && !findCountry($("fCountry").value)) { $("formErr").textContent = "Choose the country of residence from the list."; $("fCountry").focus(); return; }
+  const badTime = [...$("fSlots").querySelectorAll(".s-time")].find(el => parseTime(el.value) === null);
+  if (badTime) { badTime.classList.add("bad"); $("formErr").textContent = `Check the ${DAY_NAMES[badTime.closest(".slot").dataset.day]} time — write it like 18:30.`; badTime.focus(); return; }
   const res = formResidence();
   data.tz = res.tz || null;
   data.timeZone = res.tz ? `${utcLabel(res.tz, isoDate())} (${res.city || res.country})` : "";
@@ -2078,7 +2099,7 @@ function openReschedule(r) {
     <p class="hint" style="margin:0 0 14px"><b>${esc(s.name)}</b> · ${editing ? `make-up${mk.fromDate ? " for " + esc(shortDay(mk.fromDate)) : ""}` : `${esc(shortDay(r.sdate))}${r.x?.time ? ", " + esc(r.x.time) + " " + esc(place) : ""}`}</p>
     <div class="grid-2">
       <div class="field"><label for="rsDate">New date</label><input class="input" id="rsDate" type="date" value="${startDate}"></div>
-      <div class="field"><label for="rsTime">Time</label><select class="input" id="rsTime">${timeOptions(startTime)}</select></div>
+      <div class="field"><label for="rsTime">Time</label>${timeInput(startTime, 'id="rsTime"')}</div>
       <div class="field"><label for="rsZone">Time in</label><select class="input" id="rsZone">${zones.map(([tz, l]) => `<option value="${esc(tz)}">${esc(l)}</option>`).join("")}</select></div>
       <div class="field"><label for="rsLen">Lesson</label><select class="input" id="rsLen">${opt("1", "Single", (editing ? mk.lessons : r.len) != 2)}${opt("2", "Double", (editing ? mk.lessons : r.len) == 2)}</select></div>
     </div>
@@ -2092,19 +2113,20 @@ function openReschedule(r) {
   const q = id => el.querySelector("#" + id);
   // The new lesson in the student's own date and time
   const local = () => {
-    const d = q("rsDate").value, tm = q("rsTime").value, z = q("rsZone").value;
+    const d = q("rsDate").value, tm = parseTime(q("rsTime").value), z = q("rsZone").value;
     if (!d || !tm) return null;
     const v = toZone(d, tm, z, sTz);
     return { date: v.date, time: v.time };
   };
   const preview = () => {
     const L = local();
-    if (!L) { q("rsPreview").textContent = "Choose the date and time."; return; }
+    if (!L) { q("rsPreview").textContent = q("rsTime").value.trim() && parseTime(q("rsTime").value) === null ? "Write the time like 18:30 or 1830 (24-hour), or 6:30pm." : "Choose the date and time."; return; }
     const zs = zoneTimes(s, L.date, { time: L.time, tz: sTz, city: place });
     const main = zs[0];
     q("rsPreview").innerHTML = `New lesson: <b>${esc(shortDay(main.date))}, ${esc(main.time)}</b> ${esc(main.city)}${zs.length > 1 ? `<div class="hint" style="margin:2px 0 0">${zs.slice(1).map(z => `${esc(z.time)} ${esc(z.city)}${z.date !== main.date ? " (" + esc(shortDay(z.date)) + ")" : ""}`).join(" · ")}</div>` : ""}`;
   };
   ["rsDate", "rsTime", "rsZone"].forEach(id => q(id).addEventListener("change", preview));
+  q("rsTime").addEventListener("input", () => { if (parseTime(q("rsTime").value)) preview(); });
   preview();
   el.addEventListener("click", async e => {
     if (e.target === el || e.target.closest("[data-pop-close]")) { closePop(); return; }
@@ -2120,7 +2142,7 @@ function openReschedule(r) {
       return;
     }
     if (e.target.id !== "rsSave") return;
-    const L = local(); if (!L) { q("popErr").textContent = "Choose the new date and time."; return; }
+    const L = local(); if (!L) { q("popErr").textContent = "Choose the new date and write the time, e.g. 18:30."; return; }
     if (!editing && L.date === r.sdate && L.time === r.x?.time) { q("popErr").textContent = "That's the same day and time as the lesson."; return; }
     e.target.disabled = true;
     const len = +q("rsLen").value || 1, note = q("rsNote").value.trim();
