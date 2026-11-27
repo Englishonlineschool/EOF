@@ -468,3 +468,18 @@ function query2_(parent, collection, field, op, value) {
     where: { fieldFilter: { field: { fieldPath: field }, op: op, value: value } } } });
   return (res || []).filter(function (r) { return r.document; }).map(function (r) { return doc_(r.document); });
 }
+
+// DIAGNOSTIC (run by hand): lists every active student's lessons today and whether a reminder can reach them.
+function todayReport() {
+  CacheService.getScriptCache().remove('students');
+  const now = new Date(), rows = [];
+  listStudents_().filter(function (s) { return (s.status || 'active') === 'active'; }).forEach(function (s) {
+    const tz = s.tz || 'Asia/Bishkek', today = localParts_(now, tz).date;
+    lessonsAround_(s, now).filter(function (L) { return L.date === today && !L.far; }).forEach(function (L) {
+      const mins = Math.round((L.start - now) / 60000);
+      rows.push([s.name, s.teacher || '-', L.time + ' ' + (L.city || ''), L.status || '', s.email || 'NO EMAIL', s.remindEmail === false ? 'reminders OFF' : '', s.portalBlocked ? 'blocked' : '', mins > 0 ? 'in ' + mins + ' min' : 'already started/past'].join(' | '));
+    });
+    if (!(s.lessonDays || []).length) rows.push([s.name, s.teacher || '-', 'NO LESSON DAYS', '', s.email || 'NO EMAIL'].join(' | '));
+  });
+  console.log(rows.join('\n'));
+}
