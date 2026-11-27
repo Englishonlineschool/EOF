@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=19">
+<link rel="stylesheet" href="eof-portal.css?v=20">
 </head>
 <body>
 <header class="portal-top">
@@ -67,6 +67,7 @@
         <button class="btn btn-ghost btn-sm" id="nextDay" type="button" aria-label="Next day">&rarr;</button>
         <button class="btn btn-ghost btn-sm" id="todayBtn" type="button">Today</button>
         <span style="flex:1"></span>
+        <select class="input" id="attTz" style="max-width:200px" aria-label="Show times in"></select>
         <select class="input" id="attScope" style="max-width:260px">
           <option value="day">Lessons on this day</option>
           <option value="all">All active students</option>
@@ -82,7 +83,7 @@
           <tbody id="attBody"></tbody>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Marks save instantly. Click a selected mark again to clear it. Use <b style="color:var(--gold)">&#9733;</b> to give a badge right after the lesson.</p>
+      <p class="hint" style="margin-top:10px">Lessons are listed from the first of the day to the last. Marks save instantly; click a selected mark again to clear it. <b>Cancelled</b> lessons don't count as taught or absent. <b>↻ Reschedule</b> moves a lesson to another day (e.g. a missed Friday lesson to Saturday) — the make-up lesson appears on that day. Use <b style="color:var(--gold)">&#9733;</b> to give a badge right after the lesson.</p>
       </div>
     </section>
 
@@ -99,12 +100,12 @@
       <div class="wk-head"><h2 id="moTitle"></h2><div class="wk-sum" id="moSum"></div></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Teacher</th><th class="num">Lessons taught</th><th class="num hide-sm">Single</th><th class="num hide-sm">Double</th><th class="num">Absent</th><th class="num">Points</th></tr></thead>
+          <thead><tr><th class="col-no">No.</th><th>Student</th><th class="hide-sm">Teacher</th><th class="num">Lessons taught</th><th class="num hide-sm">Single</th><th class="num hide-sm">Double</th><th class="num">Absent</th><th class="num hide-sm">Cancelled</th><th class="num">Points</th></tr></thead>
           <tbody id="moBody"></tbody>
           <tfoot id="moFoot"></tfoot>
         </table>
       </div>
-      <p class="hint" style="margin-top:10px">Counts come from the attendance marks. A double lesson counts as 2 lessons. Absences are counted separately and aren't included in “Lessons taught”. <b>Points</b> are the Freedom Points each student earned in this month.</p>
+      <p class="hint" style="margin-top:10px">Counts come from the attendance marks. A double lesson counts as 2 lessons. Absences and cancelled lessons are counted separately and aren't included in “Lessons taught”; a rescheduled lesson is counted on the day it actually took place. <b>Points</b> are the Freedom Points each student earned in this month.</p>
     </section>
 
     <!-- Week overview (per teacher) -->
@@ -112,6 +113,7 @@
       <div class="toolbar">
         <button class="btn btn-ghost btn-sm" id="wkBack" type="button">&larr; Day view</button>
         <select class="input admin-only" id="wkTeacher" style="max-width:240px" aria-label="Teacher"></select>
+        <select class="input" id="wkTz" style="max-width:200px" aria-label="Show times in"></select>
         <span style="flex:1"></span>
         <button class="btn btn-ghost btn-sm" id="wkPrev" type="button" aria-label="Previous week">&laquo;</button>
         <button class="btn btn-ghost btn-sm" id="wkToday" type="button">This week</button>
@@ -124,8 +126,8 @@
       </div>
       <div class="wk-issues hidden" id="wkIssues"></div>
       <div class="wk-wrap"><table class="wk" id="wkGrid"></table></div>
-      <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span>Each student has their own colour</span></div>
-      <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and times, shown in your own time. Click a lesson to open that day and mark attendance.</p>
+      <div class="wk-legend"><span><b style="color:#0F6B3B">&check;</b>Present</span><span><i class="wk-key a"></i>Absent</span><span><i class="wk-key c"></i>Cancelled</span><span><i class="wk-key m"></i>Rescheduled</span><span><span class="wk-mk">Make-up</span></span><span>Each student has their own colour</span></div>
+      <p class="hint" style="margin-top:8px">Lessons come from each student's lesson days and times plus any make-up lessons. The columns use the city chosen at the top (your own time unless you pick another); each lesson also shows its time where the student and the teacher live. Click a lesson to open that day and mark attendance or reschedule it.</p>
     </section>
 
     <!-- Messages: chats with students (teacher: her students; admin: the school inbox) -->
@@ -220,7 +222,8 @@
         <div class="field"><label for="fName">Full name</label><input class="input" id="fName" autocomplete="off" required></div>
         <div class="field"><label for="fDob">Date of birth</label><input class="input" id="fDob" autocomplete="off" type="date"></div>
         <div class="field"><label for="fEmail">Email (used to log in)</label><input class="input" id="fEmail" autocomplete="off" type="email" placeholder="Optional — add later"><div class="hint" id="emailHint">Leave empty if you don't have it yet. Adding it later switches on their login.</div>
-          <label class="check-line admin-only" style="margin:8px 0 0"><input type="checkbox" id="fNotify" checked> Email notifications (new messages, badges, results)</label></div>
+          <label class="check-line admin-only" style="margin:8px 0 0"><input type="checkbox" id="fNotify" checked> Email notifications (new messages, badges, results)</label>
+          <label class="check-line admin-only" style="margin:4px 0 0"><input type="checkbox" id="fRemind" checked> Lesson reminders by email (morning + 10 min before)</label></div>
         <div class="field admin-only"><label for="fPhone">Student phone / WhatsApp</label><input class="input" id="fPhone" autocomplete="off" type="tel" placeholder="Optional"></div>
         <div class="field"><label for="fCountry">Country of residence</label><div class="combo"><input class="input" id="fCountry" data-combo="country" placeholder="Type or scroll…" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
         <div class="field"><label for="fCity">City of residence</label><div class="combo"><input class="input" id="fCity" data-combo="city" placeholder="Choose the country first" autocomplete="off" role="combobox" aria-expanded="false"><ul class="combo-list hidden" role="listbox"></ul></div></div>
@@ -405,6 +408,7 @@
         <div class="field"><label for="pDob">Date of birth</label><input class="input staff-admin" id="pDob" type="date"></div>
         <div class="field"><label for="pEmail">Email</label><input class="input" id="pEmail" disabled></div>
         <div class="field"><label for="pPhone">Phone / WhatsApp</label><input class="input staff-admin" id="pPhone" type="tel" autocomplete="off"></div>
+        <div class="field"><label for="pCity">City (for lesson times &amp; reminders)</label><select class="input staff-admin" id="pCity"></select></div>
       </div>
       <h3 class="form-sec">CV</h3>
       <div class="field"><label for="pBio">About (short introduction)</label><textarea class="input" id="pBio" rows="3" placeholder="A few sentences about her teaching style and background."></textarea></div>
@@ -434,13 +438,14 @@ import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, doc, g
   deleteDoc, collection, serverTimestamp, createStudentLogin, nextStudentNumber, esc, isoDate, prettyDate, dayKey,
   DAYS, DAY_NAMES, schedule, toast, friendlyError, RESULT_TYPES, SKILLS, fmtScore, pctOf, resultTitle, resultSummary,
   levelHistory, monthYear, query, where } from "./eof-portal.js?v=7";
-import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=11";
+import { downloadStudentCard, warmUp, downloadTeacherProfile, teacherDisplayName } from "./eof-card-pdf.js?v=12";
 import { downloadAgreement, defaultRef } from "./eof-agreement.js?v=1";
 import { CITIES } from "./eof-cities.js?v=1";
 import { PROGRAMMES, programmeOf, suggestedProgramme, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, POINTS, PRESETS,
   resultPoints, unitTestBand, rankOf, pointsEvents, completion, loadFeed, postFeed, markRead, feedItemHtml, threads, isDenied, feedCol, mountBell, syncPublicTeacher, itemDate } from "./eof-awards.js?v=4";
 import { mountChat, staffInbox, inboxBellItems } from "./eof-chat.js?v=3";
 import { canDo, finalParts, PROGRESS_CHECK_PARTS, UNIT_TEST_PARTS } from "./eof-curriculum.js?v=1";
+import { STATUS, statusLabel, statusBadge, attRowsOf, attCounts, attDate, isMakeupId, newMakeupId, toZone, TEACHER_CITIES, teacherTz, teacherCity, shortDay } from "./eof-lessons.js?v=1";
 const $ = id => document.getElementById(id);
 
 let IS_TEACHER = false;   // set once we know; safe to read even while the page is still loading
@@ -503,7 +508,7 @@ async function loadStudents() {
   await Promise.all(students.map(async s => {
     const a = await getDocs(collection(db, "students", s.uid, "attendance")).catch(() => ({ forEach() {} }));
     let p = 0, ab = 0; attDocs[s.uid] = {};
-    a.forEach(d => { const x = d.data(); attDocs[s.uid][d.id] = { status: x.status, lessons: x.lessons || null }; x.status === "present" ? p++ : ab++; });
+    a.forEach(d => { const x = d.data(); attDocs[s.uid][d.id] = { ...x, lessons: x.lessons || null }; x.status === "present" ? p++ : x.status === "absent" ? ab++ : 0; });
     attStats[s.uid] = { p, a: ab };
   }));
   renderStudents();
@@ -590,15 +595,15 @@ function tzOffsetMin(tz, ms) {
   return (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - Math.floor(ms / 60000) * 60000) / 60000;
 }
 const utcLabel = (tz, date) => { const o = tzOffsetMin(tz, Date.parse(date + "T12:00:00Z")); return "UTC" + (o >= 0 ? "+" : "−") + Math.floor(Math.abs(o) / 60) + (Math.abs(o) % 60 ? ":" + String(Math.abs(o) % 60).padStart(2, "0") : ""); };
-// A lesson at `time` on `date` in `tz` → the same moment in the viewer's time zone
-function toViewer(date, time, tz) {
+// Which city's time the attendance lists and the week timetable use (the viewer's own time unless she picks another)
+let SHOW_TZ = (() => { try { return localStorage.getItem("eofShowTz") || VIEW_TZ; } catch (e) { return VIEW_TZ; } })();
+const cityOfTz = tz => (TEACHER_CITIES.find(c => c[1] === tz) || [tzCity(tz)])[0];
+// A lesson at `time` on `date` in `tz` → the same moment in another time zone (default: the chosen display time)
+function toViewer(date, time, tz, to = SHOW_TZ) {
   if (!time) return null;
-  const [h, mi] = time.split(":").map(Number);
-  if (!tz || tz === VIEW_TZ) return { time, shift: 0 };
-  const [y, m, d] = date.split("-").map(Number), wall = Date.UTC(y, m - 1, d, h, mi);
-  let ms = wall - tzOffsetMin(tz, wall) * 60000; ms = wall - tzOffsetMin(tz, ms) * 60000;
-  const v = new Date(ms + tzOffsetMin(VIEW_TZ, ms) * 60000);
-  return { time: String(v.getUTCHours()).padStart(2, "0") + ":" + String(v.getUTCMinutes()).padStart(2, "0"), shift: Math.round((Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()) - Date.UTC(y, m - 1, d)) / 86400000) };
+  if (!tz || tz === to) return { time, shift: 0 };
+  const r = toZone(date, time, tz, to);
+  return { time: r.time, shift: r.shift };
 }
 const hhmm = t => { const m = String(t || "").match(/(\d{1,2})[:.](\d{2})/); return m ? m[1].padStart(2, "0") + ":" + m[2] : ""; };
 // Per-day lessons for a student, including older records that only have lessonTime
@@ -715,7 +720,7 @@ function refreshSlot(row) {
   const t = row.querySelector(".s-time").value, r = formResidence(), place = r.city || r.country;
   let txt = "";
   if (t && r.tz) {
-    const v = toViewer(isoDate(), t, r.tz);
+    const v = toViewer(isoDate(), t, r.tz, VIEW_TZ);
     txt = (v.time !== t || v.shift) ? `${t} in ${place} = ${v.time}${v.shift > 0 ? " next day" : v.shift < 0 ? " day before" : ""} in ${tzCity(VIEW_TZ)}` : `${t} in ${place} (same as your time)`;
   } else if (t) txt = "Choose the country and city of residence above to convert this time.";
   row.querySelector(".slot-tz").textContent = txt;
@@ -763,6 +768,7 @@ function openModal(s) {
   $("fEmail").value = s?.email || "";
   $("fEmail").disabled = !!s?.authUid;
   $("fNotify").checked = s?.emailNotify !== false;
+  $("fRemind").checked = s?.remindEmail !== false;
   $("emailHint").textContent = s?.authUid ? "This is the student's login email." : (s ? "No login yet. Add their email and save to send them a password-setup email." : "Leave empty if you don't have it yet. Adding it later switches on their login.");
   $("deleteBtn").textContent = "Delete student"; delete $("deleteBtn").dataset.armed;
   $("fPhone").value = "";
@@ -872,6 +878,7 @@ $("studentForm").addEventListener("submit", async e => {
   };
   if (ADMIN) {
     data.emailNotify = $("fNotify").checked;
+    data.remindEmail = $("fRemind").checked;
     const refName = $("fRef").value.trim(), hit = refName ? students.find(x => x !== editing && fold(x.name) === fold(refName)) : null;
     data.referredBy = refName ? { name: hit ? hit.name : refName, sid: hit ? hit.uid : null } : null;
     data.agreement = formAgreement();
@@ -961,10 +968,9 @@ async function loadHistory(s) {
   try { a = await getDocs(collection(db, "students", s.uid, "attendance")); }
   catch (e) { if (editing === s) $("histBody").innerHTML = `<tr><td class="empty">${esc(friendlyError(e))}</td></tr>`; return; }
   if (editing !== s) return;
-  const rows = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
-  const p = rows.filter(r => r.status === "present").length, ab = rows.length - p;
-  $("histStats").innerHTML = `<div class="stat present"><b>${p}</b><span>Present</span></div><div class="stat absent"><b>${ab}</b><span>Absent</span></div><div class="stat"><b>${rows.length ? Math.round(p * 100 / rows.length) + "%" : "—"}</b><span>Rate</span></div>`;
-  $("histBody").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
+  const rows = attRowsOf(a.docs), c = attCounts(rows);
+  $("histStats").innerHTML = `<div class="stat present"><b>${c.present}</b><span>Present</span></div><div class="stat absent"><b>${c.absent}</b><span>Absent</span></div>${c.cancelled ? `<div class="stat"><b>${c.cancelled}</b><span>Cancelled</span></div>` : ""}<div class="stat"><b>${c.rate}</b><span>Rate</span></div>`;
+  $("histBody").innerHTML = rows.length ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td>${statusBadge(r, esc)}</td></tr>`).join("")
     : `<tr><td class="empty">No lessons marked yet.</td></tr>`;
 }
 
@@ -1701,7 +1707,7 @@ $("cardBtn").addEventListener("click", async () => {
   const b = $("cardBtn"); b.disabled = true; const label = b.textContent; b.textContent = "Preparing PDF…";
   try {
     const a = await getDocs(collection(db, "students", s.uid, "attendance"));
-    const att = a.docs.map(d => ({ date: d.id, ...d.data() })).sort((x, y) => y.date.localeCompare(x.date));
+    const att = attRowsOf(a.docs);
     await downloadStudentCard(ADMIN ? { ...s, ...contact, photo: studentPhoto } : { ...s, photo: studentPhoto }, att, resultRows);
   } catch (ex) { console.error(ex); toast("Couldn't create the PDF. Please try again.", "bad"); }
   b.disabled = false; b.textContent = label;
@@ -1812,6 +1818,8 @@ function openProfile(t) {
   $("pTitle").value = t.title || "Ms"; $("pName").value = t.name || ""; $("pTeaches").value = t.teaches || "";
   $("pJoined").value = t.joinedOn || ""; $("pDob").value = t.dob || ""; $("pEmail").value = t.email || (t.role === "admin" ? "englishonlineforum@gmail.com" : "No login yet");
   $("pPhone").value = t.phone || ""; $("pBio").value = t.bio || "";
+  { const cur = teacherCity(t), list = TEACHER_CITIES.some(c => c[0] === cur) ? TEACHER_CITIES : [[cur, teacherTz(t)], ...TEACHER_CITIES];
+    $("pCity").innerHTML = list.map(([c, tz]) => `<option value="${esc(c)}" data-tz="${esc(tz)}"${c === cur ? " selected" : ""}>${esc(c)}${t.tz ? "" : c === cur ? " (guessed — please confirm)" : ""}</option>`).join(""); }
   $("pEdu").value = toLines(t.education); $("pExp").value = toLines(t.experience); $("pCert").value = toLines(t.certificates);
   $("pLang").value = toLines(t.languages); $("pSkills").value = toLines(t.skills);
   document.querySelectorAll("#profileForm .staff-admin").forEach(el => el.disabled = !!TEACHER);
@@ -1826,7 +1834,7 @@ $("profileForm").addEventListener("submit", async e => {
   e.preventDefault();
   const t = profile; if (!t) return;
   const cv = { bio: $("pBio").value.trim(), education: fromLines("pEdu"), experience: fromLines("pExp"), certificates: fromLines("pCert"), languages: fromLines("pLang"), skills: fromLines("pSkills") };
-  const data = TEACHER ? cv : { ...cv, title: $("pTitle").value, name: $("pName").value.trim(), teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, dob: $("pDob").value, phone: $("pPhone").value.trim() };
+  const data = TEACHER ? cv : { ...cv, title: $("pTitle").value, name: $("pName").value.trim(), teaches: $("pTeaches").value.trim(), joinedOn: $("pJoined").value, dob: $("pDob").value, phone: $("pPhone").value.trim(), city: $("pCity").value, tz: $("pCity").selectedOptions[0]?.dataset.tz || null };
   if (!TEACHER && !data.name) { $("profileErr").textContent = "Enter the teacher's name."; return; }
   $("pSaveBtn").disabled = true; $("profileErr").textContent = "";
   try {
@@ -1870,87 +1878,272 @@ $("todayBtn").addEventListener("click", () => { $("attDate").value = isoDate(); 
 $("attDate").addEventListener("change", () => { if (!$("attDate").value) $("attDate").value = isoDate(); renderAttendance(); });
 $("attScope").addEventListener("change", renderAttendance);
 
-let attToken = 0;
-function timeCell(s, date, dk) {
-  const x = slotsOf(s)[dk];
-  if (!x) return `<span class="hint" style="margin:0">No lesson this day</span>`;
-  if (!x.time) return "—";
-  const v = toViewer(date, x.time, x.tz), place = slotPlace(x);
-  if (v.time === x.time && !v.shift) return `<b>${esc(x.time)}</b>${place ? ` <span class="hint" style="display:inline;margin:0">${esc(place)}</span>` : ""}`;
-  return `<b>${esc(v.time)}</b>${v.shift ? ` <span class="hint" style="display:inline;margin:0">(${v.shift > 0 ? "next day" : "day before"})</span>` : ""}<div class="hint" style="margin:0">${esc(x.time)} in ${esc(place)}</div>`;
+// ----- "Times in" (Bishkek, İstanbul, …) — shared by the day list and the week timetable -----
+function tzChoices() {
+  const seen = new Map(), add = (tz, city) => { if (tz && !seen.has(tz)) seen.set(tz, city || cityOfTz(tz)); };
+  add(VIEW_TZ, cityOfTz(VIEW_TZ));
+  add("Asia/Bishkek", "Bishkek");
+  (TEACHER ? [TEACHER] : teachers).forEach(t => add(teacherTz(t), teacherCity(t)));
+  students.filter(s => (s.status || "active") === "active").forEach(s => Object.values(slotsOf(s)).forEach(x => add(x.tz, slotPlace(x))));
+  TEACHER_CITIES.forEach(([c, tz]) => add(tz, c));
+  return [...seen.entries()];
+}
+function fillTzSelects() {
+  const html = tzChoices().map(([tz, city]) => `<option value="${esc(tz)}"${tz === SHOW_TZ ? " selected" : ""}>${tz === VIEW_TZ ? `My time (${esc(city)})` : `${esc(city)} time`}</option>`).join("");
+  ["attTz", "wkTz"].forEach(id => { $(id).innerHTML = html; $(id).value = SHOW_TZ; });
+}
+function setShowTz(tz) {
+  SHOW_TZ = tz || VIEW_TZ; try { localStorage.setItem("eofShowTz", SHOW_TZ); } catch (e) { }
+  ["attTz", "wkTz"].forEach(id => $(id).value = SHOW_TZ);
+}
+$("attTz").addEventListener("change", e => { setShowTz(e.target.value); renderAttendance(); });
+$("wkTz").addEventListener("change", e => { setShowTz(e.target.value); renderWeek(); });
+
+const MASHEL = { name: "Mashel Auma", title: "Mr", tz: "Asia/Bishkek", city: "Bishkek" };
+const teacherOf = s => TEACHER || teachers.find(t => normT(t.name) === normT(s.teacher)) || (normT(s.teacher) === normT("Mashel Auma") ? MASHEL : null);
+const studentTzOf = (s, x) => x?.tz || s.tz || null;
+
+// One lesson's time in every city that matters: the chosen display city, where the student lives,
+// where her teacher lives, and the viewer's own city. → [{city, time, date, main}]
+function zoneTimes(s, sdate, x) {
+  if (!x?.time) return [];
+  if (!x.tz) return [{ city: "", time: x.time, date: sdate, main: true }];      // old record without a city: exactly as typed
+  const out = [], seen = new Set();
+  const push = (tz, city, main) => {
+    if (!tz || seen.has(tz)) return; seen.add(tz);
+    const v = toViewer(sdate, x.time, x.tz, tz);
+    out.push({ city, time: v.time, date: addDays(sdate, v.shift || 0), main: !!main });
+  };
+  push(SHOW_TZ, cityOfTz(SHOW_TZ), true);
+  push(x.tz, slotPlace(x) || cityOfTz(x.tz));
+  const t = teacherOf(s); if (t) push(teacherTz(t), teacherCity(t));
+  push(VIEW_TZ, cityOfTz(VIEW_TZ));
+  return out;
+}
+const dayTag = (z, mainDate) => z.date !== mainDate ? ` (${DAY_NAMES[dayKey(z.date)].slice(0, 3)})` : "";
+function otherTimesText(zs) { const m = zs.find(z => z.main); return zs.filter(z => !z.main).map(z => `${z.time} ${z.city}${dayTag(z, m.date)}`).join(" · "); }
+
+// Lessons that fall on `date` in the chosen display time — regular lessons and make-ups.
+// The student's own date may be the day before/after (time zones), so look one day each side.
+function lessonsOn(date, list) {
+  const out = [];
+  list.forEach(s => {
+    const slots = slotsOf(s);
+    [-1, 0, 1].forEach(k => {
+      const sd = addDays(date, k), x = slots[dayKey(sd)]; if (!x) return;
+      const v = x.time ? toViewer(sd, x.time, x.tz) : { time: "", shift: 0 };
+      if (addDays(sd, v.shift || 0) !== date) return;
+      out.push({ s, id: sd, sdate: sd, x, show: v.time });
+    });
+    Object.entries(attDocs[s.uid] || {}).forEach(([id, a]) => {
+      if (!a.makeup || !a.date) return;
+      const x = { time: a.time || "", tz: a.tz || studentTzOf(s, null), city: a.city || s.city || "", country: s.country || "", lessons: a.lessons || 1 };
+      const v = x.time ? toViewer(a.date, x.time, x.tz) : { time: "", shift: 0 };
+      if (addDays(a.date, v.shift || 0) !== date) return;
+      out.push({ s, id, sdate: a.date, x, show: v.time, makeup: true });
+    });
+  });
+  return out.sort((a, b) => timeKey(a.show) - timeKey(b.show) || String(a.s.name).localeCompare(String(b.s.name)));
+}
+
+let attToken = 0, attRowsNow = [];
+function timeCell(r, date) {
+  if (!r.x) return `<span class="hint" style="margin:0">No lesson this day</span>`;
+  if (!r.x.time) return "—";
+  const zs = zoneTimes(r.s, r.sdate, r.x), m = zs[0], rest = otherTimesText(zs);
+  return `<b>${esc(m.time)}</b>${m.city ? ` <span class="hint" style="display:inline;margin:0">${esc(m.city)}</span>` : ""}${rest ? `<div class="hint" style="margin:0">${esc(rest)}</div>` : ""}`;
+}
+function mobileTime(r) {
+  if (!r.x?.time) return "";
+  const zs = zoneTimes(r.s, r.sdate, r.x), m = zs[0], rest = otherTimesText(zs);
+  return `<div class="show-sm att-time">⏰ <b>${esc(m.time)}</b>${m.city ? " " + esc(m.city) : ""}${rest ? `<span> · ${esc(rest)}</span>` : ""}</div>`;
 }
 async function renderAttendance() {
+  fillTzSelects();
   const date = $("attDate").value || isoDate();
   const dk = dayKey(date);
-  $("attHeading").textContent = `${DAY_NAMES[dk]}, ${prettyDate(date)}`;
+  $("attHeading").innerHTML = `${DAY_NAMES[dk]}, ${prettyDate(date)} <span class="hint" style="display:inline;margin:0;font-family:Poppins,sans-serif;font-size:13px">· times in ${esc(cityOfTz(SHOW_TZ))}</span>`;
   const active = students.filter(s => (s.status || "active") === "active");
-  // Students whose lesson falls on this day in YOUR time (their own date may be the day before/after)
-  const sdateOf = {};
-  active.forEach(s => [-1, 0, 1].forEach(k => {
-    const sd = addDays(date, k), x = slotsOf(s)[dayKey(sd)]; if (!x || sdateOf[s.uid]) return;
-    const v = x.time ? toViewer(sd, x.time, x.tz) : { shift: 0 };
-    if (addDays(sd, v.shift || 0) === date) sdateOf[s.uid] = sd;
-  }));
-  const list = $("attScope").value === "all" ? active : active.filter(s => sdateOf[s.uid]);
-  list.forEach(s => { if (!sdateOf[s.uid]) sdateOf[s.uid] = date; });
+  let rows = lessonsOn(date, active);
+  if ($("attScope").value === "all") {
+    const has = new Set(rows.map(r => r.s.uid));
+    rows = rows.concat(active.filter(s => !has.has(s.uid)).sort((a, b) => String(a.name).localeCompare(String(b.name))).map(s => ({ s, id: date, sdate: date, x: null, show: "", extra: true })));
+  }
   const token = ++attToken;
-  if (!list.length) { $("attBody").innerHTML = `<tr><td colspan="6" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
+  if (!rows.length) { attRowsNow = []; $("attBody").innerHTML = `<tr><td colspan="6" class="empty">No active students have a lesson on ${DAY_NAMES[dk]}. Switch to “All active students” to mark someone anyway.</td></tr>`; return; }
   $("attBody").innerHTML = `<tr><td colspan="6" class="empty">Loading&hellip;</td></tr>`;
-  const docs = await Promise.all(list.map(s => getDoc(doc(db, "students", s.uid, "attendance", sdateOf[s.uid])).then(d => d.exists() ? d.data() : null).catch(() => null)));
+  const docs = await Promise.all(rows.map(r => getDoc(doc(db, "students", r.s.uid, "attendance", r.id)).then(d => d.exists() ? d.data() : null).catch(() => null)));
   if (token !== attToken) return;
-  const marks = docs.map(d => d ? d.status : null);
-  const lens = docs.map((d, i) => d?.lessons || slotsOf(list[i])[dayKey(sdateOf[list[i].uid])]?.lessons || 1);
-  $("attBody").innerHTML = list.map((s, i) => `
-    <tr data-uid="${s.uid}" data-date="${sdateOf[s.uid]}">
+  rows.forEach((r, i) => { r.att = docs[i]; r.len = docs[i]?.lessons || r.x?.lessons || 1; });
+  attRowsNow = rows;
+  $("attBody").innerHTML = rows.map((r, i) => {
+    const s = r.s, st = r.att?.status || null, first = esc(s.name.split(" ")[0]);
+    const tag = r.makeup ? `<span class="mk-tag">↻ Make-up${r.att?.fromDate ? " · for " + esc(shortDay(r.att.fromDate)) : ""}</span>` : "";
+    const other = r.sdate !== date && r.x ? `<div class="hint" style="margin:0">${esc(DAY_NAMES[dayKey(r.sdate)])} where ${first} lives</div>` : "";
+    const marks = st === "rescheduled"
+      ? `<div class="moved-box">↻ Moved to <b>${esc(r.att.movedDate ? shortDay(r.att.movedDate) : "another day")}${r.att.movedTime ? ", " + esc(r.att.movedTime) : ""}</b>${r.att.movedTime && r.x?.tz ? ` <span class="hint" style="display:inline;margin:0">(${esc(slotPlace(r.x) || "")} time)</span>` : ""} <button type="button" class="linkbtn" data-undo>Undo</button></div>`
+      : `<div class="att-actions">
+        <button class="att-btn p ${st === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
+        <button class="att-btn a ${st === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
+        <button class="att-btn c ${st === "cancelled" ? "on" : ""}" data-mark="cancelled" type="button">Cancelled</button>
+        ${r.x ? `<button class="resch-btn" data-resch type="button" title="${r.makeup ? "Change or remove this make-up lesson" : "Reschedule this lesson to another day"}" aria-label="Reschedule ${esc(s.name)}'s lesson">↻<span class="hide-sm"> ${r.makeup ? "Change" : "Reschedule"}</span></button>` : ""}
+        <button class="star-btn" data-star type="button" title="Give ${first} a badge" aria-label="Give ${esc(s.name)} a badge">&#9733;</button>
+      </div>`;
+    return `<tr data-i="${i}" class="${st === "rescheduled" ? "row-moved" : st === "cancelled" ? "row-cancelled" : ""}">
       <td class="col-no">${i + 1}</td>
-      <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div></td>
+      <td><b>${esc(s.name)}</b><div class="hint" style="margin:0">${esc(s.studentNumber)}</div>${tag}${mobileTime(r)}</td>
       <td class="hide-sm"><span class="level-pill">${esc(s.level)}</span></td>
-      <td class="hide-sm">${timeCell(s, sdateOf[s.uid], dayKey(sdateOf[s.uid]))}${sdateOf[s.uid] !== date ? `<div class="hint" style="margin:0">${esc(DAY_NAMES[dayKey(sdateOf[s.uid])])} where ${esc(s.name.split(" ")[0])} lives</div>` : ""}</td>
+      <td class="hide-sm">${timeCell(r, date)}${other}</td>
       <td><div class="len-toggle" role="group" aria-label="Single or double lesson">
-        <button type="button" class="len-btn ${lens[i] == 1 ? "on" : ""}" data-len="1">Single</button><button type="button" class="len-btn ${lens[i] == 2 ? "on" : ""}" data-len="2">Double</button>
+        <button type="button" class="len-btn ${r.len == 1 ? "on" : ""}" data-len="1">Single</button><button type="button" class="len-btn ${r.len == 2 ? "on" : ""}" data-len="2">Double</button>
       </div></td>
-      <td><div class="att-actions">
-        <button class="att-btn p ${marks[i] === "present" ? "on" : ""}" data-mark="present" type="button">Present</button>
-        <button class="att-btn a ${marks[i] === "absent" ? "on" : ""}" data-mark="absent" type="button">Absent</button>
-        <button class="star-btn" data-star type="button" title="Give ${esc(s.name.split(" ")[0])} a badge" aria-label="Give ${esc(s.name)} a badge">&#9733;</button>
-      </div></td>
-    </tr>`).join("");
+      <td>${marks}</td>
+    </tr>`;
+  }).join("");
 }
 
 const rowLen = tr => +(tr.querySelector(".len-btn.on")?.dataset.len || 1);
+const cacheAtt = (uid, id, data) => { const c = attDocs[uid] || (attDocs[uid] = {}); if (data) c[id] = { ...(c[id] || {}), ...data }; else delete c[id]; };
+function bumpStats(uid, prev, next) {
+  const st = attStats[uid] || (attStats[uid] = { p: 0, a: 0 });
+  if (prev === "present") st.p--; if (prev === "absent") st.a--;
+  if (next === "present") st.p++; if (next === "absent") st.a++;
+}
 $("attBody").addEventListener("click", async e => {
-  const star = e.target.closest("[data-star]");
-  if (star) { const s = students.find(x => x.uid === star.closest("tr").dataset.uid); if (s) openAwardPop(s); return; }
+  const tr = e.target.closest("tr[data-i]"); if (!tr) return;
+  const r = attRowsNow[+tr.dataset.i]; if (!r) return;
+  const uid = r.s.uid, ref = doc(db, "students", uid, "attendance", r.id);
+  if (e.target.closest("[data-star]")) { openAwardPop(r.s); return; }
+  if (e.target.closest("[data-resch]")) { openReschedule(r); return; }
+  if (e.target.closest("[data-undo]")) { undoReschedule(r); return; }
   const lb = e.target.closest("[data-len]");
   if (lb) {
-    const tr = lb.closest("tr"), uid = tr.dataset.uid, date = tr.dataset.date, prevLen = rowLen(tr), len = +lb.dataset.len;
+    const prevLen = rowLen(tr), len = +lb.dataset.len;
     if (len === prevLen) return;
     tr.querySelectorAll(".len-btn").forEach(x => x.classList.toggle("on", x === lb));
-    if (!tr.querySelector(".att-btn.on")) return;          // not marked yet: saved together with the mark
-    try { await setDoc(doc(db, "students", uid, "attendance", date), { lessons: len }, { merge: true }); if (attDocs[uid]?.[date]) attDocs[uid][date].lessons = len; }
+    if (!r.makeup && !tr.querySelector(".att-btn.on")) return;          // not marked yet: saved together with the mark
+    try { await setDoc(ref, { lessons: len }, { merge: true }); cacheAtt(uid, r.id, { lessons: len }); r.len = len; }
     catch (ex) { tr.querySelectorAll(".len-btn").forEach(x => x.classList.toggle("on", +x.dataset.len === prevLen)); toast(friendlyError(ex), "bad"); }
     return;
   }
   const b = e.target.closest("[data-mark]"); if (!b) return;
-  const tr = b.closest("tr"); const uid = tr.dataset.uid; const date = tr.dataset.date;
-  const ref = doc(db, "students", uid, "attendance", date);
   const prev = tr.querySelector(".att-btn.on")?.dataset.mark || null;
   const next = prev === b.dataset.mark ? null : b.dataset.mark;
   tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === next));
+  tr.classList.toggle("row-cancelled", next === "cancelled");
   try {
-    if (next) await setDoc(ref, { status: next, lessons: rowLen(tr), markedAt: serverTimestamp(), markedBy: me.email });
+    const mark = { status: next, lessons: rowLen(tr), markedAt: serverTimestamp(), markedBy: me.email };
+    if (r.makeup) await setDoc(ref, mark, { merge: true });            // a make-up lesson stays on the timetable when its mark is cleared
+    else if (next) await setDoc(ref, mark);
     else await deleteDoc(ref);
-    const cache = attDocs[uid] || (attDocs[uid] = {});
-    if (next) cache[date] = { status: next, lessons: rowLen(tr) }; else delete cache[date];
-    const st = attStats[uid] || (attStats[uid] = { p: 0, a: 0 });
-    if (prev === "present") st.p--; if (prev === "absent") st.a--;
-    if (next === "present") st.p++; if (next === "absent") st.a++;
+    if (r.makeup || next) cacheAtt(uid, r.id, { status: next, lessons: rowLen(tr) }); else cacheAtt(uid, r.id, null);
+    r.att = { ...(r.att || {}), status: next };
+    bumpStats(uid, prev, next);
     renderStudents();
   } catch (ex) {
     tr.querySelectorAll(".att-btn").forEach(x => x.classList.toggle("on", x.dataset.mark === prev));
+    tr.classList.toggle("row-cancelled", prev === "cancelled");
     toast(friendlyError(ex), "bad");
   }
 });
+
+// ----- Reschedule: move a lesson to another day/time (a make-up lesson) -----
+async function undoReschedule(r) {
+  const uid = r.s.uid, mk = r.att?.movedTo;
+  try {
+    if (mk) { await deleteDoc(doc(db, "students", uid, "attendance", mk)); cacheAtt(uid, mk, null); }
+    await deleteDoc(doc(db, "students", uid, "attendance", r.id)); cacheAtt(uid, r.id, null);
+    toast(`${r.s.name.split(" ")[0]}'s lesson is back on ${shortDay(r.sdate)}`);
+    renderAttendance();
+  } catch (ex) { toast(friendlyError(ex), "bad"); }
+}
+function openReschedule(r) {
+  closePop();
+  const s = r.s, sTz = studentTzOf(s, r.x) || VIEW_TZ, place = slotPlace(r.x || {}) || cityOfTz(sTz);
+  const t = teacherOf(s), tTz = t ? teacherTz(t) : null;
+  const zones = [[sTz, `${place} time (${s.name.split(" ")[0]}'s city)`]];
+  if (tTz && tTz !== sTz) zones.push([tTz, `${teacherCity(t)} time (${TEACHER ? "my city" : "teacher's city"})`]);
+  if (VIEW_TZ !== sTz && VIEW_TZ !== tTz) zones.push([VIEW_TZ, `My time (${cityOfTz(VIEW_TZ)})`]);
+  const editing = !!r.makeup, mk = r.att || {};
+  const tomorrow = addDays(isoDate(), 1);
+  const startDate = editing ? (mk.date || r.sdate) : (tomorrow > r.sdate ? tomorrow : addDays(r.sdate, 1));
+  const startTime = editing ? (mk.time || r.x?.time) : (r.x?.time || "");
+  const el = document.createElement("div");
+  el.className = "pop"; el.id = "awardPop";
+  el.innerHTML = `<div class="pop-card" role="dialog" aria-modal="true" aria-labelledby="popTitle">
+    <h3 id="popTitle">${editing ? "Change make-up lesson" : "Reschedule lesson"}</h3>
+    <p class="hint" style="margin:0 0 14px"><b>${esc(s.name)}</b> · ${editing ? `make-up${mk.fromDate ? " for " + esc(shortDay(mk.fromDate)) : ""}` : `${esc(shortDay(r.sdate))}${r.x?.time ? ", " + esc(r.x.time) + " " + esc(place) : ""}`}</p>
+    <div class="grid-2">
+      <div class="field"><label for="rsDate">New date</label><input class="input" id="rsDate" type="date" value="${startDate}"></div>
+      <div class="field"><label for="rsTime">Time</label><select class="input" id="rsTime">${timeOptions(startTime)}</select></div>
+      <div class="field"><label for="rsZone">Time in</label><select class="input" id="rsZone">${zones.map(([tz, l]) => `<option value="${esc(tz)}">${esc(l)}</option>`).join("")}</select></div>
+      <div class="field"><label for="rsLen">Lesson</label><select class="input" id="rsLen">${opt("1", "Single", (editing ? mk.lessons : r.len) != 2)}${opt("2", "Double", (editing ? mk.lessons : r.len) == 2)}</select></div>
+    </div>
+    <div class="field"><label for="rsNote">Note <span class="hint" style="display:inline">(optional, shown to the student)</span></label><input class="input" id="rsNote" maxlength="200" value="${esc(mk.note || "")}" placeholder="e.g. Make-up for Thursday's missed lesson"></div>
+    <div class="rs-preview" id="rsPreview"></div>
+    <div class="err" id="popErr"></div>
+    <div class="modal-actions">${editing ? `<button class="btn btn-ghost btn-sm" type="button" id="rsRemove" style="color:var(--red-dark)">Remove make-up</button>` : ""}<span style="flex:1"></span><button class="btn btn-ghost btn-sm" type="button" data-pop-close>Cancel</button><button class="btn btn-primary btn-sm" type="button" id="rsSave">${editing ? "Save changes" : "Reschedule"}</button></div>
+    <p class="hint" style="margin:10px 0 0">${editing ? "" : `The ${esc(shortDay(r.sdate))} lesson is marked <b>Rescheduled</b> (it isn't counted as absent) and the new lesson appears on the timetable. `}${esc(s.name.split(" ")[0])}${s.email ? " gets an email about the change and" : ""} sees it in the student portal.</p>
+  </div>`;
+  document.body.appendChild(el);
+  const q = id => el.querySelector("#" + id);
+  // The new lesson in the student's own date and time
+  const local = () => {
+    const d = q("rsDate").value, tm = q("rsTime").value, z = q("rsZone").value;
+    if (!d || !tm) return null;
+    const v = toZone(d, tm, z, sTz);
+    return { date: v.date, time: v.time };
+  };
+  const preview = () => {
+    const L = local();
+    if (!L) { q("rsPreview").textContent = "Choose the date and time."; return; }
+    const zs = zoneTimes(s, L.date, { time: L.time, tz: sTz, city: place });
+    const main = zs[0];
+    q("rsPreview").innerHTML = `New lesson: <b>${esc(shortDay(main.date))}, ${esc(main.time)}</b> ${esc(main.city)}${zs.length > 1 ? `<div class="hint" style="margin:2px 0 0">${zs.slice(1).map(z => `${esc(z.time)} ${esc(z.city)}${z.date !== main.date ? " (" + esc(shortDay(z.date)) + ")" : ""}`).join(" · ")}</div>` : ""}`;
+  };
+  ["rsDate", "rsTime", "rsZone"].forEach(id => q(id).addEventListener("change", preview));
+  preview();
+  el.addEventListener("click", async e => {
+    if (e.target === el || e.target.closest("[data-pop-close]")) { closePop(); return; }
+    const uid = s.uid;
+    if (e.target.id === "rsRemove") {
+      e.target.disabled = true;
+      try {
+        await deleteDoc(doc(db, "students", uid, "attendance", r.id)); cacheAtt(uid, r.id, null);
+        const from = mk.fromDate && attDocs[uid]?.[mk.fromDate];
+        if (from && from.movedTo === r.id) { await deleteDoc(doc(db, "students", uid, "attendance", mk.fromDate)); cacheAtt(uid, mk.fromDate, null); }
+        closePop(); toast("Make-up lesson removed"); renderAttendance();
+      } catch (ex) { q("popErr").textContent = friendlyError(ex); e.target.disabled = false; }
+      return;
+    }
+    if (e.target.id !== "rsSave") return;
+    const L = local(); if (!L) { q("popErr").textContent = "Choose the new date and time."; return; }
+    if (!editing && L.date === r.sdate && L.time === r.x?.time) { q("popErr").textContent = "That's the same day and time as the lesson."; return; }
+    e.target.disabled = true;
+    const len = +q("rsLen").value || 1, note = q("rsNote").value.trim();
+    const byName = TEACHER ? teacherDisplayName(TEACHER) : "English Online Forum";
+    try {
+      if (editing) {
+        const upd = { date: L.date, time: L.time, tz: sTz, city: place, lessons: len, note, updatedAt: serverTimestamp(), updatedBy: me.email };
+        await setDoc(doc(db, "students", uid, "attendance", r.id), upd, { merge: true }); cacheAtt(uid, r.id, upd);
+        const from = mk.fromDate && attDocs[uid]?.[mk.fromDate];
+        if (from && from.movedTo === r.id) { const mv = { movedDate: L.date, movedTime: L.time }; await setDoc(doc(db, "students", uid, "attendance", mk.fromDate), mv, { merge: true }); cacheAtt(uid, mk.fromDate, mv); }
+      } else {
+        const id = newMakeupId(L.date);
+        const data = { makeup: true, date: L.date, time: L.time, tz: sTz, city: place, lessons: len, fromDate: r.sdate, fromTime: r.x?.time || "", note, status: null, by: me.email, byName, at: serverTimestamp() };
+        await setDoc(doc(db, "students", uid, "attendance", id), data); cacheAtt(uid, id, data);
+        const orig = { status: "rescheduled", lessons: r.len || 1, movedTo: id, movedDate: L.date, movedTime: L.time, markedAt: serverTimestamp(), markedBy: me.email };
+        await setDoc(doc(db, "students", uid, "attendance", r.id), orig); cacheAtt(uid, r.id, orig);
+        bumpStats(uid, r.att?.status || null, "rescheduled"); renderStudents();
+      }
+      closePop();
+      toast(`${s.name.split(" ")[0]}'s lesson ${editing ? "updated" : "moved"} to ${shortDay(L.date)}, ${L.time} ${place}`);
+      renderAttendance();
+    } catch (ex) { q("popErr").textContent = friendlyError(ex); e.target.disabled = false; }
+  });
+  el.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); closePop(); } });
+  setTimeout(() => q("rsDate").focus(), 30);
+}
 
 // ---------- Week overview (per teacher) ----------
 const WK_COLORS = ["#C9B6F2", "#F4B9B5", "#BFD9FB", "#FBE2AE", "#CDEFCB", "#F7C9E4", "#BEE8E6", "#E4D3B8"];
@@ -1987,10 +2180,11 @@ function openWeek(fromDate) {
   renderWeek();
 }
 async function renderWeek() {
+  fillTzSelects();
   const who = TEACHER ? TEACHER.name : $("wkTeacher").value;
   const all = who === "__all";
   const mine = students.filter(s => (s.status || "active") === "active" && (all || TEACHER || normT(s.teacher) === normT(who)));
-  const list = mine.filter(s => (s.lessonDays || []).length);
+  const list = mine.filter(s => (s.lessonDays || []).length || Object.values(attDocs[s.uid] || {}).some(a => a.makeup));
   // Active students the grid can't place — shown under the grid so nobody silently disappears
   const known = new Set(wkTeacherNames().map(normT).filter(k => teachers.some(t => normT(t.name) === k) || k === normT("Mashel Auma")));
   const issues = mine.filter(s => !(s.lessonDays || []).length).map(s => [s, "no lesson days ticked"]);
@@ -2002,42 +2196,36 @@ async function renderWeek() {
   const today = isoDate();
   const tName = all ? "All teachers" : (TEACHER ? teacherDisplayName(TEACHER) : (teachers.find(t => t.name === who) ? teacherDisplayName(teachers.find(t => t.name === who)) : who));
   $("wkTitle").textContent = tName;
-  $("wkRange").textContent = `Week of ${shortDate(dates[0])} – ${prettyDate(dates[6])}`;
-  // Time columns
+  $("wkRange").textContent = `Week of ${shortDate(dates[0])} – ${prettyDate(dates[6])} · times in ${cityOfTz(SHOW_TZ)}`;
   const color = {}; list.forEach((s, i) => color[s.uid] = WK_COLORS[i % WK_COLORS.length]);
   const lessons = [];
-  for (let k = -1; k <= 7; k++) {               // student-local days, one each side, so shifted lessons aren't lost
-    const sdate = addDays(wkStart, k), sd = dayKey(sdate);
-    list.filter(s => s.lessonDays.includes(sd)).forEach(s => {
-      const x = slotsOf(s)[sd] || {}, v = toViewer(sdate, x.time, x.tz), vdate = addDays(sdate, v?.shift || 0);
-      if (vdate < dates[0] || vdate > dates[6]) return;
-      lessons.push({ s, d: dayKey(vdate), date: vdate, sdate, x, slot: v ? v.time : "Time not set",
-        local: v && (v.time !== x.time || v.shift) ? `${v.shift ? DAY_NAMES[sd].slice(0, 3) + " " : ""}${x.time} ${slotPlace(x)}` : "" });
-    });
-  }
+  dates.forEach(d => lessonsOn(d, list).forEach(r => lessons.push({ ...r, d: dayKey(d), date: d, slot: r.show || "Time not set" })));
   const showDays = DAYS.filter((d, i) => i < 6 || lessons.some(l => l.d === d));
   if (!list.length) { $("wkSum").textContent = ""; $("wkGrid").innerHTML = `<tbody><tr><td class="empty">No active students with lesson days${all ? "" : ` for ${esc(tName)}`}. Set lesson days and a time on each student's record.</td></tr></tbody>`; return; }
   const token = ++wkToken;
-  // Load marks for every lesson this week
-
   const slots = [...new Set(lessons.map(l => l.slot))].sort((a, b) => timeKey(a) - timeKey(b) || a.localeCompare(b));
-  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.sdate)).then(x => x.exists() ? x.data() : null).catch(() => null)));
+  const marks = await Promise.all(lessons.map(l => getDoc(doc(db, "students", l.s.uid, "attendance", l.id)).then(x => x.exists() ? x.data() : null).catch(() => null)));
   if (token !== wkToken) return;
-  lessons.forEach((l, i) => { l.mark = marks[i]?.status || null; l.len = marks[i]?.lessons || l.x.lessons || 1; });
-  const n = { p: 0, a: 0, u: 0 }; lessons.forEach(l => l.mark === "present" ? n.p++ : l.mark === "absent" ? n.a++ : l.date <= today ? n.u++ : 0);
-  $("wkSum").innerHTML = `<b>${lessons.length}</b> lesson${lessons.length === 1 ? "" : "s"} &middot; <span class="ok">${n.p} present</span> &middot; <span class="no">${n.a} absent</span>${n.u ? ` &middot; ${n.u} not marked yet` : ""}`;
-  const head = `<thead><tr><th class="wk-corner"></th>${slots.map((t, i) => `<th><span class="wk-n">${i + 1}</span>${esc(t)}</th>`).join("")}</tr></thead>`;
+  lessons.forEach((l, i) => { l.att = marks[i]; l.mark = marks[i]?.status || null; l.len = marks[i]?.lessons || l.x.lessons || 1; });
+  const n = { p: 0, a: 0, c: 0, m: 0, u: 0 };
+  lessons.forEach(l => l.mark === "present" ? n.p++ : l.mark === "absent" ? n.a++ : l.mark === "cancelled" ? n.c++ : l.mark === "rescheduled" ? n.m++ : l.date <= today ? n.u++ : 0);
+  const held = lessons.length - n.m;
+  $("wkSum").innerHTML = `<b>${held}</b> lesson${held === 1 ? "" : "s"} &middot; <span class="ok">${n.p} present</span> &middot; <span class="no">${n.a} absent</span>${n.c ? ` &middot; ${n.c} cancelled` : ""}${n.m ? ` &middot; ${n.m} rescheduled` : ""}${n.u ? ` &middot; ${n.u} not marked yet` : ""}`;
+  const city = esc(cityOfTz(SHOW_TZ));
+  const head = `<thead><tr><th class="wk-corner"><small>${city}</small></th>${slots.map((t, i) => `<th><span class="wk-n">${i + 1}</span>${esc(t)}<small class="wk-city">${city}</small></th>`).join("")}</tr></thead>`;
   const body = showDays.map(d => {
     const date = dates[DAYS.indexOf(d)];
     const cells = slots.map(t => {
       const here = lessons.filter(l => l.d === d && l.slot === t);
       return `<td>${here.map(l => {
-        const st = l.mark === "present" ? "p" : l.mark === "absent" ? "a" : (l.date <= today ? "u" : "f");
-        const label = st === "p" ? "Present" : st === "a" ? "Absent" : st === "u" ? "Not marked" : "";
-        return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)}">
-          <span class="wk-name">${esc(l.s.name)}${l.len == 2 ? ` <span class="wk-dbl">Double</span>` : ""}</span>
-          <span class="wk-meta">${esc(l.s.level || "")}${l.local ? " · " + esc(l.local) : ""}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
-          ${label ? `<span class="wk-st">${label}</span>` : ""}</button>`;
+        const st = l.mark === "present" ? "p" : l.mark === "absent" ? "a" : l.mark === "cancelled" ? "c" : l.mark === "rescheduled" ? "m" : (l.date <= today ? "u" : "f");
+        const label = { p: "Present", a: "Absent", c: "Cancelled", m: `Moved → ${l.att?.movedDate ? shortDay(l.att.movedDate) : ""}${l.att?.movedTime ? " " + l.att.movedTime : ""}`, u: "Not marked" }[st] || "";
+        const other = otherTimesText(zoneTimes(l.s, l.sdate, l.x));
+        return `<button type="button" class="wk-l ${st}" style="--c:${color[l.s.uid]}" data-wk-date="${date}" title="${esc(l.s.name)} — ${esc(DAY_NAMES[d])} ${esc(t)} ${city}${other ? " · " + esc(other) : ""}">
+          <span class="wk-name">${esc(l.s.name)}${l.len == 2 ? ` <span class="wk-dbl">Double</span>` : ""}${l.makeup ? ` <span class="wk-mk">Make-up</span>` : ""}</span>
+          <span class="wk-meta">${esc(l.s.level || "")}${all && l.s.teacher ? " · " + esc(l.s.teacher) : ""}</span>
+          ${other ? `<span class="wk-zones">${esc(other)}</span>` : ""}
+          ${label ? `<span class="wk-st">${esc(label)}</span>` : ""}</button>`;
       }).join("")}</td>`;
     }).join("");
     return `<tr class="${date === today ? "wk-today" : ""}"><th class="wk-day">${d.slice(0, 2)}<small>${shortDate(date)}</small></th>${cells}</tr>`;
@@ -2086,19 +2274,21 @@ function renderMonth() {
   const who = TEACHER ? TEACHER.name : $("moTeacher").value, all = who === "__all";
   $("moTitle").textContent = monthLabel(moMonth);
   const rows = students.filter(s => all || TEACHER || normT(s.teacher) === normT(who)).map(s => {
-    const c = { s, single: 0, double: 0, absent: 0 };
-    Object.entries(attDocs[s.uid] || {}).forEach(([date, x]) => {
+    const c = { s, single: 0, double: 0, absent: 0, cancelled: 0 };
+    Object.entries(attDocs[s.uid] || {}).forEach(([id, x]) => {
+      const date = attDate(id, x);
       if (!date.startsWith(moMonth)) return;
       const len = x.lessons || slotsOf(s)[dayKey(date)]?.lessons || 1;
       if (x.status === "present") len == 2 ? c.double++ : c.single++;
       else if (x.status === "absent") c.absent += len;
+      else if (x.status === "cancelled") c.cancelled += len;
     });
     c.taught = c.single + c.double * 2;
     c.pts = monthPoints(s, moMonth);
     return c;
-  }).filter(c => c.taught || c.absent || (c.s.status || "active") === "active")
+  }).filter(c => c.taught || c.absent || c.cancelled || (c.s.status || "active") === "active")
     .sort((a, b) => b.taught - a.taught || String(a.s.name).localeCompare(String(b.s.name)));
-  const t = rows.reduce((t, c) => ({ taught: t.taught + c.taught, single: t.single + c.single, double: t.double + c.double, absent: t.absent + c.absent, pts: t.pts + (c.pts.v || 0) }), { taught: 0, single: 0, double: 0, absent: 0, pts: 0 });
+  const t = rows.reduce((t, c) => ({ taught: t.taught + c.taught, single: t.single + c.single, double: t.double + c.double, absent: t.absent + c.absent, cancelled: t.cancelled + c.cancelled, pts: t.pts + (c.pts.v || 0) }), { taught: 0, single: 0, double: 0, absent: 0, cancelled: 0, pts: 0 });
   const ptsOff = rows.some(c => c.pts.txt === "—"), ptsCell = c => c.pts.v == null ? `<span class="hint" style="display:inline;margin:0"${c.pts.txt === "—" ? ' title="Points switch on when the new database rules are published"' : ""}>${c.pts.txt}</span>` : c.pts.v ? `<span class="pts-chip light">${c.pts.v}</span>` : "—";
   $("moSum").innerHTML = `<b>${t.taught}</b> lesson${t.taught === 1 ? "" : "s"} taught &middot; ${rows.filter(c => c.taught).length} student${rows.filter(c => c.taught).length === 1 ? "" : "s"}`;
   $("moBody").innerHTML = rows.length ? rows.map((c, i) => `<tr class="clickable" data-mo-uid="${c.s.uid}">
@@ -2109,9 +2299,10 @@ function renderMonth() {
       <td class="num hide-sm">${c.single || "—"}</td>
       <td class="num hide-sm">${c.double || "—"}</td>
       <td class="num">${c.absent ? `<span class="mo-abs">${c.absent}</span>` : "—"}</td>
+      <td class="num hide-sm">${c.cancelled || "—"}</td>
       <td class="num">${ptsCell(c)}</td></tr>`).join("")
-    : `<tr><td colspan="8" class="empty">No students for this teacher.</td></tr>`;
-  $("moFoot").innerHTML = rows.length ? `<tr><td></td><td><b>Total</b></td><td class="hide-sm"></td><td class="num"><b class="mo-big">${t.taught}</b></td><td class="num hide-sm">${t.single}</td><td class="num hide-sm">${t.double}</td><td class="num">${t.absent}</td><td class="num"><b>${ptsOff && !t.pts ? "—" : t.pts}</b></td></tr>` : "";
+    : `<tr><td colspan="9" class="empty">No students for this teacher.</td></tr>`;
+  $("moFoot").innerHTML = rows.length ? `<tr><td></td><td><b>Total</b></td><td class="hide-sm"></td><td class="num"><b class="mo-big">${t.taught}</b></td><td class="num hide-sm">${t.single}</td><td class="num hide-sm">${t.double}</td><td class="num">${t.absent}</td><td class="num hide-sm">${t.cancelled}</td><td class="num"><b>${ptsOff && !t.pts ? "—" : t.pts}</b></td></tr>` : "";
   if (ptsOff) $("moSum").innerHTML += ` &middot; <span class="hint" style="display:inline;margin:0">Points switch on when the new database rules are published</span>`;
 }
 $("monthBtn").addEventListener("click", openMonth);

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="eof-portal.css?v=19">
+<link rel="stylesheet" href="eof-portal.css?v=20">
 </head>
 <body>
 <header class="portal-top">
@@ -133,11 +133,13 @@
 import { auth, db, currentUser, isAdmin, signOut, sendPasswordResetEmail, getDocs, collection, query, where, limit, updateDoc, serverTimestamp,
   esc, prettyDate, dayKey, DAY_NAMES, DAYS, schedule, toast, friendlyError, SKILLS, fmtScore, pctOf, resultTitle,
   levelHistory, monthYear, doc, getDoc, isoDate, onSnapshot } from "./eof-portal.js?v=7";
-import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=11";
+import { downloadStudentCard, warmUp } from "./eof-card-pdf.js?v=12";
 import { downloadAgreement, AGREEMENT_LANGS } from "./eof-agreement.js?v=1";
 import { PROGRAMMES, programmeOf, unitsOf, passportLevelOf, PASSPORT_LEVELS, PASSPORT_LEVEL_LABELS, BADGES, BADGE, STAMPS, rankOf, pointsEvents, completion,
-  feedCol, byNewest, loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, nextLesson, unitTestBand, resultPoints } from "./eof-awards.js?v=4";
+  feedCol, byNewest, loadFeed, postReply, markRead, feedItemHtml, threads, isDenied, mountBell, findPublicTeacher, titled, weekSlots, unitTestBand, resultPoints } from "./eof-awards.js?v=4";
 import { canDo } from "./eof-curriculum.js?v=1";
+import { attRowsOf, attCounts, statusBadge, shortDay } from "./eof-lessons.js?v=1";
+import { nowIn } from "./eof-awards.js?v=4";
 import { mountChat, studentInbox, inboxBellItems } from "./eof-chat.js?v=3";
 import { askAlerts, alertsState } from "./eof-awards.js?v=4";
 let teacherLabel = "", teacherPhoto = null, chatUI = null, chatTid = null, inboxRows = [];
@@ -212,14 +214,15 @@ else {
       progress = pr;
       results = res.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.date).localeCompare(String(a.date)));
       renderResults();
-      const rows = att.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => b.date.localeCompare(a.date));
+      const rows = attRowsOf(att.docs);
       attRows = rows;
-      const p = rows.filter(r => r.status === "present").length;
-      const a = rows.filter(r => r.status === "absent").length;
-      $("sPresent").textContent = p; $("sAbsent").textContent = a;
-      $("sRate").textContent = p + a ? Math.round(p * 100 / (p + a)) + "%" : "—";
-      $("attBody").innerHTML = rows.length
-        ? rows.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td><span class="badge ${r.status === "present" ? "present" : "absent"}">${r.status === "present" ? "Present" : "Absent"}</span></td></tr>`).join("")
+      const ac = attCounts(rows), today = nowIn(s.tz).iso;
+      $("sPresent").textContent = ac.present; $("sAbsent").textContent = ac.absent;
+      $("sRate").textContent = ac.rate;
+      // Past and today's lessons (future make-ups and moved lessons are shown in My timetable)
+      const shown = rows.filter(r => r.date <= today && (r.status || !r.makeup));
+      $("attBody").innerHTML = shown.length
+        ? shown.map(r => `<tr><td>${esc(prettyDate(r.date))}</td><td>${esc(DAY_NAMES[dayKey(r.date)])}</td><td>${statusBadge(r, esc)}</td></tr>`).join("")
         : `<tr><td colspan="3" class="empty">No lessons recorded yet.</td></tr>`;
       renderTimetable();
       // The feed (badges, stamps, results, comments) is kept live with one listener — only changes cost reads.
@@ -256,7 +259,7 @@ else {
 function renderAll() { renderProgress(); renderPoints(); renderFeed(); }
 
 // ---------- Points & badges ----------
-function events() { return pointsEvents({ s: me, progress, feed, results, attendance: Object.fromEntries(attRows.map(r => [r.date, r])) }); }
+function events() { return pointsEvents({ s: me, progress, feed, results, attendance: Object.fromEntries(attRows.map(r => [r.id, r])) }); }
 function renderPoints() {
   if (progressOff && feedOff) { $("pointsBody").innerHTML = SOON; $("heroPts").innerHTML = ""; return; }
   const ev = events(), total = ev.reduce((t, e) => t + e.pts, 0), rk = rankOf(total);
@@ -345,15 +348,38 @@ $("feedBody").addEventListener("click", async e => {
 $("feedBody").addEventListener("input", e => { const f = e.target.closest(".reply-form"); if (f) f.querySelector(".rf-count").textContent = `${e.target.value.length} / 500`; });
 
 // ---------- Timetable (in the student's own city) ----------
+function addDaysIso(iso, n) { const [y, m, d] = iso.split("-").map(Number); return isoDate(new Date(y, m - 1, d + n)); }
+// The next two weeks of lessons: regular days, make-up lessons, and cancelled / moved ones
+function upcoming(s, slots) {
+  const now = nowIn(s.tz), byId = Object.fromEntries(attRows.map(r => [r.id, r])), out = [];
+  for (let k = 0; k < 15; k++) {
+    const d = addDaysIso(now.iso, k), x = slots.find(y => y.day === dayKey(d)); if (!x) continue;
+    const a = byId[d];
+    out.push({ date: d, time: x.time, lessons: a?.lessons || x.lessons, status: a?.status || null, movedDate: a?.movedDate, movedTime: a?.movedTime });
+  }
+  attRows.filter(r => r.makeup && r.date >= now.iso && r.date <= addDaysIso(now.iso, 14))
+    .forEach(r => out.push({ date: r.date, time: r.time, lessons: r.lessons || 1, status: r.status || null, makeup: true, fromDate: r.fromDate, note: r.note }));
+  function toMin(t) { const [h, m] = String(t || "99:99").split(":").map(Number); return h * 60 + (m || 0); }
+  return out.filter(l => l.date > now.iso || !l.time || toMin(l.time) > now.min - 30 || l.status)
+    .sort((a, b) => a.date.localeCompare(b.date) || String(a.time).localeCompare(String(b.time)));
+}
 function renderTimetable() {
-  const s = me, slots = weekSlots(s), nx = nextLesson(s), place = s.city || s.country || "";
+  const s = me, slots = weekSlots(s), place = s.city || s.country || "";
   const today = new Intl.DateTimeFormat("en-GB", { timeZone: s.tz || undefined, weekday: "short" }).format(new Date()).slice(0, 3);
   const ym = isoDate().slice(0, 7), month = attRows.filter(r => r.date.startsWith(ym) && r.status === "present");
   const taught = month.reduce((t, r) => t + (r.lessons || slots.find(x => x.day === dayKey(r.date))?.lessons || 1), 0);
-  if (!slots.length) { $("ttBody").innerHTML = `<p class="hint">Your lesson days haven't been set yet. Your teacher will add them soon.</p>`; return; }
-  $("ttBody").innerHTML = (nx ? `<div class="next-lesson"><span style="font-size:24px">⏰</span><div>Next lesson: <b>${esc(nx.label)}${nx.label === nx.name ? "" : " (" + esc(nx.name) + ")"} ${esc(nx.time)}</b>${nx.lessons == 2 ? " · double lesson" : ""}${place ? `<div class="hint" style="margin:0">${esc(place)} time</div>` : ""}</div></div>` : "") +
+  const up = upcoming(s, slots), todayIso = nowIn(s.tz).iso;
+  if (!slots.length && !up.length) { $("ttBody").innerHTML = `<p class="hint">Your lesson days haven't been set yet. Your teacher will add them soon.</p>`; return; }
+  const nx = up.find(l => !l.status || l.status === "present");
+  const when = d => d === todayIso ? "Today" : d === addDaysIso(todayIso, 1) ? "Tomorrow" : shortDay(d);
+  const changes = up.filter(l => l.makeup || l.status === "cancelled" || l.status === "rescheduled").slice(0, 6);
+  $("ttBody").innerHTML = (nx ? `<div class="next-lesson"><span style="font-size:24px">⏰</span><div>Next lesson: <b>${esc(when(nx.date))}${nx.time ? " " + esc(nx.time) : ""}</b>${nx.lessons == 2 ? " · double lesson" : ""}${nx.makeup ? " · make-up lesson" : ""}${place ? `<div class="hint" style="margin:0">${esc(place)} time</div>` : ""}</div></div>` : "") +
+    (changes.length ? `<div class="tt-changes"><b>Changes to your timetable</b><ul>${changes.map(l => `<li>${l.makeup
+        ? `<span class="badge moved">Extra lesson</span> <b>${esc(when(l.date))}, ${esc(l.time)}</b>${l.lessons == 2 ? " (double)" : ""}${l.fromDate ? ` — make-up for ${esc(shortDay(l.fromDate))}` : ""}${l.note ? `<div class="hint" style="margin:0">${esc(l.note)}</div>` : ""}`
+        : l.status === "cancelled" ? `<span class="badge cancelled">Cancelled</span> ${esc(when(l.date))}${l.time ? ", " + esc(l.time) : ""}`
+        : `<span class="badge moved">Moved</span> ${esc(when(l.date))}${l.time ? " " + esc(l.time) : ""} → <b>${esc(l.movedDate ? when(l.movedDate) : "another day")}${l.movedTime ? ", " + esc(l.movedTime) : ""}</b>`}</li>`).join("")}</ul></div>` : "") +
     `<div class="tt">${DAYS.map(d => { const x = slots.find(y => y.day === d); return `<div class="tt-day${x ? " on" : ""}${d === today ? " today" : ""}"><b>${d}</b>${x ? `<div class="tt-t">${esc(x.time || "—")}</div><div class="tt-l">${x.lessons == 2 ? "Double" : "Single"}</div>` : `<div class="tt-l" style="opacity:.6">—</div>`}</div>`; }).join("")}</div>
-    <p class="hint" style="margin:0">Times are in ${esc(place || "your city")}${s.timeZone ? ` (${esc(String(s.timeZone).split(" ")[0])})` : ""}. This month you've attended <b>${taught}</b> lesson${taught === 1 ? "" : "s"}.</p>`;
+    <p class="hint" style="margin:0">Times are in ${esc(place || "your city")}${s.timeZone ? ` (${esc(String(s.timeZone).split(" ")[0])})` : ""}. This month you've attended <b>${taught}</b> lesson${taught === 1 ? "" : "s"}.${s.email ? " We'll email you a reminder on the morning of each lesson and about 10 minutes before it starts." : ""}</p>`;
 }
 
 // ---------- Chat with my teacher / the school ----------

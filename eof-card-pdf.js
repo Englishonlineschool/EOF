@@ -219,6 +219,7 @@ function build(s, att, results, F, logoData, nameImg) {
 
   /* Attendance */
   h2("Attendance", 40);
+  att = att.filter(a => a.status === "present" || a.status === "absent");   // cancelled / rescheduled / not yet marked don't count
   const p = att.filter(a => a.status === "present").length, ab = att.filter(a => a.status === "absent").length;
   const boxes = [[String(p), "Lessons attended", BRAND.green], [String(ab), "Lessons missed", BRAND.red], [p + ab ? Math.round(p * 100 / (p + ab)) + "%" : "—", "Attendance rate", BRAND.navy]];
   const bw = (TW - 8) / 3;
