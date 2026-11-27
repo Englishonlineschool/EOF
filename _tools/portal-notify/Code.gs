@@ -15,7 +15,7 @@
  *   • each STUDENT with a login email: on the morning of a lesson day (from 09:00 in her city) and about
  *     10 minutes before the lesson starts (time in her city);
  *   • each TEACHER (email on her teacher profile; Mr. Mashel's go to mashelauma@gmail.com): one morning list of the
- *     day's lessons (from 07:00 in her city) and about 10 minutes before each lesson;
+ *     day's lessons with a signed PDF (from 07:00 in her city) — one email a day, nothing per lesson;
  *   • the student and the teacher when a lesson is RESCHEDULED (a make-up lesson is created in the portal).
  * Cancelled and rescheduled lessons get no reminders; make-up lessons do. Students whose record has
  * remindEmail == false get no reminders (admin: student form → “Lesson reminders”).
@@ -276,11 +276,7 @@ function planReminders_(now, props, opt) {
         const to = tEmail(t), d = teacherDay[to] || (teacherDay[to] = { to: to, t: t, name: s.teacher, tz: ttz, city: tcity, hour: tLocal.hour, date: tLocal.date, items: [] });
         d.items.push(info);
       }
-      // Teacher — about 10 minutes before
-      if (!opt.force && mins >= SOON_MIN && mins <= SOON_MAX) {
-        const k = 'r:ts:' + s.id + ':' + L.id;
-        if (!done(k)) out.push(mailTeacherSoon_(k, tEmail(t), t, s, info));
-      }
+      // Teachers get ONE email a day with all their lessons (owner, 27 Nov) — no per-lesson 10-minute emails
     });
     // Rescheduled lessons created since the last run → tell the student and the teacher right away
     if (!opt.force) lessons.filter(function (L) { return L.makeup && L.at && new Date(L.at) > sinceMk && L.start > now; }).forEach(function (L) {
