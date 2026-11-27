@@ -512,6 +512,7 @@ function todayReport() {
 const LOGO_URL = 'https://www.englishonlineforum.com/logo-192.png';
 const ASSETS = 'https://raw.githubusercontent.com/Englishonlineschool/eof/277b3be687fde85efb36951099291ffa7a73b95e/_tools/portal-notify/assets/';
 const MASCOT_URL = ASSETS + 'mascot.png';
+const MASCOT_WEB = 'https://www.englishonlineforum.com/eof-mascot-email.png';   // emails link to the images on the website, so nothing shows up as an attachment
 let IMGS_ = null;
 function brandImages_() {
   if (IMGS_) return IMGS_;
@@ -523,25 +524,23 @@ function brandImages_() {
   return IMGS_;
 }
 function brandHead_(first) {
-  const logo = brandImages_().eoflogo;
+  const logo = true;   // hosted image (not attached)
   return '<table role="presentation" style="width:100%;border-collapse:collapse;background:#16264D;border-radius:12px 12px 0 0;border-bottom:4px solid #E0392C"><tr>' +
-    (logo ? '<td style="width:68px;padding:14px 0 14px 18px;vertical-align:middle"><img src="cid:eoflogo" width="56" height="56" alt="English Online Forum" style="display:block;border-radius:50%"></td>' : '') +
+    (logo ? '<td style="width:68px;padding:14px 0 14px 18px;vertical-align:middle"><img src="' + LOGO_URL + '" width="56" height="56" alt="English Online Forum" style="display:block;border-radius:50%"></td>' : '') +
     '<td style="padding:14px 20px 14px ' + (logo ? '12px' : '20px') + ';vertical-align:middle;color:#fff">' +
     '<div style="font-size:12px;letter-spacing:2px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
     '<div style="font-size:20px;font-weight:bold;margin-top:4px;color:#fff">Hello ' + esc_(first) + '!</div></td></tr></table>';
 }
 function brandFoot_() {
-  const pen = brandImages_().eofmascot;
+  const pen = true;   // hosted image (not attached)
   return '<table role="presentation" style="width:100%;border-collapse:collapse;border-top:1px solid #E6EBF5;margin-top:8px"><tr>' +
-    (pen ? '<td style="width:52px;padding:10px 8px 4px 0;vertical-align:bottom"><img src="cid:eofmascot" width="44" height="58" alt="" style="display:block"></td>' : '') +
+    (pen ? '<td style="width:52px;padding:10px 8px 4px 0;vertical-align:bottom"><img src="' + MASCOT_WEB + '" width="44" height="58" alt="" style="display:block"></td>' : '') +
     '<td style="padding:10px 0 4px;vertical-align:middle;font-family:Arial,Helvetica,sans-serif">' +
     '<div style="font-size:13px;font-weight:bold;color:#16264D">Language is Freedom</div>' +
     '<div style="font-size:11px;color:#9AA0AC">English Online Forum · <a href="https://www.englishonlineforum.com" style="color:#9AA0AC">www.englishonlineforum.com</a></div></td></tr></table>';
 }
 function send_(to, subject, text, html, attachments) {
-  const imgs = brandImages_(), used = {};
-  Object.keys(imgs).forEach(function (k) { if (html.indexOf('cid:' + k) >= 0) used[k] = imgs[k]; });
-  const o = { name: 'English Online Forum', htmlBody: html, inlineImages: used };
+  const o = { name: 'English Online Forum', htmlBody: html };   // only the PDF schedule is attached — logo and mascot are linked, not attached
   if (attachments && attachments.length) o.attachments = attachments;
   MailApp.sendEmail(to, subject, text, o);
 }
