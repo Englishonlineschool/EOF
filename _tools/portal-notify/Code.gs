@@ -597,68 +597,85 @@ function resendToday_(re) {
 // ---------- Signed lesson-schedule PDFs (EOF branding, director's signature and the school's stamp) ----------
 function img64_(k) { const b = brandImages_()[k]; return b ? 'data:image/png;base64,' + Utilities.base64Encode(b.getBytes()) : ''; }
 function longDate_(iso) { const p = iso.split('-').map(Number); return prettyShort_(iso).split(' ')[0] + ', ' + p[2] + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][p[1] - 1] + ' ' + p[0]; }
-function pdfPage_(title, dateIso, body) {
+// Same look as the emails: navy header (logo, gold "ENGLISH ONLINE FORUM", "Hello …!"), red line, white card with
+// one row per lesson. Colours use bgcolor + inline styles, which Google's HTML→PDF converter keeps.
+function pdfPage_(title, dateIso, first, body) {
   const logo = img64_('pdflogo'), sig = img64_('pdfsig'), stamp = img64_('pdfstamp'), pen = img64_('eofmascot');
-  return '<html><head><meta charset="utf-8"><style>@page{size:A4;margin:14mm 14mm 12mm}body{font-family:Arial,Helvetica,sans-serif;color:#232B3D;font-size:11pt;margin:0}' +
-    'table.l{width:100%;border-collapse:collapse;margin:6px 0 4px}table.l th{background:#16264D;color:#fff;font-size:9.5pt;text-align:left;padding:8px 10px;letter-spacing:.3px}' +
-    'table.l td{padding:9px 10px;border-bottom:1px solid #DCE2EE;font-size:10.5pt;vertical-align:top}table.l tr.z td{background:#F5F7FB}.m{color:#6B7385;font-size:9pt}</style></head><body>' +
-    '<table style="width:100%;border-collapse:collapse;background:#16264D"><tr>' +
-    (logo ? '<td style="width:78px;padding:12px 0 12px 16px"><img src="' + logo + '" width="64" height="64"></td>' : '') +
-    '<td style="padding:12px 16px;color:#fff"><div style="font-size:9pt;letter-spacing:2.5px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
-    '<div style="font-size:17pt;font-weight:bold;color:#fff;margin-top:3px">' + esc_(title) + '</div>' +
-    '<div style="font-size:10pt;color:#C9D2E6;margin-top:2px">' + esc_(longDate_(dateIso)) + '</div></td></tr></table>' +
-    '<div style="height:4px;background:#E0392C"></div>' +
-    '<div style="padding:18px 4px 0">' + body + '</div>' +
-    '<table style="border-collapse:collapse;margin-top:22px"><tr><td style="vertical-align:bottom;width:240px">' +
+  return '<html><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;color:#232B3D;font-size:11pt;margin:0">' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' +
+    (logo ? '<td bgcolor="#16264D" style="background-color:#16264D;width:84px;padding:16px 0 16px 20px"><img src="' + logo + '" width="64" height="64"></td>' : '') +
+    '<td bgcolor="#16264D" style="background-color:#16264D;padding:16px 20px 16px 14px">' +
+    '<div style="font-size:9.5pt;letter-spacing:2.5px;color:#E3A94C;font-weight:bold">ENGLISH ONLINE FORUM</div>' +
+    '<div style="font-size:19pt;font-weight:bold;color:#FFFFFF;margin-top:4px">Hello ' + esc_(first) + '!</div>' +
+    '<div style="font-size:10pt;color:#C9D2E6;margin-top:3px">' + esc_(title) + ' · ' + esc_(longDate_(dateIso)) + '</div></td></tr>' +
+    '<tr><td colspan="2" bgcolor="#E0392C" style="background-color:#E0392C;height:5px;font-size:1px;line-height:5px">&nbsp;</td></tr></table>' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E6EBF5;border-top:0"><tr><td style="padding:18px 20px 8px">' + body +
+    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:20px"><tr><td style="vertical-align:bottom;width:240px">' +
     '<div style="font-size:10.5pt;margin-bottom:2px">Warm regards,</div>' +
-    (sig ? '<img src="' + sig + '" width="170" style="display:block;margin:2px 0 -4px">' : '') +
+    (sig ? '<img src="' + sig + '" width="160">' : '') +
     '<div style="border-top:1px solid #9AA0AC;width:220px;padding-top:4px;font-weight:bold;color:#16264D">Mashel Auma</div>' +
     '<div style="font-size:9.5pt;color:#B92C21;font-style:italic">Director, English Online Forum</div></td>' +
-    '<td style="vertical-align:bottom;padding:0 0 4px 0">' + (stamp ? '<img src="' + stamp + '" width="112" height="112">' : '') + '</td></tr></table>' +
-    '<table style="width:100%;border-collapse:collapse;margin-top:18px;border-top:1px solid #DCE2EE"><tr>' +
-    (pen ? '<td style="width:40px;padding-top:6px;vertical-align:bottom"><img src="' + pen + '" width="34" height="45"></td>' : '') +
-    '<td style="padding-top:8px;vertical-align:middle"><div style="font-weight:bold;color:#16264D;font-size:10pt">Language is Freedom</div>' +
-    '<div class="m">English Online Forum · www.englishonlineforum.com · This schedule was issued automatically by the EOF student portal.</div></td></tr></table>' +
+    '<td style="vertical-align:bottom;padding:0 0 4px 0">' + (stamp ? '<img src="' + stamp + '" width="108" height="108">' : '') + '</td></tr></table>' +
+    '</td></tr></table>' +
+    '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:12px"><tr>' +
+    (pen ? '<td style="width:42px;vertical-align:bottom"><img src="' + pen + '" width="34" height="45"></td>' : '') +
+    '<td style="vertical-align:middle"><div style="font-weight:bold;color:#16264D;font-size:10pt">Language is Freedom</div>' +
+    '<div style="color:#6B7385;font-size:8.5pt">English Online Forum · www.englishonlineforum.com · Issued automatically by the EOF student portal.</div></td></tr></table>' +
     '</body></html>';
 }
+// One lesson row, like the email list: bold time on the left, details on the right
+function pdfRow_(time, main, sub) {
+  return '<tr><td width="130" style="width:130px;padding:12px 16px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap;vertical-align:top;font-size:11pt">' + time + '</td>' +
+    '<td style="padding:12px 16px;border-top:1px solid #E6EBF5;vertical-align:top;font-size:11pt">' + main + (sub ? '<div style="font-size:9.5pt;color:#6B7385;margin-top:2px">' + sub + '</div>' : '') + '</td></tr>';
+}
+function pdfList_(rows) { return '<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E6EBF5;border-top:0;margin:4px 0 6px">' + rows + '</table>'; }
 function pdfBlob_(html, name) { return Utilities.newBlob(html, 'text/html', name + '.html').getAs('application/pdf').setName(name + '.pdf'); }
 
 function studentDayPdf_(d, opt) {
   try {
     const s = d.s, first = String(s.name || '').split(' ')[0], items = d.items, city = (items[0] && items[0].sCity) || s.city || '';
-    const rows = items.map(function (i, n) {
-      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '</b><div class="m">' + esc_(i.sCity) + ' time</div></td>' +
-        '<td>' + esc_(d.teacher) + '</td><td>' + (i.lessons == 2 ? 'Double lesson' : 'Single lesson') + (i.makeup ? '<div class="m" style="color:#3A57AB">Make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</div>' : '') + (i.note ? '<div class="m">' + esc_(i.note) + '</div>' : '') + '</td>' +
-        '<td>' + esc_(i.level || s.level || '—') + '</td></tr>';
+    const rows = items.map(function (i) {
+      return pdfRow_(esc_(i.sTime) + ' – ' + esc_(i.sEnd), '<b>English lesson</b> with ' + esc_(d.teacher) + (i.level || s.level ? ' · ' + esc_(i.level || s.level) : '') + (i.lessons == 2 ? ' · double' : '') +
+        (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : ''), i.note ? esc_(i.note) : '');
     }).join('');
-    const changed = (d.changed || []).map(function (L) { return '<li>' + esc_(L.time) + ' — ' + (L.status === 'cancelled' ? 'cancelled' : 'moved to ' + esc_(L.movedDate ? prettyShort_(L.movedDate) : 'another day') + (L.movedTime ? ', ' + esc_(L.movedTime) : '')) + '</li>'; }).join('');
-    const body = (opt.updated ? '<div style="background:#FFF3DD;border:1px solid #F0D29A;color:#7A5410;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:10pt"><b>Updated schedule</b> — this replaces the schedule we sent you earlier today.</div>' : '') +
-      '<p style="font-size:12pt;margin:0 0 8px">Dear ' + esc_(first) + ',</p>' +
-      '<p style="margin:0 0 10px;line-height:1.5">Warm greetings from all of us at English Online Forum! We hope you are having a lovely day. ' +
-      (items.length ? 'Here ' + (items.length === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today. Your teacher, <b>' + esc_(d.teacher) + '</b>, is looking forward to seeing you.' : 'Please note that you have <b>no English lesson today</b>.') + '</p>' +
-      (items.length ? '<table class="l"><tr><th style="width:24px">#</th><th>Time (' + esc_(city) + ')</th><th>Teacher</th><th>Lesson</th><th>Level</th></tr>' + rows + '</table>' : '') +
-      (changed ? '<p style="margin:10px 0 2px" class="m">Changes today:</p><ul style="margin:0;padding-left:18px;font-size:10pt;color:#6B7385">' + changed + '</ul>' : '') +
+    const changed = (d.changed || []).map(function (L) { return pdfRow_('<span style="color:#9AA0AC;text-decoration:line-through">' + esc_(L.time) + '</span>', '<span style="color:#6B7385">' + (L.status === 'cancelled' ? 'Cancelled' : 'Moved to ' + esc_(L.movedDate ? prettyShort_(L.movedDate) : 'another day') + (L.movedTime ? ', ' + esc_(L.movedTime) : '')) + '</span>', ''); }).join('');
+    const body = (opt.updated ? '<p style="margin:0 0 10px;color:#7A5410"><b>Updated schedule</b> — this replaces the schedule we sent you earlier today.</p>' : '') +
+      '<p style="margin:0 0 12px;line-height:1.5">Warm greetings from all of us at English Online Forum! ' +
+      (items.length ? 'Here ' + (items.length === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today (' + esc_(city) + ' time). Your teacher, <b>' + esc_(d.teacher) + '</b>, is looking forward to seeing you.' : 'Please note that you have <b>no English lesson today</b>.') + '</p>' +
+      (items.length || changed ? pdfList_(rows + changed) : '') +
       '<p style="margin:12px 0 0;line-height:1.5">Please join a few minutes early with your book, notebook and a good internet connection. If you can\'t attend, let your teacher or the school know in the student portal chat as early as possible.</p>';
-    return pdfBlob_(pdfPage_(opt.updated ? 'Updated Lesson Schedule' : 'Today\'s Lesson Schedule', d.date, body), 'EOF lesson schedule ' + d.date + ' - ' + s.name);
+    return pdfBlob_(pdfPage_(opt.updated ? 'Updated lesson schedule' : 'Your lesson schedule', d.date, first, body), 'EOF lesson schedule ' + d.date + ' - ' + s.name);
   } catch (e) { console.warn('student PDF failed: ' + e); return null; }
 }
 function teacherDayPdf_(d) {
   try {
-    const t = d.t || {}, name = t.title ? String(t.title).replace(/\.?$/, '.') + ' ' + String(t.name || '').split(' ')[0] : (t.name || 'Teacher');
-    const rows = d.items.map(function (i, n) {
-      return '<tr' + (n % 2 ? ' class="z"' : '') + '><td><b>' + (n + 1) + '</b></td><td><b style="color:#16264D">' + esc_(i.tTime) + ' – ' + esc_(i.tEnd) + '</b><div class="m">' + esc_(i.tCity) + '</div></td>' +
-        '<td><b>' + esc_(i.student) + '</b>' + (i.makeup ? '<div class="m" style="color:#3A57AB">Make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</div>' : '') + '</td>' +
-        '<td>' + esc_(i.level || '—') + '</td><td>' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '<div class="m">' + esc_(i.sCity) + (i.sDate !== i.tDate ? ', ' + esc_(prettyShort_(i.sDate)) : '') + '</div></td>' +
-        '<td>' + (i.lessons == 2 ? 'Double' : 'Single') + '</td></tr>';
+    const t = d.t || {}, first = String(t.name || 'Teacher').split(' ')[0];
+    const rows = d.items.map(function (i) {
+      return pdfRow_(esc_(i.tTime) + ' – ' + esc_(i.tEnd), '<b>' + esc_(i.student) + '</b>' + (i.level ? ' · ' + esc_(i.level) : '') + (i.lessons == 2 ? ' · double' : '') +
+        (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : ''),
+        i.sameZone ? '' : esc_(i.sTime + ' – ' + i.sEnd + ' in ' + i.sCity) + (i.sDate !== i.tDate ? ' (' + esc_(prettyShort_(i.sDate)) + ')' : ''));
     }).join('');
-    const body = '<p style="font-size:12pt;margin:0 0 8px">Dear ' + esc_(name) + ',</p>' +
-      '<p style="margin:0 0 10px;line-height:1.5">Good morning, and thank you for everything you do for our students. Here is your teaching schedule for today — <b>' + d.items.length + ' lesson' + (d.items.length === 1 ? '' : 's') + '</b>, with times in ' + esc_(d.city) + ' and in each student\'s city.</p>' +
-      '<table class="l"><tr><th style="width:24px">#</th><th>Your time</th><th>Student</th><th>Level</th><th>Student\'s city time</th><th>Lesson</th></tr>' + rows + '</table>' +
-      '<p style="margin:12px 0 0;line-height:1.5">Please mark attendance in the staff area after each lesson, and use ↻ Reschedule if a lesson needs to move. Have a wonderful day of teaching!</p>';
-    return pdfBlob_(pdfPage_('Teaching Schedule', d.date, body), 'EOF teaching schedule ' + d.date + ' - ' + (t.name || 'teacher'));
+    const n = d.items.length;
+    const body = '<p style="margin:0 0 12px;line-height:1.5">Good morning, and thank you for everything you do for our students. Here ' + (n === 1 ? 'is your lesson' : 'are your <b>' + n + ' lessons</b>') + ' for today (' + esc_(d.city) + ' time).</p>' +
+      pdfList_(rows) +
+      '<p style="margin:12px 0 0;line-height:1.5">Please mark attendance in the staff area after each lesson, and use Reschedule if a lesson needs to move. Have a wonderful day of teaching!</p>';
+    return pdfBlob_(pdfPage_('Teaching schedule', d.date, first, body), 'EOF teaching schedule ' + d.date + ' - ' + (t.name || 'teacher'));
   } catch (e) { console.warn('teacher PDF failed: ' + e); return null; }
 }
 
+// SAMPLE (run by hand): today's REAL teaching-schedule email for Mr. Mashel, plus one student's email for today,
+// both to mashelauma@gmail.com only.
+function sendPdfSamplesToMe() {
+  CacheService.getScriptCache().remove('students');
+  const fake = { getProperty: function () { return null; } }, out = [];
+  let student = null;
+  planReminders_(new Date(), fake, { force: true, all: true }).forEach(function (m) {
+    if (/^r:tm:/.test(m.key) && m.to === MASHEL_EMAIL) { send_(MASHEL_EMAIL, m.subject, m.text, m.html, m.attachments); out.push(m.subject); }
+    if (/^r:md:/.test(m.key) && (!student || /latika/.test(m.to))) student = m;
+  });
+  if (student) { send_(MASHEL_EMAIL, '[Sample — what ' + student.to + ' receives] ' + student.subject, student.text, student.html, student.attachments); out.push('student sample: ' + student.subject); }
+  console.log('Sent to ' + MASHEL_EMAIL + ':\n' + out.join('\n'));
+}
 
 // ---------- Firestore writes (one-off fixes, run by hand) ----------
 function enc_(v) {
