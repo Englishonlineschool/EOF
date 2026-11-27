@@ -418,7 +418,7 @@ function mailStudentDay_(key, d, opt) {
     : '<p style="margin:0 0 10px;font-size:15px">Good morning! You have ' + (n === 1 ? 'an English lesson' : n + ' English lessons') + ' with ' + esc_(d.teacher) + ' <b>today, ' + esc_(times) + ' (' + esc_(city) + ' time)</b>.</p>' +
       '<p style="margin:0">Your lesson schedule for today is attached as a PDF.</p>';
   const subject = (opt.updated ? 'Updated EOF Lesson Schedule — ' : 'EOF Lesson Schedule — ') + longDate_(d.date) + ' · ' + (n ? times : 'no lesson today');
-  return { key: key, to: s.email, attachments: pdf ? [pdf] : [], subject: subject,
+  return { key: key, to: s.email, teacher: d.teacher, student: s.name, attachments: pdf ? [pdf] : [], subject: subject,
     html: shell_(first, lead, SITE + '/eof-account.html', 'Open my student portal', 'Can’t make it? Tell ' + esc_(d.teacher) + ' or the school in the portal chat as early as possible.'),
     text: 'Hello ' + first + '!\n\n' + (opt.updated ? 'Please ignore our earlier email — your lessons for today have changed.\n' : '') +
       (n ? 'Today: ' + live.map(function (i) { return i.sTime + (i.lessons == 2 ? ' (double)' : ''); }).join(', ') + ' (' + city + ' time) with ' + d.teacher + '.\nYour lesson schedule is attached (PDF).' : 'You have no lesson today.') + '\n\nStudent portal: ' + SITE + '/eof-account.html' };
@@ -750,4 +750,16 @@ function resendMyScheduleNow() {
     if (/^r:tm:/.test(m.key) && m.to === MASHEL_EMAIL) { send_(m.to, m.subject, m.text, m.html, m.attachments); out.push(m.subject); }
   });
   console.log('Sent to ' + MASHEL_EMAIL + ': ' + (out.join(' | ') || 'nothing — no lessons today'));
+}
+
+// SAMPLE (run by hand): everything that goes out for Mr. Mashel's lessons today — his teaching schedule and the email
+// each of his students receives — all sent ONLY to mashelauma@gmail.com.
+function sendMyLessonSamples() {
+  CacheService.getScriptCache().remove('students');
+  const fake = { getProperty: function () { return null; } }, out = [];
+  planReminders_(new Date(), fake, { force: true, all: true }).forEach(function (m) {
+    if (/^r:tm:/.test(m.key) && m.to === MASHEL_EMAIL) { send_(MASHEL_EMAIL, m.subject, m.text, m.html, m.attachments); out.push('you: ' + m.subject); }
+    if (/^r:md:/.test(m.key) && /mashel/i.test(m.teacher || '')) { send_(MASHEL_EMAIL, '[Sample — what ' + m.student + ' receives] ' + m.subject, m.text, m.html, m.attachments); out.push(m.student + ': ' + m.subject); }
+  });
+  console.log('Sent to ' + MASHEL_EMAIL + ' (' + out.length + '):\n' + out.join('\n'));
 }
