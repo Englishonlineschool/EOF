@@ -409,10 +409,16 @@ function mailStudentDay_(key, d, opt) {
   const city = (live[0] && live[0].sCity) || s.city || '';
   const times = live.map(function (i) { return i.sTime + '–' + i.sEnd; }).join(' & ');
   const pdf = studentDayPdf_(d, opt);
-  const lead = opt.updated
-    ? '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier email</b> — your lessons for today have changed. ' + (n ? 'Your updated lesson schedule is attached as a PDF.' : 'You have <b>no lesson today</b>.') + '</p>'
-    : '<p style="margin:0 0 10px;font-size:15px">Good morning! You have ' + (n === 1 ? 'an English lesson' : n + ' English lessons') + ' with ' + esc_(d.teacher) + ' <b>today, ' + esc_(times) + ' (' + esc_(city) + ' time)</b>.</p>' +
-      '<p style="margin:0">Your lesson schedule for today is attached as a PDF.</p>';
+  // Same layout as the teachers' email: one row per lesson, bold time on the left
+  const rows = live.map(function (i) {
+    return '<tr><td style="padding:9px 12px;border-top:1px solid #E6EBF5;font-weight:bold;color:#16264D;white-space:nowrap">' + esc_(i.sTime) + ' – ' + esc_(i.sEnd) + '</td>' +
+      '<td style="padding:9px 12px;border-top:1px solid #E6EBF5"><b>English lesson</b> with ' + esc_(d.teacher) + (i.level || s.level ? ' · ' + esc_(i.level || s.level) : '') + (i.lessons == 2 ? ' · double' : '') +
+      (i.makeup ? ' · <span style="color:#3A57AB">make-up' + (i.fromDate ? ' for ' + esc_(prettyShort_(i.fromDate)) : '') + '</span>' : '') + '</td></tr>';
+  }).join('');
+  const lead = (opt.updated ? '<p style="margin:0 0 10px;font-size:15px"><b>Please ignore our earlier email</b> — your lessons for today have changed.</p>' : '') +
+    (n ? '<p style="margin:0 0 10px;font-size:15px">Here ' + (n === 1 ? 'is your English lesson' : 'are your English lessons') + ' for today (' + esc_(city) + ' time). Your signed lesson schedule is attached as a PDF.</p>' +
+      '<table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #E6EBF5">' + rows + '</table>'
+      : '<p style="margin:0;font-size:15px">You have <b>no English lesson today</b>.</p>');
   const subject = (opt.updated ? 'Updated EOF Lesson Schedule — ' : 'EOF Lesson Schedule — ') + longDate_(d.date) + ' · ' + (n ? times : 'no lesson today');
   return { key: key, to: s.email, teacher: d.teacher, student: s.name, attachments: pdf ? [pdf] : [], subject: subject,
     html: shell_(first, lead, SITE + '/eof-account.html', 'Open my student portal', 'Can’t make it? Tell ' + esc_(d.teacher) + ' or the school in the portal chat as early as possible.'),
@@ -758,4 +764,15 @@ function sendMyLessonSamples() {
     if (/^r:md:/.test(m.key) && /mashel/i.test(m.teacher || '')) { send_(MASHEL_EMAIL, '[Sample — what ' + m.student + ' receives] ' + m.subject, m.text, m.html, m.attachments); out.push(m.student + ': ' + m.subject); }
   });
   console.log('Sent to ' + MASHEL_EMAIL + ' (' + out.length + '):\n' + out.join('\n'));
+}
+
+// PREVIEW (run by hand): each student's email for today (with PDF) → englishonlineforum@gmail.com only.
+function previewStudentsToday() {
+  CacheService.getScriptCache().remove('students');
+  const fake = { getProperty: function () { return null; } }, out = [];
+  planReminders_(new Date(), fake, { force: true, all: true }).forEach(function (m) {
+    if (!/^r:md:/.test(m.key)) return;
+    send_(SCHOOL_EMAIL, '[Preview for ' + (m.student || m.to) + '] ' + m.subject, m.text, m.html, m.attachments); out.push(m.student + ' <' + m.to + '>: ' + m.subject);
+  });
+  console.log('Student previews sent to ' + SCHOOL_EMAIL + ' (' + out.length + '):\n' + out.join('\n'));
 }
